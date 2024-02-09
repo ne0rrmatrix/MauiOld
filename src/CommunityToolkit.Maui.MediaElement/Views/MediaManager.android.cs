@@ -12,7 +12,6 @@ using CommunityToolkit.Maui.Core.Primitives;
 using CommunityToolkit.Maui.Extensions;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
-using Mopups.Services;
 
 namespace CommunityToolkit.Maui.Core.Views;
 
@@ -60,7 +59,6 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		}
 		if (PageExtensions.isFullScreen)
 		{
-			await MopupService.Instance.PopAsync();
 			RevertFromFullScreen();
 		}
 		else

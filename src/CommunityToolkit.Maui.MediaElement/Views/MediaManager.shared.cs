@@ -11,11 +11,9 @@ global using PlatformMediaElement = CommunityToolkit.Maui.Core.Views.TizenPlayer
 #endif
 
 using CommunityToolkit.Maui.Extensions;
-using CommunityToolkit.Maui.Pages;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Platform;
-using Mopups.Services;
 
 namespace CommunityToolkit.Maui.Core.Views;
 
@@ -120,13 +118,6 @@ public partial class MediaManager
 	public void EnlargeVideoToFullScreen()
 	{
 		PlatformEnlargeVideoToFullScreen();
-		FullScreenPage page = new(new CurrentVideoState
-		{
-			Position = MediaElement?.Position ?? TimeSpan.Zero,
-			VideoUri = MediaElement?.Source,
-		});
-
-		_ = MopupService.Instance.PushAsync(page);
 	}
 
 	/// <summary>
@@ -134,9 +125,7 @@ public partial class MediaManager
 	/// </summary>
 	public void RevertFromFullScreen()
 	{
-		Seek(FullScreenPosition, CancellationToken.None);
 		PlatformRevertFromFullScreen();
-
 	}
 
 	/// <summary>

@@ -2,18 +2,23 @@
 using CommunityToolkit.Maui.Core.Primitives;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
+using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Media.Playback;
 using Windows.Storage;
 using Windows.System.Display;
+using WinRT.Interop;
+using Colors = Microsoft.Maui.Graphics.Colors;
 using WindowsMediaElement = Windows.Media.Playback.MediaPlayer;
 using WinMediaSource = Windows.Media.Core.MediaSource;
+using Grid = Microsoft.UI.Xaml.Controls.Grid;
 
 namespace CommunityToolkit.Maui.Core.Views;
 
 partial class MediaManager : IDisposable
 {
+	CustomBindings? CBinding { get; set; }
 	// States that allow changing position
 	readonly FrozenSet<MediaElementState> allowUpdatePositionStates = new[]
 	{
@@ -43,7 +48,7 @@ partial class MediaManager : IDisposable
 		Player = new();
 		WindowsMediaElement MediaElement = new();
 		MediaElement.MediaOpened += OnMediaElementMediaOpened;
-
+		CBinding = new(GetAppWindowForCurrentWindow());
 		Player.SetMediaPlayer(MediaElement);
 
 		Player.MediaPlayer.PlaybackSession.PlaybackRateChanged += OnPlaybackSessionPlaybackRateChanged;
@@ -53,7 +58,6 @@ partial class MediaManager : IDisposable
 		Player.MediaPlayer.MediaEnded += OnMediaElementMediaEnded;
 		Player.MediaPlayer.VolumeChanged += OnMediaElementVolumeChanged;
 		Player.MediaPlayer.IsMutedChanged += OnMediaElementIsMutedChanged;
-
 		return Player;
 	}
 
@@ -66,6 +70,20 @@ partial class MediaManager : IDisposable
 		GC.SuppressFinalize(this);
 	}
 
+	AppWindow GetAppWindowForCurrentWindow()
+	{
+		// let's cache the CurrentPage here, since the user can navigate or background the app
+		// while this method is running
+		var currentPage = CurrentPage;
+
+		if (currentPage?.GetParentWindow().Handler.PlatformView is not MauiWinUIWindow window)
+		{
+			throw new InvalidOperationException();
+		}
+		var handle = WindowNative.GetWindowHandle(window);
+		var id = Win32Interop.GetWindowIdFromWindow(handle);
+		return AppWindow.GetFromWindowId(id);
+	}
 	protected virtual partial void PlatformPlay()
 	{
 		Player?.MediaPlayer.Play();
@@ -129,32 +147,12 @@ partial class MediaManager : IDisposable
 
 	protected virtual partial void PlatformEnlargeVideoToFullScreen()
 	{
-		// let's cache the CurrentPage here, since the user can navigate or background the app
-		// while this method is running
-		var currentPage = CurrentPage;
-
-		if (currentPage?.GetParentWindow().Handler.PlatformView is not MauiWinUIWindow window)
-		{
-			return;
-		}
-		var currentWindow = GetAppWindow(window);
-		var overlappedPresenter = currentWindow.Presenter as OverlappedPresenter;
-		overlappedPresenter?.SetBorderAndTitleBar(false, false);
-		overlappedPresenter?.Maximize();
+		CBinding?.SetFullScreen(Player);
 	}
 
 	protected virtual partial void PlatformRevertFromFullScreen()
 	{
-		var currentPage = CurrentPage;
-
-		if (currentPage?.GetParentWindow().Handler.PlatformView is not MauiWinUIWindow window)
-		{
-			return;
-		}
-		var currentWindow = GetAppWindow(window);
-		var overlappedPresenter = currentWindow.Presenter as OverlappedPresenter;
-		overlappedPresenter?.SetBorderAndTitleBar(true, true);
-		overlappedPresenter?.Restore();
+		CBinding?.SetFullScreen(Player);
 	}
 
 	protected virtual partial void PlatformUpdateAspect()
@@ -356,14 +354,6 @@ partial class MediaManager : IDisposable
 				}
 			}
 		}
-	}
-
-	static AppWindow GetAppWindow(MauiWinUIWindow window)
-	{
-		var handle = WinRT.Interop.WindowNative.GetWindowHandle(window);
-		var id = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(handle);
-		var appWindows = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(id);
-		return appWindows;
 	}
 
 	void OnMediaElementMediaOpened(WindowsMediaElement sender, object args)
