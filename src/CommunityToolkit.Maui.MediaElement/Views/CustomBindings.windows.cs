@@ -14,6 +14,8 @@ using CommunityToolkit.Maui.Extensions;
 using Page = Microsoft.Maui.Controls.Page;
 using Application = Microsoft.Maui.Controls.Application;
 using Microsoft.Maui.Platform;
+using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls.Compatibility;
 
 namespace CommunityToolkit.Maui.Views;
 class CustomBindings
@@ -25,15 +27,8 @@ class CustomBindings
 		this.appWindow = appWindow;
 	}
 
-	/// <summary>
-	/// Gets the presented page.
-	/// </summary>
-	protected Page CurrentPage =>
-		PageExtensions.GetCurrentPage(Application.Current?.MainPage ?? throw new InvalidOperationException($"{nameof(Application.Current.MainPage)} cannot be null."));
-
 	public void SetFullScreen(FrameworkElement? element)
 	{
-		var currentPage = CurrentPage;
 		if (Element is null || element is null)
 		{
 			return;
@@ -57,14 +52,15 @@ class CustomBindings
 			GetAllElements(element);
 			foreach(var x in Element)
 			{
-				if (x.Element is not null && x.Element.GetType() != typeof(MediaPlayerElement))
+				if (x.Element is not null)
 				{
-						SetItemSize(x.Element, double.NaN, double.NaN, new Thickness(0, 0, 0, 0), false);
+					SetItemSize(x.Element, double.NaN, double.NaN, new Thickness(0, 0, 0, 0), false);
 				}
 			}
 		}
 	}
-	static bool MediaElementIsDescendant(FrameworkElement? element)
+
+	bool MediaElementIsDescendant(FrameworkElement? element)
 	{
 		if (element is null)
 		{
@@ -91,7 +87,8 @@ class CustomBindings
 		}
 		return false;
 	}
-	static void SetAllChildrenVisibility(FrameworkElement? view, bool visible)
+
+	void SetAllChildrenVisibility(FrameworkElement? view, bool visible)
 	{
 		view = view?.Parent as FrameworkElement ?? null;
 		if (view is null)
@@ -114,8 +111,13 @@ class CustomBindings
 			{
 				item.Visibility = Visibility.Collapsed;
 			}
+			if (item.GetType() == typeof(Microsoft.UI.Xaml.Controls.Button))
+			{
+				item.Visibility = Visibility.Visible;
+			}
 		}
 	}
+
 	void GetAllElements(FrameworkElement? element)
 	{
 		if (element is null)
@@ -145,14 +147,17 @@ class CustomBindings
 			Element.Add(item);
 		}
 	}
+
 	static double GetWidth(FrameworkElement frameworkElement)
 	{
 		return frameworkElement.ActualWidth;
 	}
+
 	static double GetHeight(FrameworkElement frameworkElement)
 	{
 		return frameworkElement.ActualHeight;
 	}
+
 	static void BindWidth(FrameworkElement bindMe, FrameworkElement toMe)
 	{
 		Binding b = new()
@@ -162,6 +167,7 @@ class CustomBindings
 		};
 		bindMe.SetBinding(FrameworkElement.WidthProperty, b);
 	}
+
 	static void BindHeight(FrameworkElement bindMe, FrameworkElement toMe)
 	{
 		Binding b = new()
@@ -171,6 +177,7 @@ class CustomBindings
 		};
 		bindMe.SetBinding(FrameworkElement.HeightProperty, b);
 	}
+
 	static void SetItems(FrameworkElement frameworkElement, double width, double height)
 	{
 		Binding bWidth = new()
@@ -186,7 +193,8 @@ class CustomBindings
 		frameworkElement.SetBinding(FrameworkElement.WidthProperty, bWidth);
 		frameworkElement.SetBinding(FrameworkElement.HeightProperty, bHeight);
 	}
-	static void SetItemSize(FrameworkElement frameworkElement, double width, double height, Thickness thickness, bool visibility)
+
+	void SetItemSize(FrameworkElement frameworkElement, double width, double height, Thickness thickness, bool visibility)
 	{
 		SetItems(frameworkElement, width, height);
 		BindWidth(frameworkElement, frameworkElement);

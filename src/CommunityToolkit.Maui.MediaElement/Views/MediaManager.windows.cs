@@ -13,6 +13,7 @@ using Colors = Microsoft.Maui.Graphics.Colors;
 using WindowsMediaElement = Windows.Media.Playback.MediaPlayer;
 using WinMediaSource = Windows.Media.Core.MediaSource;
 using Grid = Microsoft.UI.Xaml.Controls.Grid;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CommunityToolkit.Maui.Core.Views;
 
@@ -147,11 +148,13 @@ partial class MediaManager : IDisposable
 
 	protected virtual partial void PlatformEnlargeVideoToFullScreen()
 	{
+		Shell.SetNavBarIsVisible(CurrentPage, false);
 		CBinding?.SetFullScreen(Player);
 	}
 
 	protected virtual partial void PlatformRevertFromFullScreen()
 	{
+		Shell.SetNavBarIsVisible(CurrentPage, true);
 		CBinding?.SetFullScreen(Player);
 	}
 
