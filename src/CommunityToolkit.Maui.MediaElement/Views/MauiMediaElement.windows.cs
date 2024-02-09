@@ -5,7 +5,6 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml.Controls;
 using WinRT.Interop;
 using Button = Microsoft.UI.Xaml.Controls.Button;
-using Colors = Microsoft.Maui.Graphics.Colors;
 using Grid = Microsoft.UI.Xaml.Controls.Grid;
 using Page = Microsoft.Maui.Controls.Page;
 
@@ -19,7 +18,6 @@ public class MauiMediaElement : Grid, IDisposable
 	bool isFullScreen = false;
 	CustomBindings? CBinding { get; set; }
 	readonly MediaPlayerElement mediaPlayerElement;
-
 	bool isDisposed;
 
 	/// <summary>
@@ -30,7 +28,7 @@ public class MauiMediaElement : Grid, IDisposable
 	{
 		this.mediaPlayerElement = mediaPlayerElement;
 		CBinding = new(GetAppWindowForCurrentWindow());
-		var btn = new Button()
+		Button btn = new()
 		{
 			Content = "Full Screen",
 			Width = 120,
@@ -58,7 +56,7 @@ public class MauiMediaElement : Grid, IDisposable
 		isFullScreen = false;
 	}
 
-	AppWindow GetAppWindowForCurrentWindow()
+	static AppWindow GetAppWindowForCurrentWindow()
 	{
 		// let's cache the CurrentPage here, since the user can navigate or background the app
 		// while this method is running
@@ -76,7 +74,7 @@ public class MauiMediaElement : Grid, IDisposable
 	/// <summary>
 	/// Gets the presented page.
 	/// </summary>
-	protected Page CurrentPage =>
+	protected static Page CurrentPage =>
 		PageExtensions.GetCurrentPage(Application.Current?.MainPage ?? throw new InvalidOperationException($"{nameof(Application.Current.MainPage)} cannot be null."));
 
 	/// <summary>
