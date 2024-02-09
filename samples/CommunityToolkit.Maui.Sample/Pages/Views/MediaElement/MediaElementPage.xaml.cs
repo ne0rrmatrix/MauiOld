@@ -212,10 +212,4 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 
 		MediaElement.Aspect = (Aspect)aspectEnum;
 	}
-
-	void btnFullScreen_Clicked(object sender, EventArgs e)
-	{
-
-		MediaElement.EnlargeVideoToFullScreen();
-	}
 }

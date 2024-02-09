@@ -2,26 +2,17 @@
 using CommunityToolkit.Maui.Core.Primitives;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
-using Microsoft.UI;
-using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Media.Playback;
 using Windows.Storage;
 using Windows.System.Display;
-using WinRT.Interop;
-using Colors = Microsoft.Maui.Graphics.Colors;
 using WindowsMediaElement = Windows.Media.Playback.MediaPlayer;
 using WinMediaSource = Windows.Media.Core.MediaSource;
-using Grid = Microsoft.UI.Xaml.Controls.Grid;
-using Microsoft.Extensions.Logging.Abstractions;
-using System.Diagnostics;
 
 namespace CommunityToolkit.Maui.Core.Views;
 
 partial class MediaManager : IDisposable
 {
-	bool isFullScreen = false;
-	CustomBindings? CBinding { get; set; }
 	// States that allow changing position
 	readonly FrozenSet<MediaElementState> allowUpdatePositionStates = new[]
 	{
@@ -51,9 +42,8 @@ partial class MediaManager : IDisposable
 		Player = new();
 		WindowsMediaElement MediaElement = new();
 		MediaElement.MediaOpened += OnMediaElementMediaOpened;
-		CBinding = new(GetAppWindowForCurrentWindow());
 		Player.SetMediaPlayer(MediaElement);
-
+		
 		Player.MediaPlayer.PlaybackSession.PlaybackRateChanged += OnPlaybackSessionPlaybackRateChanged;
 		Player.MediaPlayer.PlaybackSession.PlaybackStateChanged += OnPlaybackSessionPlaybackStateChanged;
 		Player.MediaPlayer.PlaybackSession.SeekCompleted += OnPlaybackSessionSeekCompleted;
@@ -73,20 +63,6 @@ partial class MediaManager : IDisposable
 		GC.SuppressFinalize(this);
 	}
 
-	AppWindow GetAppWindowForCurrentWindow()
-	{
-		// let's cache the CurrentPage here, since the user can navigate or background the app
-		// while this method is running
-		var currentPage = CurrentPage;
-
-		if (currentPage?.GetParentWindow().Handler.PlatformView is not MauiWinUIWindow window)
-		{
-			throw new InvalidOperationException();
-		}
-		var handle = WindowNative.GetWindowHandle(window);
-		var id = Win32Interop.GetWindowIdFromWindow(handle);
-		return AppWindow.GetFromWindowId(id);
-	}
 	protected virtual partial void PlatformPlay()
 	{
 		Player?.MediaPlayer.Play();
@@ -150,17 +126,6 @@ partial class MediaManager : IDisposable
 
 	protected virtual partial void PlatformEnlargeVideoToFullScreen()
 	{
-		if (!isFullScreen)
-		{
-			Shell.SetNavBarIsVisible(CurrentPage, false);
-			CBinding?.SetFullScreen(Player);
-			isFullScreen = true;
-			return;
-		}
-		Shell.SetNavBarIsVisible(CurrentPage, true);
-		CBinding?.SetFullScreen(Player);
-		isFullScreen= false;
-
 	}
 
 	protected virtual partial void PlatformRevertFromFullScreen()

@@ -116,7 +116,7 @@ public class MauiMediaElement : CoordinatorLayout
 		}
 		else
 		{
-			currentActivity.RequestedOrientation = Android.Content.PM.ScreenOrientation.Portrait;
+			//currentActivity.RequestedOrientation = Android.Content.PM.ScreenOrientation.Portrait;
 
 			// Show again the SystemBars and Status bar
 			if (OperatingSystem.IsAndroidVersionAtLeast(30))

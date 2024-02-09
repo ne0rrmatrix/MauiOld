@@ -1,21 +1,11 @@
-﻿using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Windowing;
-using System.Collections.Generic;
-using System.Diagnostics;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Controls;
 using Thickness = Microsoft.UI.Xaml.Thickness;
 using Binding = Microsoft.UI.Xaml.Data.Binding;
 using BindingMode = Microsoft.UI.Xaml.Data.BindingMode;
 using Visibility = Microsoft.UI.Xaml.Visibility;
-using WindowsMediaElement = Windows.Media.Playback.MediaPlayer;
-using CommunityToolkit.Maui.Extensions;
-using Page = Microsoft.Maui.Controls.Page;
-using Application = Microsoft.Maui.Controls.Application;
-using Microsoft.Maui.Platform;
-using Microsoft.Maui.Controls;
-using Microsoft.Maui.Controls.Compatibility;
 
 namespace CommunityToolkit.Maui.Views;
 class CustomBindings
@@ -64,7 +54,6 @@ class CustomBindings
 	{
 		if (element is null)
 		{
-			Debug.WriteLine("Exiting recursion");
 			return false;
 		}
 		for (var i = 0; i < VisualTreeHelper.GetChildrenCount(element); i++)
@@ -111,6 +100,7 @@ class CustomBindings
 			{
 				item.Visibility = Visibility.Collapsed;
 			}
+
 			if (item.GetType() == typeof(Microsoft.UI.Xaml.Controls.Button))
 			{
 				item.Visibility = Visibility.Visible;
