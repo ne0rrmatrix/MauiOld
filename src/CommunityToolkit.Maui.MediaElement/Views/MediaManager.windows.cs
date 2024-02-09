@@ -14,11 +14,13 @@ using WindowsMediaElement = Windows.Media.Playback.MediaPlayer;
 using WinMediaSource = Windows.Media.Core.MediaSource;
 using Grid = Microsoft.UI.Xaml.Controls.Grid;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Diagnostics;
 
 namespace CommunityToolkit.Maui.Core.Views;
 
 partial class MediaManager : IDisposable
 {
+	bool isFullScreen = false;
 	CustomBindings? CBinding { get; set; }
 	// States that allow changing position
 	readonly FrozenSet<MediaElementState> allowUpdatePositionStates = new[]
@@ -148,14 +150,22 @@ partial class MediaManager : IDisposable
 
 	protected virtual partial void PlatformEnlargeVideoToFullScreen()
 	{
-		Shell.SetNavBarIsVisible(CurrentPage, false);
+		if (!isFullScreen)
+		{
+			Shell.SetNavBarIsVisible(CurrentPage, false);
+			CBinding?.SetFullScreen(Player);
+			isFullScreen = true;
+			return;
+		}
+		Shell.SetNavBarIsVisible(CurrentPage, true);
 		CBinding?.SetFullScreen(Player);
+		isFullScreen= false;
+
 	}
 
 	protected virtual partial void PlatformRevertFromFullScreen()
 	{
-		Shell.SetNavBarIsVisible(CurrentPage, true);
-		CBinding?.SetFullScreen(Player);
+		
 	}
 
 	protected virtual partial void PlatformUpdateAspect()
