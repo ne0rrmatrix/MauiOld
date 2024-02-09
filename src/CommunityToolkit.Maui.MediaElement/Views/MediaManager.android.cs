@@ -1,6 +1,7 @@
 ﻿using Android.Support.V4.Media.Session;
 using Android.Views;
 using Android.Widget;
+using AndroidX.CoordinatorLayout.Widget;
 using Com.Google.Android.Exoplayer2;
 using Com.Google.Android.Exoplayer2.Audio;
 using Com.Google.Android.Exoplayer2.Metadata;
@@ -38,33 +39,16 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		ArgumentNullException.ThrowIfNull(MauiContext.Context);
 		Player = new IExoPlayer.Builder(MauiContext.Context).Build() ?? throw new NullReferenceException();
 		Player.AddListener(this);
+
 		PlayerView = new StyledPlayerView(MauiContext.Context)
 		{
 			Player = Player,
 			UseController = false,
 			ControllerAutoShow = false,
-			LayoutParameters = new RelativeLayout.LayoutParams(Android.Views.ViewGroup.LayoutParams.MatchParent, Android.Views.ViewGroup.LayoutParams.MatchParent),
+			LayoutParameters = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent, GravityFlags.CenterHorizontal)
 		};
 
-		PlayerView.FullscreenButtonClick += PlayerView_FullscreenButtonClick;
 		return (Player, PlayerView);
-	}
-
-	async void PlayerView_FullscreenButtonClick(object? sender, StyledPlayerView.FullscreenButtonClickEventArgs e)
-	{
-		// Ensure there is a player view
-		if (PlayerView is null || Platform.CurrentActivity is null || Platform.CurrentActivity.Window is null || Platform.CurrentActivity.Resources is null)
-		{
-			return;
-		}
-		if (PageExtensions.isFullScreen)
-		{
-			RevertFromFullScreen();
-		}
-		else
-		{
-			EnlargeVideoToFullScreen();
-		}
 	}
 
 	/// <summary>
@@ -312,6 +296,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 
 	protected virtual partial void PlatformEnlargeVideoToFullScreen()
 	{
+		/*
 		var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
 
 		if (activity == null || activity.Window == null)
@@ -326,10 +311,12 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 			AndroidX.Core.View.WindowInsetsCompat.Type.NavigationBars();
 			windowInsetsControllerCompat.SystemBarsBehavior = AndroidX.Core.View.WindowInsetsControllerCompat.BehaviorShowTransientBarsBySwipe;
 		windowInsetsControllerCompat.Hide(types);
+		*/
 	}
 
 	protected virtual partial void PlatformRevertFromFullScreen()
 	{
+		/*
 		var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
 		if (activity == null || activity.Window == null)
 		{
@@ -343,6 +330,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 			AndroidX.Core.View.WindowInsetsCompat.Type.NavigationBars();
 		windowInsetsControllerCompat.Show(types);
 		windowInsetsControllerCompat.SystemBarsBehavior = AndroidX.Core.View.WindowInsetsControllerCompat.BehaviorDefault;
+		*/
 	}
 
 	protected virtual partial void PlatformUpdateSource()

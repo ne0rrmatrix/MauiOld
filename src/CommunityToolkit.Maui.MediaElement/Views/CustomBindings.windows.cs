@@ -10,6 +10,10 @@ using Binding = Microsoft.UI.Xaml.Data.Binding;
 using BindingMode = Microsoft.UI.Xaml.Data.BindingMode;
 using Visibility = Microsoft.UI.Xaml.Visibility;
 using WindowsMediaElement = Windows.Media.Playback.MediaPlayer;
+using CommunityToolkit.Maui.Extensions;
+using Page = Microsoft.Maui.Controls.Page;
+using Application = Microsoft.Maui.Controls.Application;
+using Microsoft.Maui.Platform;
 
 namespace CommunityToolkit.Maui.Views;
 class CustomBindings
@@ -20,8 +24,16 @@ class CustomBindings
 	{
 		this.appWindow = appWindow;
 	}
+
+	/// <summary>
+	/// Gets the presented page.
+	/// </summary>
+	protected Page CurrentPage =>
+		PageExtensions.GetCurrentPage(Application.Current?.MainPage ?? throw new InvalidOperationException($"{nameof(Application.Current.MainPage)} cannot be null."));
+
 	public void SetFullScreen(FrameworkElement? element)
 	{
+		var currentPage = CurrentPage;
 		if (Element is null || element is null)
 		{
 			return;
@@ -45,10 +57,9 @@ class CustomBindings
 			GetAllElements(element);
 			foreach(var x in Element)
 			{
-				if (x.Element is not null)
+				if (x.Element is not null && x.Element.GetType() != typeof(MediaPlayerElement))
 				{
-					
-					SetItemSize(x.Element, double.NaN, double.NaN, new Thickness(0, 0, 0, 0), false);
+						SetItemSize(x.Element, double.NaN, double.NaN, new Thickness(0, 0, 0, 0), false);
 				}
 			}
 		}
@@ -87,6 +98,7 @@ class CustomBindings
 		{
 			return;
 		}
+
 		for (var i = 0; i < VisualTreeHelper.GetChildrenCount(view); i++)
 		{
 			var child = VisualTreeHelper.GetChild(view, i);

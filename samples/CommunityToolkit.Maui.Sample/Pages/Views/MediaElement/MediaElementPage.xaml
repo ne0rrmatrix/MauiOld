@@ -41,7 +41,7 @@
             <ImageButton
                   x:Name="btnFullScreen" Clicked="btnFullScreen_Clicked"
                   Grid.Row="0"
-                IsVisible="{OnPlatform Android=false}"
+                IsVisible="{OnPlatform Android=false, iOS=false}"
                   BackgroundColor="Black"
                   Margin="10"
                   HeightRequest="40"
