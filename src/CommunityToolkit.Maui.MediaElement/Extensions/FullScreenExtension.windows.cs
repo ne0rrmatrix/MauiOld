@@ -1,10 +1,11 @@
 ﻿using Microsoft.UI.Windowing;
 
-namespace CommunityToolkit.Maui.Views;
-class CustomBindings
+namespace CommunityToolkit.Maui.Extensions;
+
+class FullScreenExtension
 {
 	readonly AppWindow appWindow;
-	public CustomBindings(AppWindow appWindow)
+	public FullScreenExtension(AppWindow appWindow)
 	{
 		this.appWindow = appWindow;
 	}
