@@ -27268,17 +27268,14 @@
                                 </VisualState>
 
                             </VisualStateGroup>
-                            <!-- FullWindow states -->
-                            <!-- TODO 39683362: Uncomment once Full Screen is supported -->
-                            <!-- <VisualStateGroup x:Name="FullWindowStates">
-                <VisualState x:Name="NonFullWindowState" />
-                <VisualState x:Name="FullWindowState">
-                  <VisualState.Setters>
-                    <Setter Target="FullWindowSymbol.Symbol" Value="BackToWindow" />
-                  </VisualState.Setters>
-                </VisualState>
-              </VisualStateGroup> -->
-                            <!-- Repeat states -->
+                            <VisualStateGroup x:Name="FullWindowStates">
+                                <VisualState x:Name="NonFullWindowState" />
+                                <VisualState x:Name="FullWindowState">
+                                    <VisualState.Setters>
+                                        <Setter Target="FullWindowSymbol.Symbol" Value="BackToWindow" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
                             <VisualStateGroup x:Name="RepeatStates">
                                 <VisualState x:Name="RepeatNoneState" />
                                 <VisualState x:Name="RepeatOneState">
@@ -27518,7 +27515,7 @@
                                                     <FontIcon Glyph="&#xE8B9;" />
                                                 </AppBarButton.Icon>
                                             </AppBarButton>
-                                            <AppBarButton x:Name="FullWindowButton" Style="{StaticResource AppBarButtonStyle}" MediaTransportControlsHelper.DropoutOrder="17">
+                                            <AppBarButton x:Name="FullWindowButton" Style="{StaticResource AppBarButtonStyle}" IsEnabled="{TemplateBinding IsFullWindowEnabled}" MediaTransportControlsHelper.DropoutOrder="17">
                                                 <AppBarButton.Icon>
                                                     <SymbolIcon x:Name="FullWindowSymbol" Symbol="FullScreen" />
                                                 </AppBarButton.Icon>

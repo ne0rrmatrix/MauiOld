@@ -6,13 +6,18 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using WinRT.Interop;
 using Application = Microsoft.Maui.Controls.Application;
 using Button = Microsoft.UI.Xaml.Controls.Button;
 using Grid = Microsoft.UI.Xaml.Controls.Grid;
+using Image = Microsoft.UI.Xaml.Controls.Image;
+using ImageSource = Microsoft.UI.Xaml.Media.ImageSource;
 using Page = Microsoft.Maui.Controls.Page;
-
+using SolidColorBrush = Microsoft.UI.Xaml.Media.SolidColorBrush;
+using Dispatcher = Microsoft.Maui.Dispatching.Dispatcher;
 namespace CommunityToolkit.Maui.Core.Views;
 
 /// <summary>
@@ -21,13 +26,15 @@ namespace CommunityToolkit.Maui.Core.Views;
 public class MauiMediaElement : Grid, IDisposable
 {
 	Popup popup { get; set; } = new();
-	Button btn { get; set; } = new();
+	Button btn { get; set; }
 	Grid grid { get; set; } = new();
-	CustomTransportControls transportControls { get; set; }
+	Grid imageButton { get; set; }
 	bool isFullScreen = false;
 	readonly FullScreenExtension? setFullScreenStatus;
 	readonly MediaPlayerElement mediaPlayerElement;
 	bool isDisposed;
+	DispatcherTimer? timer;
+	bool navbarExist;
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="MauiMediaElement"/> class.
@@ -37,39 +44,92 @@ public class MauiMediaElement : Grid, IDisposable
 	{
 		this.mediaPlayerElement = mediaPlayerElement;
 		setFullScreenStatus = new(GetAppWindowForCurrentWindow());
-		transportControls = new CustomTransportControls()
-		{
-			IsEnabled = true,
-			IsStopButtonVisible = true,
-			IsStopEnabled = true,
-		};
-		transportControls.FullScreen += TransportControls_FullScreen;
 		mediaPlayerElement.TransportControls.IsEnabled = false;
-		this.mediaPlayerElement.TransportControls = transportControls;
-
-		btn.Content = "Full Screen";
-		btn.Width = 120;
-		btn.Height = 40;
-		btn.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Black);
-		btn.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Black);
-		btn.HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Right;
-		btn.VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Top;
+		
+		ImageSource source = new BitmapImage(new Uri("ms-appx:///whitefs.png"));
+		btn = new Button
+		{
+			Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
+			Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
+			Width = 40,
+			Height = 40
+		};
 		btn.Click += Btn_Clicked;
-
+		Image image = new()
+		{
+			Width = 40,
+			Height = 40,
+			HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Right,
+			VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Top,
+			Source = source,
+		};
+		imageButton = new()
+		{
+			HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Right,
+			VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Top,
+			Width = 40,
+			Height = 40
+		};
+		imageButton.Children.Add(image);
+		imageButton.Children.Add(btn);
 		Children.Add(this.mediaPlayerElement);
-		Children.Add(btn);
+		Children.Add(imageButton);
+
+		mediaPlayerElement.PointerMoved += MediaPlayerElement_PointerMoved;
+		InitializeTimer();
 	}
 
-	void TransportControls_FullScreen(object? sender, EventArgs e)
+	void MediaPlayerElement_PointerMoved(object sender, PointerRoutedEventArgs e)
 	{
-		Debug.WriteLine("Full Screen toggled");
+		Debug.WriteLine("Pointer moved!");
+		mediaPlayerElement.PointerMoved -= MediaPlayerElement_PointerMoved;
+		InitializeTimer();
+		imageButton.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+		e.Handled = true;
+
+	}
+
+	void InitializeTimer()
+	{
+		if (timer is not null)
+		{
+			return;
+		}
+
+		timer = new();
+		timer.Tick += OnTimer_Tick;
+		timer.Interval = TimeSpan.FromSeconds(5);
+		timer.Start();
+		Debug.WriteLine("Timer Started");
+	}
+
+	void OnTimer_Tick(object? sender, object e)
+	{
+		ClearTimer();
+		imageButton.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+		mediaPlayerElement.PointerMoved += MediaPlayerElement_PointerMoved;
+	}
+
+	void ClearTimer()
+	{
+		if (timer is null)
+		{
+			return;
+		}
+
+		timer.Tick -= OnTimer_Tick;
+		timer.Stop();
+		timer = null;
+		Debug.WriteLine("timer stopped");
 	}
 
 	void Btn_Clicked(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
 	{
+		var currentPage = CurrentPage;
 		if (!isFullScreen)
 		{
 			setFullScreenStatus?.SetFullScreen();
+			navbarExist = Shell.GetNavBarIsVisible(currentPage);
 			Shell.SetNavBarIsVisible(CurrentPage, false);
 			isFullScreen = true;
 
@@ -77,14 +137,10 @@ public class MauiMediaElement : Grid, IDisposable
 			mediaPlayerElement.Width = displayInfo.Width / displayInfo.Density;
 			mediaPlayerElement.Height = displayInfo.Height / displayInfo.Density;
 
-
-			Children.Remove(this.mediaPlayerElement);
-			Children.Remove(this.btn);
-
+			Children.Clear();
 			popup.XamlRoot = mediaPlayerElement.XamlRoot;
 			grid.Children.Add(mediaPlayerElement);
-			grid.Children.Add(btn);
-
+			grid.Children.Add(imageButton);
 			popup.HorizontalOffset = 0;
 			popup.VerticalOffset = 0;
 			popup.ShouldConstrainToRootBounds = false;
@@ -99,7 +155,7 @@ public class MauiMediaElement : Grid, IDisposable
 			return;
 		}
 
-		Shell.SetNavBarIsVisible(CurrentPage, true);
+		Shell.SetNavBarIsVisible(CurrentPage, navbarExist);
 		setFullScreenStatus?.SetFullScreen();
 		isFullScreen = false;
 		if (popup.IsOpen)
@@ -109,7 +165,7 @@ public class MauiMediaElement : Grid, IDisposable
 			grid.Children.Clear();
 		}
 		Children.Add(this.mediaPlayerElement);
-		Children.Add(this.btn);
+		Children.Add(this.imageButton);
 		var parent = mediaPlayerElement.Parent as FrameworkElement;
 		if (parent != null)
 		{
