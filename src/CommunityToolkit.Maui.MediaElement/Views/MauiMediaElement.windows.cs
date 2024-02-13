@@ -23,16 +23,17 @@ namespace CommunityToolkit.Maui.Core.Views;
 /// </summary>
 public class MauiMediaElement : Grid, IDisposable
 {
+	bool navbarExist;
+	bool isDisposed;
+
 	static readonly AppWindow? appWindow = GetAppWindowForCurrentWindow();
-	Popup popup { get; set; } = new();
+	readonly MediaPlayerElement mediaPlayerElement;
+	DispatcherTimer? timer;
+
 	Button btn { get; set; }
 	Grid grid { get; set; } = new();
-	Grid imageButton { get; set; }
-	bool isFullScreen = false;
-	readonly MediaPlayerElement mediaPlayerElement;
-	bool isDisposed;
-	DispatcherTimer? timer;
-	bool navbarExist;
+	Grid ButtonContainer { get; set; }
+	Popup popup { get; set; } = new();
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="MauiMediaElement"/> class.
@@ -49,7 +50,7 @@ public class MauiMediaElement : Grid, IDisposable
 			Width = 40,
 			Height = 40
 		};
-		btn.Click += Btn_Clicked;
+		btn.Click += ButtonSetFullScreenStatus;
 		
 		Image image = new()
 		{
@@ -60,29 +61,28 @@ public class MauiMediaElement : Grid, IDisposable
 			Source = new BitmapImage(new Uri("ms-appx:///whitefs.png")),
 		};
 		
-		imageButton = new()
+		ButtonContainer = new()
 		{
 			HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Right,
 			VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Top,
 			Width = 40,
 			Height = 40
 		};
-		imageButton.Children.Add(image);
-		imageButton.Children.Add(btn);
+		ButtonContainer.Children.Add(image);
+		ButtonContainer.Children.Add(btn);
 		
 		Children.Add(this.mediaPlayerElement);
-		Children.Add(imageButton);
+		Children.Add(ButtonContainer);
 
-		imageButton.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
 		mediaPlayerElement.PointerMoved += MediaPlayerElement_PointerMoved;
 	}
 
 	void MediaPlayerElement_PointerMoved(object sender, PointerRoutedEventArgs e)
 	{
+		e.Handled = true;
 		mediaPlayerElement.PointerMoved -= MediaPlayerElement_PointerMoved;
 		InitializeTimer();
-		imageButton.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
-		e.Handled = true;
+		ButtonContainer.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
 	}
 
 	void InitializeTimer()
@@ -101,7 +101,7 @@ public class MauiMediaElement : Grid, IDisposable
 	void OnTimer_Tick(object? sender, object e)
 	{
 		ClearTimer();
-		imageButton.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+		ButtonContainer.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
 		mediaPlayerElement.PointerMoved += MediaPlayerElement_PointerMoved;
 	}
 
@@ -117,30 +117,36 @@ public class MauiMediaElement : Grid, IDisposable
 		timer = null;
 	}
 
-	static void SetFullScreenStatus()
+	void ButtonSetFullScreenStatus(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
 	{
-		if(appWindow is null)
+		var currentPage = CurrentPage;
+		if (appWindow is null)
 		{
 			return;
 		}
+
 		if (appWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen)
 		{
 			appWindow.SetPresenter(AppWindowPresenterKind.Default);
+			Shell.SetNavBarIsVisible(CurrentPage, navbarExist);
+
+			if (popup.IsOpen)
+			{
+				popup.IsOpen = false;
+				popup.Child = null;
+				grid.Children.Clear();
+			}
+
+			Children.Add(this.mediaPlayerElement);
+			Children.Add(this.ButtonContainer);
+
+			var parent = mediaPlayerElement.Parent as FrameworkElement;
+			mediaPlayerElement.Width = parent?.Width ?? mediaPlayerElement.Width;
+			mediaPlayerElement.Height = parent?.Height ?? mediaPlayerElement.Height;
 		}
 		else
 		{
 			appWindow.SetPresenter(AppWindowPresenterKind.FullScreen);
-		}
-	}
-
-	void Btn_Clicked(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-	{
-		var currentPage = CurrentPage;
-		if (!isFullScreen)
-		{
-			isFullScreen = true;
-			SetFullScreenStatus();
-			
 			navbarExist = Shell.GetNavBarIsVisible(currentPage);
 			Shell.SetNavBarIsVisible(CurrentPage, false);
 
@@ -150,7 +156,7 @@ public class MauiMediaElement : Grid, IDisposable
 
 			Children.Clear();
 			grid.Children.Add(mediaPlayerElement);
-			grid.Children.Add(imageButton);
+			grid.Children.Add(ButtonContainer);
 
 			popup.XamlRoot = mediaPlayerElement.XamlRoot;
 			popup.HorizontalOffset = 0;
@@ -164,26 +170,7 @@ public class MauiMediaElement : Grid, IDisposable
 			{
 				popup.IsOpen = true;
 			}
-			return;
 		}
-
-		Shell.SetNavBarIsVisible(CurrentPage, navbarExist);
-		SetFullScreenStatus();
-		isFullScreen = false;
-		
-		if (popup.IsOpen)
-		{
-			popup.IsOpen = false;
-			popup.Child = null;
-			grid.Children.Clear();
-		}
-
-		Children.Add(this.mediaPlayerElement);
-		Children.Add(this.imageButton);
-		
-		var parent = mediaPlayerElement.Parent as FrameworkElement;
-		mediaPlayerElement.Width = parent?.Width ?? mediaPlayerElement.Width;
-		mediaPlayerElement.Height = parent?.Height ?? mediaPlayerElement.Height;
 	}
 
 	static AppWindow GetAppWindowForCurrentWindow()
