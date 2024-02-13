@@ -15,8 +15,6 @@ using Grid = Microsoft.UI.Xaml.Controls.Grid;
 using Image = Microsoft.UI.Xaml.Controls.Image;
 using ImageSource = Microsoft.UI.Xaml.Media.ImageSource;
 using Page = Microsoft.Maui.Controls.Page;
-using SolidColorBrush = Microsoft.UI.Xaml.Media.SolidColorBrush;
-using Dispatcher = Microsoft.Maui.Dispatching.Dispatcher;
 
 namespace CommunityToolkit.Maui.Core.Views;
 
@@ -25,12 +23,12 @@ namespace CommunityToolkit.Maui.Core.Views;
 /// </summary>
 public class MauiMediaElement : Grid, IDisposable
 {
+	static readonly AppWindow? appWindow = GetAppWindowForCurrentWindow();
 	Popup popup { get; set; } = new();
 	Button btn { get; set; }
 	Grid grid { get; set; } = new();
 	Grid imageButton { get; set; }
 	bool isFullScreen = false;
-	readonly FullScreenExtension? setFullScreenStatus;
 	readonly MediaPlayerElement mediaPlayerElement;
 	bool isDisposed;
 	DispatcherTimer? timer;
@@ -43,9 +41,7 @@ public class MauiMediaElement : Grid, IDisposable
 	public MauiMediaElement(MediaPlayerElement mediaPlayerElement)
 	{
 		this.mediaPlayerElement = mediaPlayerElement;
-		setFullScreenStatus = new(GetAppWindowForCurrentWindow());
 
-		ImageSource source = new BitmapImage(new Uri("ms-appx:///whitefs.png"));
 		btn = new Button
 		{
 			Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
@@ -54,14 +50,16 @@ public class MauiMediaElement : Grid, IDisposable
 			Height = 40
 		};
 		btn.Click += Btn_Clicked;
+		
 		Image image = new()
 		{
 			Width = 40,
 			Height = 40,
 			HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Right,
 			VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Top,
-			Source = source,
+			Source = new BitmapImage(new Uri("ms-appx:///whitefs.png")),
 		};
+		
 		imageButton = new()
 		{
 			HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Right,
@@ -71,11 +69,12 @@ public class MauiMediaElement : Grid, IDisposable
 		};
 		imageButton.Children.Add(image);
 		imageButton.Children.Add(btn);
+		
 		Children.Add(this.mediaPlayerElement);
 		Children.Add(imageButton);
 
+		imageButton.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
 		mediaPlayerElement.PointerMoved += MediaPlayerElement_PointerMoved;
-		InitializeTimer();
 	}
 
 	void MediaPlayerElement_PointerMoved(object sender, PointerRoutedEventArgs e)
@@ -84,7 +83,6 @@ public class MauiMediaElement : Grid, IDisposable
 		InitializeTimer();
 		imageButton.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
 		e.Handled = true;
-
 	}
 
 	void InitializeTimer()
@@ -119,24 +117,42 @@ public class MauiMediaElement : Grid, IDisposable
 		timer = null;
 	}
 
+	static void SetFullScreenStatus()
+	{
+		if(appWindow is null)
+		{
+			return;
+		}
+		if (appWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen)
+		{
+			appWindow.SetPresenter(AppWindowPresenterKind.Default);
+		}
+		else
+		{
+			appWindow.SetPresenter(AppWindowPresenterKind.FullScreen);
+		}
+	}
+
 	void Btn_Clicked(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
 	{
 		var currentPage = CurrentPage;
 		if (!isFullScreen)
 		{
-			setFullScreenStatus?.SetFullScreen();
+			isFullScreen = true;
+			SetFullScreenStatus();
+			
 			navbarExist = Shell.GetNavBarIsVisible(currentPage);
 			Shell.SetNavBarIsVisible(CurrentPage, false);
-			isFullScreen = true;
 
 			var displayInfo = DeviceDisplay.Current.MainDisplayInfo;
 			mediaPlayerElement.Width = displayInfo.Width / displayInfo.Density;
 			mediaPlayerElement.Height = displayInfo.Height / displayInfo.Density;
 
 			Children.Clear();
-			popup.XamlRoot = mediaPlayerElement.XamlRoot;
 			grid.Children.Add(mediaPlayerElement);
 			grid.Children.Add(imageButton);
+
+			popup.XamlRoot = mediaPlayerElement.XamlRoot;
 			popup.HorizontalOffset = 0;
 			popup.VerticalOffset = 0;
 			popup.ShouldConstrainToRootBounds = false;
@@ -152,16 +168,19 @@ public class MauiMediaElement : Grid, IDisposable
 		}
 
 		Shell.SetNavBarIsVisible(CurrentPage, navbarExist);
-		setFullScreenStatus?.SetFullScreen();
+		SetFullScreenStatus();
 		isFullScreen = false;
+		
 		if (popup.IsOpen)
 		{
 			popup.IsOpen = false;
 			popup.Child = null;
 			grid.Children.Clear();
 		}
+
 		Children.Add(this.mediaPlayerElement);
 		Children.Add(this.imageButton);
+		
 		var parent = mediaPlayerElement.Parent as FrameworkElement;
 		mediaPlayerElement.Width = parent?.Width ?? mediaPlayerElement.Width;
 		mediaPlayerElement.Height = parent?.Height ?? mediaPlayerElement.Height;
