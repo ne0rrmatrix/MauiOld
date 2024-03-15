@@ -1,5 +1,6 @@
 ﻿using System.Collections.Frozen;
 using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Primitives;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml.Controls;
@@ -70,18 +71,6 @@ partial class MediaManager : IDisposable
 		GC.SuppressFinalize(this);
 	}
 
-	void NowPlaying(string Title, string Artist)
-	{
-		if (systemMediaControls is null)
-		{
-			return;
-		}
-		systemMediaControls.DisplayUpdater.Type = MediaPlaybackType.Music;
-		systemMediaControls.DisplayUpdater.MusicProperties.Title = Title;
-		systemMediaControls.DisplayUpdater.MusicProperties.Artist = Artist;
-		systemMediaControls.DisplayUpdater.Update();
-	}
-
 	void SystemMediaControls_ButtonPressed(SystemMediaTransportControls sender, SystemMediaTransportControlsButtonPressedEventArgs args)
 	{
 		if (args.Button == SystemMediaTransportControlsButton.Play)
@@ -130,7 +119,28 @@ partial class MediaManager : IDisposable
 			displayActiveRequested = false;
 		}
 	}
+	protected virtual partial void PlatformUpdateMetaData()
+	{
+		if (systemMediaControls is null || MediaElement.SourceType == MediaElementSourceType.Unknown)
+		{
+			return;
+		}
+		if (MediaElement.SourceType == MediaElementSourceType.Video)
+		{
+			systemMediaControls.DisplayUpdater.Type = MediaPlaybackType.Video;
+			systemMediaControls.DisplayUpdater.VideoProperties.Title = MediaElement.Title;
+		}
+		else if (MediaElement.SourceType == MediaElementSourceType.Audio)
+		{
+			systemMediaControls.DisplayUpdater.Type = MediaPlaybackType.Music;
+			systemMediaControls.DisplayUpdater.MusicProperties.AlbumTitle = MediaElement.Album;
+			systemMediaControls.DisplayUpdater.MusicProperties.Title = MediaElement.Title;
+			systemMediaControls.DisplayUpdater.MusicProperties.Artist = MediaElement.Artist;
+			systemMediaControls.DisplayUpdater.MusicProperties.AlbumArtist = MediaElement.AlbumArtist;
+		}
 
+		systemMediaControls.DisplayUpdater.Update();
+	}
 	protected virtual async partial Task PlatformSeek(TimeSpan position, CancellationToken token)
 	{
 		if (Player?.MediaPlayer.CanSeek is true)
@@ -390,7 +400,7 @@ partial class MediaManager : IDisposable
 		static void SetDuration(in IMediaElement mediaElement, in MediaPlayerElement mediaPlayerElement) => mediaElement.Duration = mediaPlayerElement.MediaPlayer.NaturalDuration == TimeSpan.MaxValue
 																																		? TimeSpan.Zero
 																																		: mediaPlayerElement.MediaPlayer.NaturalDuration;
-		NowPlaying("Song Title", "Song Artist");
+		UpdateMetaData();
 	}
 
 	void OnMediaElementMediaEnded(WindowsMediaElement sender, object args)

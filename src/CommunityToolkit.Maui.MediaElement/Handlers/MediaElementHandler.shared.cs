@@ -42,7 +42,8 @@ public partial class MediaElementHandler
 		[nameof(MediaElement.PlayRequested)] = MapPlayRequested,
 		[nameof(MediaElement.PauseRequested)] = MapPauseRequested,
 		[nameof(MediaElement.SeekRequested)] = MapSeekRequested,
-		[nameof(MediaElement.StopRequested)] = MapStopRequested
+		[nameof(MediaElement.StopRequested)] = MapStopRequested,
+		[nameof(MediaElement.UpdateMetaDataRequested)] = MapMetaDataUpdateRequested,
 	};
 
 	/// <summary>
@@ -207,6 +208,16 @@ public partial class MediaElementHandler
 		handler.mediaManager?.Stop();
 	}
 
+	/// <summary>
+	/// Maps the MetaData property between the abstract <see cref="MediaElement"/> and platform counterpart.
+	/// </summary>
+	/// <param name="handler"></param>
+	/// <param name="mediaElement"></param>
+	/// <param name="args"></param>
+	public static void MapMetaDataUpdateRequested(MediaElementHandler handler, MediaElement mediaElement, object? args)
+	{
+		handler.mediaManager?.UpdateMetaData();
+	}
 	/// <summary>
 	/// Releases the managed and unmanaged resources used by the <see cref="MediaElement"/>.
 	/// </summary>

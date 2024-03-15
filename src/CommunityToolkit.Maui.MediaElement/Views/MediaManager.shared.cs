@@ -174,6 +174,14 @@ public partial class MediaManager
 	}
 
 	/// <summary>
+	/// Update the media metadata.
+	/// </summary>
+	public void UpdateMetaData()
+	{
+		PlatformUpdateMetaData();
+	}
+
+	/// <summary>
 	/// Invokes the platform play functionality and starts media playback.
 	/// </summary>
 	protected virtual partial void PlatformPlay();
@@ -241,6 +249,11 @@ public partial class MediaManager
 	/// </summary>
 	protected virtual partial void PlatformUpdateVolume();
 
+	/// <summary>
+	/// Invokes the platform functionality to update the media metadata.
+	/// </summary>
+	protected virtual partial void PlatformUpdateMetaData();
+
 	static bool AreFloatingPointNumbersEqual(in double number1, in double number2, double tolerance = 0.01) => Math.Abs(number1 - number2) > tolerance;
 }
 
@@ -264,5 +277,6 @@ partial class MediaManager
 	protected virtual partial void PlatformUpdateShouldKeepScreenOn() { }
 	protected virtual partial void PlatformUpdateShouldMute() { }
 	protected virtual partial void PlatformUpdateShouldLoopPlayback() { }
+	protected virtual partial void PlatformUpdateMetaData() { }
 }
 #endif

@@ -10,6 +10,8 @@ namespace CommunityToolkit.Maui.Core.Views;
 
 public partial class MediaManager : IDisposable
 {
+	//TODO: Implement the Tizen specific code here or decide if it's not needed.
+
 	/// <summary>
 	/// The platform native counterpart of <see cref="MediaElement"/>.
 	/// </summary>
@@ -285,6 +287,11 @@ public partial class MediaManager : IDisposable
 
 		Player.IsLooping = MediaElement.ShouldLoopPlayback;
 
+	}
+
+	protected virtual partial void PlatformUpdateMetaData()
+	{
+		// not implememented.
 	}
 
 	/// <summary>

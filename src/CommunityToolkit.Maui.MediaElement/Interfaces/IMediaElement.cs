@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Primitives;
 using CommunityToolkit.Maui.Views;
 
 namespace CommunityToolkit.Maui.Core;
@@ -8,6 +9,41 @@ namespace CommunityToolkit.Maui.Core;
 /// </summary>
 public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 {
+	/// <summary>
+	/// Gets or sets the title of the media.
+	/// </summary>
+	string Title { get; set; }
+
+	/// <summary>
+	/// Gets or sets the album of the media.
+	/// </summary>
+	string Album { get; set; }
+
+	/// <summary>
+	/// Gets or sets the artist of the media.
+	/// </summary>
+	string Artist { get; set; }
+
+	/// <summary>
+	/// Gets or sets the album artist of the media.
+	/// </summary>
+	string AlbumArtist { get; set; }
+
+	/// <summary>
+	/// Gets or sets the genre of the media.
+	/// </summary>
+	string Genre { get; set; }
+
+	/// <summary>
+	/// Gets or sets the artwork of the media.
+	/// </summary>
+	Image Artwork { get; set; }
+
+	/// <summary>
+	/// Gets or sets the source type of the media.
+	/// </summary>
+	MediaElementSourceType SourceType { get; }
+
 	/// <summary>
 	/// Gets the media aspect ratio.
 	/// </summary>

@@ -17,6 +17,9 @@ namespace CommunityToolkit.Maui.Core.Views;
 
 public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 {
+	//TODO: Implement MediaSessionCompat.MediaButtonReceiver
+	//TODO: Implement MediaSessionCompat.Callback
+
 	readonly SemaphoreSlim seekToSemaphoreSlim = new(1, 1);
 
 	double? previousSpeed;
@@ -483,6 +486,11 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		}
 
 		Player.RepeatMode = MediaElement.ShouldLoopPlayback ? IPlayer.RepeatModeOne : IPlayer.RepeatModeOff;
+	}
+
+	protected virtual partial void PlatformUpdateMetaData()
+	{
+		//TODO: Implement this
 	}
 
 	#region IPlayer.IListener implementation method stubs

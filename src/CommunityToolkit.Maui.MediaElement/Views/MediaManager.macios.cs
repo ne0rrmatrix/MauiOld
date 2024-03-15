@@ -11,6 +11,8 @@ namespace CommunityToolkit.Maui.Core.Views;
 
 public partial class MediaManager : IDisposable
 {
+	//TODO: Implement Metadata for iOS and macOS
+
 	// Media would still start playing when Speed was set although ShouldAutoPlay=False
 	// This field was added to overcome that.
 	bool initialSpeedSet;
@@ -380,6 +382,11 @@ public partial class MediaManager : IDisposable
 	protected virtual partial void PlatformUpdateShouldLoopPlayback()
 	{
 		// no-op we loop through using the PlayedToEndObserver
+	}
+
+	protected virtual partial void PlatformUpdateMetaData()
+	{
+		//TODO: Implement this
 	}
 
 	/// <summary>
