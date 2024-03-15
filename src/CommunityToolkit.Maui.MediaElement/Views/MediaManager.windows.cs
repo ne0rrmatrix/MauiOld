@@ -3,6 +3,7 @@ using CommunityToolkit.Maui.Core.Primitives;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml.Controls;
+using Windows.Media;
 using Windows.Media.Playback;
 using Windows.Storage;
 using Windows.System.Display;
@@ -13,6 +14,8 @@ namespace CommunityToolkit.Maui.Core.Views;
 
 partial class MediaManager : IDisposable
 {
+	SystemMediaTransportControls? systemMediaControls;
+
 	// States that allow changing position
 	readonly FrozenSet<MediaElementState> allowUpdatePositionStates = new[]
 	{
@@ -44,6 +47,7 @@ partial class MediaManager : IDisposable
 		MediaElement.MediaOpened += OnMediaElementMediaOpened;
 
 		Player.SetMediaPlayer(MediaElement);
+		systemMediaControls = Player.MediaPlayer.SystemMediaTransportControls;
 
 		Player.MediaPlayer.PlaybackSession.PlaybackRateChanged += OnPlaybackSessionPlaybackRateChanged;
 		Player.MediaPlayer.PlaybackSession.PlaybackStateChanged += OnPlaybackSessionPlaybackStateChanged;
@@ -53,6 +57,7 @@ partial class MediaManager : IDisposable
 		Player.MediaPlayer.VolumeChanged += OnMediaElementVolumeChanged;
 		Player.MediaPlayer.IsMutedChanged += OnMediaElementIsMutedChanged;
 
+		systemMediaControls.ButtonPressed += SystemMediaControls_ButtonPressed;
 		return Player;
 	}
 
@@ -63,6 +68,44 @@ partial class MediaManager : IDisposable
 	{
 		Dispose(true);
 		GC.SuppressFinalize(this);
+	}
+
+	void NowPlaying(string Title, string Artist)
+	{
+		if (systemMediaControls is null)
+		{
+			return;
+		}
+		systemMediaControls.DisplayUpdater.Type = MediaPlaybackType.Music;
+		systemMediaControls.DisplayUpdater.MusicProperties.Title = Title;
+		systemMediaControls.DisplayUpdater.MusicProperties.Artist = Artist;
+		systemMediaControls.DisplayUpdater.Update();
+	}
+
+	void SystemMediaControls_ButtonPressed(SystemMediaTransportControls sender, SystemMediaTransportControlsButtonPressedEventArgs args)
+	{
+		if (args.Button == SystemMediaTransportControlsButton.Play)
+		{
+			if (Dispatcher.IsDispatchRequired)
+			{
+				Dispatcher.Dispatch(() => MediaElement.Play());
+			}
+			else
+			{
+				MediaElement.Play();
+			}
+		}
+		else if (args.Button == SystemMediaTransportControlsButton.Pause)
+		{
+			if (Dispatcher.IsDispatchRequired)
+			{
+				Dispatcher.Dispatch(() => MediaElement.Pause());
+			}
+			else
+			{
+				MediaElement.Pause();
+			}
+		}
 	}
 
 	protected virtual partial void PlatformPlay()
@@ -347,6 +390,7 @@ partial class MediaManager : IDisposable
 		static void SetDuration(in IMediaElement mediaElement, in MediaPlayerElement mediaPlayerElement) => mediaElement.Duration = mediaPlayerElement.MediaPlayer.NaturalDuration == TimeSpan.MaxValue
 																																		? TimeSpan.Zero
 																																		: mediaPlayerElement.MediaPlayer.NaturalDuration;
+		NowPlaying("Song Title", "Song Artist");
 	}
 
 	void OnMediaElementMediaEnded(WindowsMediaElement sender, object args)
