@@ -125,6 +125,7 @@ partial class MediaManager : IDisposable
 		{
 			return;
 		}
+		systemMediaControls.DisplayUpdater.Thumbnail = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromUri(new Uri(MediaElement.Artwork ?? string.Empty));
 		if (MediaElement.SourceType == MediaElementSourceType.Video)
 		{
 			systemMediaControls.DisplayUpdater.Type = MediaPlaybackType.Video;

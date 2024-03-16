@@ -128,7 +128,7 @@ public class MediaElement : View, IMediaElement, IDisposable
 	/// <summary>
 	/// Backing store for the <see cref="Artwork"/> property.
 	/// </summary>
-	public static readonly BindableProperty ArtworkProperty = BindableProperty.Create(nameof(Artwork), typeof(Image), typeof(MediaElement), new Image());
+	public static readonly BindableProperty ArtworkProperty = BindableProperty.Create(nameof(Artwork), typeof(string), typeof(MediaElement), string.Empty);
 
 	/// <summary>
 	/// Backing store for the <see cref="MediaElementSourceType"/> property.
@@ -410,9 +410,9 @@ public class MediaElement : View, IMediaElement, IDisposable
 	/// Gets or sets the artwork of the media.
 	/// This is a bindable property.
 	/// </summary>
-	public Image Artwork
+	public string Artwork
 	{
-		get => (Image)GetValue(ArtworkProperty);
+		get => (string)GetValue(ArtworkProperty);
 		set => SetValue(ArtworkProperty, value);
 	
 	}

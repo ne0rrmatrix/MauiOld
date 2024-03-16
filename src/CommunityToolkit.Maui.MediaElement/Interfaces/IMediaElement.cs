@@ -37,7 +37,7 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	/// <summary>
 	/// Gets or sets the artwork of the media.
 	/// </summary>
-	Image Artwork { get; set; }
+	string Artwork { get; set; }
 
 	/// <summary>
 	/// Gets or sets the source type of the media.
