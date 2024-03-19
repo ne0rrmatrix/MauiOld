@@ -63,8 +63,8 @@ public class MetaDataExtensions
 			string path = "ms-appx:///" + resourceMediaSource.Path;
 			if (!string.IsNullOrWhiteSpace(path))
 			{
-				var test = await StorageFile.GetFileFromApplicationUriAsync(new Uri(path));
-				await UpdateSystemMediaControlsDisplayAsync(test);
+				var file = await StorageFile.GetFileFromApplicationUriAsync(new Uri(path));
+				await UpdateSystemMediaControlsDisplayAsync(file);
 			}
 		}
 		systemMediaControls.DisplayUpdater.Update();
