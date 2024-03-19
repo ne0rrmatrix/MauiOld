@@ -18,7 +18,6 @@ public class MetaDataExtensions
 	/// </summary>
 	public MetaDataExtensions(SystemMediaTransportControls systemMediaTransportControls, IMediaElement mediaElement)
 	{
-		// Initialize the SystemMediaTransportControls object for this page, and set up event handlers.
 		this.systemMediaControls = systemMediaTransportControls;
 		this.mediaElement = mediaElement;
 	}
@@ -57,19 +56,16 @@ public class MetaDataExtensions
 
 		if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
 		{
-			//TODO: Find a better way to do this without copying file!
 			if (resourceMediaSource.Path is null)
 			{
 				return;
 			}
-			string targetFile = Path.Combine(FileSystem.Current.AppDataDirectory, (resourceMediaSource.Path));
-			if (!File.Exists(targetFile))
+			string path = "ms-appx:///" + resourceMediaSource.Path;
+			if (!string.IsNullOrWhiteSpace(path))
 			{
-				await CopyFileToAppDataDirectory(resourceMediaSource.Path);
+				var test = await StorageFile.GetFileFromApplicationUriAsync(new Uri(path));
+				await UpdateSystemMediaControlsDisplayAsync(test);
 			}
-			var file = await StorageFile.GetFileFromPathAsync(targetFile);
-			
-			await UpdateSystemMediaControlsDisplayAsync(file);
 		}
 		systemMediaControls.DisplayUpdater.Update();
 	}
@@ -131,19 +127,6 @@ public class MetaDataExtensions
 		{
 			systemMediaControls.DisplayUpdater.ClearAll();
 		}
-	}
-
-	/// <summary>
-	/// Copy a file from the app package to the app's data directory.
-	/// </summary>
-	/// <param name="filename"></param>
-	/// <returns></returns>
-	static async Task CopyFileToAppDataDirectory(string filename)
-	{
-		using Stream inputStream = await FileSystem.Current.OpenAppPackageFileAsync(filename);
-		string targetFile = Path.Combine(FileSystem.Current.AppDataDirectory, filename);
-		using FileStream outputStream = File.Create(targetFile);
-		await inputStream.CopyToAsync(outputStream);
 	}
 
 	/// <summary>
