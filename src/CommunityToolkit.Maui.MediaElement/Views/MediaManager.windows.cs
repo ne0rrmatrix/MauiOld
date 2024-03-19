@@ -1,5 +1,6 @@
 ﻿using System.Collections.Frozen;
 using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Extensions;
 using CommunityToolkit.Maui.Primitives;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
@@ -15,6 +16,7 @@ namespace CommunityToolkit.Maui.Core.Views;
 
 partial class MediaManager : IDisposable
 {
+	MetaDataExtensions? metaDataExtensions;
 	SystemMediaTransportControls? systemMediaControls;
 
 	// States that allow changing position
@@ -48,8 +50,7 @@ partial class MediaManager : IDisposable
 		MediaElement.MediaOpened += OnMediaElementMediaOpened;
 
 		Player.SetMediaPlayer(MediaElement);
-		systemMediaControls = Player.MediaPlayer.SystemMediaTransportControls;
-
+		
 		Player.MediaPlayer.PlaybackSession.PlaybackRateChanged += OnPlaybackSessionPlaybackRateChanged;
 		Player.MediaPlayer.PlaybackSession.PlaybackStateChanged += OnPlaybackSessionPlaybackStateChanged;
 		Player.MediaPlayer.PlaybackSession.SeekCompleted += OnPlaybackSessionSeekCompleted;
@@ -58,6 +59,7 @@ partial class MediaManager : IDisposable
 		Player.MediaPlayer.VolumeChanged += OnMediaElementVolumeChanged;
 		Player.MediaPlayer.IsMutedChanged += OnMediaElementIsMutedChanged;
 
+		systemMediaControls = Player.MediaPlayer.SystemMediaTransportControls;
 		systemMediaControls.ButtonPressed += SystemMediaControls_ButtonPressed;
 		return Player;
 	}
@@ -119,29 +121,18 @@ partial class MediaManager : IDisposable
 			displayActiveRequested = false;
 		}
 	}
-	protected virtual partial void PlatformUpdateMetaData()
+
+	protected virtual async partial Task PlatformUpdateMetaData()
 	{
-		if (systemMediaControls is null || MediaElement.SourceType == MediaElementSourceType.Unknown)
+		if (systemMediaControls is null)
 		{
 			return;
 		}
-		systemMediaControls.DisplayUpdater.Thumbnail = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromUri(new Uri(MediaElement.Artwork ?? string.Empty));
-		if (MediaElement.SourceType == MediaElementSourceType.Video)
-		{
-			systemMediaControls.DisplayUpdater.Type = MediaPlaybackType.Video;
-			systemMediaControls.DisplayUpdater.VideoProperties.Title = MediaElement.Title;
-		}
-		else if (MediaElement.SourceType == MediaElementSourceType.Audio)
-		{
-			systemMediaControls.DisplayUpdater.Type = MediaPlaybackType.Music;
-			systemMediaControls.DisplayUpdater.MusicProperties.AlbumTitle = MediaElement.Album;
-			systemMediaControls.DisplayUpdater.MusicProperties.Title = MediaElement.Title;
-			systemMediaControls.DisplayUpdater.MusicProperties.Artist = MediaElement.Artist;
-			systemMediaControls.DisplayUpdater.MusicProperties.AlbumArtist = MediaElement.AlbumArtist;
-		}
 
-		systemMediaControls.DisplayUpdater.Update();
+		metaDataExtensions ??= new(systemMediaControls, MediaElement);
+		await metaDataExtensions.SetMetaData(MediaElement);
 	}
+
 	protected virtual async partial Task PlatformSeek(TimeSpan position, CancellationToken token)
 	{
 		if (Player?.MediaPlayer.CanSeek is true)

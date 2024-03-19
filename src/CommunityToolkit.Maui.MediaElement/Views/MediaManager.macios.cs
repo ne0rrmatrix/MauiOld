@@ -384,7 +384,7 @@ public partial class MediaManager : IDisposable
 		// no-op we loop through using the PlayedToEndObserver
 	}
 
-	protected virtual partial void PlatformUpdateMetaData()
+	protected virtual async partial Task PlatformUpdateMetaData()
 	{
 		//TODO: Implement this
 	}

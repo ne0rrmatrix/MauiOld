@@ -488,7 +488,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		Player.RepeatMode = MediaElement.ShouldLoopPlayback ? IPlayer.RepeatModeOne : IPlayer.RepeatModeOff;
 	}
 
-	protected virtual partial void PlatformUpdateMetaData()
+	protected virtual async partial Task PlatformUpdateMetaData()
 	{
 		//TODO: Implement this
 	}
