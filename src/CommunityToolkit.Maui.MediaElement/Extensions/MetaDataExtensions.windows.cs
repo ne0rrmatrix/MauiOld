@@ -34,14 +34,15 @@ public class MetaDataExtensions
 			return;
 		}
 
-		if (MediaElement.Source is UriMediaSource mediaSource)
+		if (MediaElement.Source is UriMediaSource uriMediaSource)
 		{
-			if (mediaSource.Uri is null)
+			if (uriMediaSource.Uri is null)
 			{
 				return;
 			}
-			ManuallyUpdateMetaData();
-			return;
+			//TODO: Need to test this to see if it works as expected. A video url with a file containing metadata with at least a title is required.
+            var file = await StorageFile.CreateStreamedFileFromUriAsync("video.mp4", uriMediaSource.Uri, null);
+			await UpdateSystemMediaControlsDisplayAsync(file);
 		}
 
 		if (MediaElement.Source is FileMediaSource fileMediaSource)
@@ -67,10 +68,8 @@ public class MetaDataExtensions
 				await UpdateSystemMediaControlsDisplayAsync(file);
 			}
 		}
-		systemMediaControls.DisplayUpdater.Update();
 	}
 
-	
 	/// <summary>
 	/// Manually updates the system UI for media transport controls to display media metadata from the given MediaPlaybackType.
 	/// </summary>
@@ -90,7 +89,6 @@ public class MetaDataExtensions
 			systemMediaControls.DisplayUpdater.MusicProperties.Artist = mediaElement.Artist;
 			systemMediaControls.DisplayUpdater.MusicProperties.AlbumArtist = mediaElement.AlbumArtist;
 		}
-
 		systemMediaControls.DisplayUpdater.Update();
 	}
 
@@ -105,27 +103,19 @@ public class MetaDataExtensions
 	async Task UpdateSystemMediaControlsDisplayAsync(StorageFile mediaFile)
 	{
 		MediaPlaybackType mediaType = GetMediaTypeFromFileContentType(mediaFile);
-		bool copyFromFileAsyncSuccessful = false;
-		if (MediaPlaybackType.Unknown != mediaType)
-		{
-			try
-			{
-				copyFromFileAsyncSuccessful = await systemMediaControls.DisplayUpdater.CopyFromFileAsync(mediaType, mediaFile);
-			}
-			catch (Exception)
-
-			{
-				ManuallyUpdateMetaData();
-			}
-		}
-		else
+		if (MediaPlaybackType.Unknown == mediaType)
 		{
 			ManuallyUpdateMetaData();
+			return;
 		}
-
-		if (!copyFromFileAsyncSuccessful)
+		try
 		{
-			systemMediaControls.DisplayUpdater.ClearAll();
+			await systemMediaControls.DisplayUpdater.CopyFromFileAsync(mediaType, mediaFile);
+			systemMediaControls.DisplayUpdater.Update();
+		}
+		catch
+		{
+			ManuallyUpdateMetaData();
 		}
 	}
 
@@ -144,7 +134,18 @@ public class MetaDataExtensions
 	{
 		MediaPlaybackType mediaPlaybackType = MediaPlaybackType.Unknown;
 		string fileMimeType = file.ContentType.ToLowerInvariant();
-
+		if (fileMimeType.EndsWith("mp4") || fileMimeType.EndsWith("m4a") || fileMimeType.EndsWith("m4p") || fileMimeType.EndsWith("m4v") || fileMimeType.EndsWith("mov"))
+		{
+			mediaPlaybackType = MediaPlaybackType.Video;
+		}
+		else if (fileMimeType.EndsWith("mp3") || fileMimeType.EndsWith("m4a") || fileMimeType.EndsWith("wma") || fileMimeType.EndsWith("wav") || fileMimeType.EndsWith("flac"))
+		{
+			mediaPlaybackType = MediaPlaybackType.Music;
+		}
+		else if (fileMimeType.EndsWith("jpg") || fileMimeType.EndsWith("jpeg") || fileMimeType.EndsWith("png") || fileMimeType.EndsWith("gif") || fileMimeType.EndsWith("bmp"))
+		{
+			mediaPlaybackType = MediaPlaybackType.Image;
+		}
 		if (fileMimeType.StartsWith("audio/"))
 		{
 			mediaPlaybackType = MediaPlaybackType.Music;
@@ -157,7 +158,6 @@ public class MetaDataExtensions
 		{
 			mediaPlaybackType = MediaPlaybackType.Image;
 		}
-
 		return mediaPlaybackType;
 	}
 }
