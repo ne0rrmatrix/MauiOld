@@ -1,0 +1,19 @@
+1
+00:00:00,500 --> 00:00:02,200
+And now this is the video you would see on Windows.
+
+2
+00:00:02,300 --> 00:00:06,200
+Now of course this isn't really about creating different content from different platforms.
+
+3
+00:00:06,200 --> 00:00:09,200
+That is something you can totally do if that is what you want
+
+4
+00:00:09,300 --> 00:00:14,200
+But more importantly this allows you to really customize and optimize the video that your you delivering
+
+5
+00:00:14,300 --> 00:00:17,200
+for platform, for form factor. That is all stuff that you can do with this functionality using Dotnet Maui.

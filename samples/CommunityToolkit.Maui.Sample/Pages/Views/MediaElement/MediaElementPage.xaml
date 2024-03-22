@@ -28,17 +28,12 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <!-- TODO Replace artwork below with open source test image -->
             <toolkit:MediaElement
                 x:Name="MediaElement"
                 WidthRequest="{OnIdiom Tablet=410, Default=380}"
                 ShouldAutoPlay="True"
                 Source="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-                Title = "Big Buck Bunny"
-                Genre = "Animation" 
-                Artwork="https://michellevella.com/cdn/shop/products/BeatlesLonelyHearts4UP_1728x.jpg?v=1660582971" 
-                SourceType="Video"
-                MediaEnded="OnMediaEnded"
+              MediaEnded="OnMediaEnded"
                 MediaFailed="OnMediaFailed"
                 MediaOpened="OnMediaOpened"
                 PositionChanged="OnPositionChanged"

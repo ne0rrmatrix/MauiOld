@@ -1,0 +1,68 @@
+# VobSub index file, v7 (do not modify this line!)
+#
+# To repair desyncronization, you can insert gaps this way:
+# (it usually happens after vob id changes)
+#
+#	 delay: [sign]hh:mm:ss:ms
+#
+# Where:
+#	 [sign]: +, - (optional)
+#	 hh: hours (0 <= hh)
+#	 mm/ss: minutes/seconds (0 <= mm/ss <= 59)
+#	 ms: milliseconds (0 <= ms <= 999)
+#
+#	 Note: You can' t position a sub before the previous with a negative value.
+#
+# You can also modify timestamps or delete a few subs you don' t like.
+# Just make sure they stay in increasing order.
+
+
+# Settings
+
+# Original frame size
+size: 720x480
+
+# Origin, relative to the upper-left corner, can be overloaded by aligment
+org: 0, 0
+
+# Image scaling (hor,ver), origin is at the upper-left corner or at the alignment coord (x, y)
+scale: 100%, 100%
+# Alpha blending
+alpha: 100%
+
+# Smoothing for very blocky images (use OLD for no filtering)
+smooth: OFF
+
+# In millisecs
+fadein/out: 0, 0
+
+# Force subtitle placement relative to (org.x, org.y)
+
+align: OFF at LEFT TOP
+
+# for correcting non - progressive desync.(in millisecs or hh: mm: ss: ms)
+# Note: not effective in DirectVobSub, use "delay: ..." instead.
+time offset: 0
+
+# on: displays only forced subtitles, OFF: shows everything
+forced subs: OFF
+
+# The original palette of the DVD
+palette: 80807F, 008080, FF807F, 1D6BFF, 000000, 000000, 000000, 000000, 000000, 000000, 000000, 000000, 000000, 000000, 000000, 000000
+
+# Custom colors(transp idxs and the four colors)
+custom colors: ON, tridx: 1000, colors: 0000FF, FFFFFF, 000000, 808080
+
+# Language index in use
+langidx: 0
+
+# English
+id: en, index: 0
+# Decomment next line to activate alternative name in DirectVobSub / Windows Media Player 6.x
+# alt: English
+# Vob/Cell ID: 1, 1 (PTS: 0)
+timestamp: 00:00:00:500, filepos: 000000000
+timestamp: 00:00:02:300, filepos: 000000800
+timestamp: 00:00:06:200, filepos: 000001000
+timestamp: 00:00:09:300, filepos: 000001800
+timestamp: 00:00:14:300, filepos: 000002800

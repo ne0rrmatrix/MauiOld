@@ -33,15 +33,18 @@ public class MetaDataExtensions
 		{
 			return;
 		}
-
+		if (!string.IsNullOrEmpty(mediaElement.Title))
+		{
+			ManuallyUpdateMetaData();
+			return;
+		}
 		if (MediaElement.Source is UriMediaSource uriMediaSource)
 		{
 			if (uriMediaSource.Uri is null)
 			{
 				return;
 			}
-			//TODO: Need to test this to see if it works as expected. A video url with a file containing metadata with at least a title is required.
-            var file = await StorageFile.CreateStreamedFileFromUriAsync("video.mp4", uriMediaSource.Uri, null);
+		  var file = await StorageFile.CreateStreamedFileFromUriAsync("video.mp4", uriMediaSource.Uri, null);
 			await UpdateSystemMediaControlsDisplayAsync(file);
 		}
 
@@ -75,6 +78,10 @@ public class MetaDataExtensions
 	/// </summary>
 	void ManuallyUpdateMetaData()
 	{
+		if (mediaElement.SourceType == Primitives.MediaElementSourceType.Unknown)
+		{
+			return;
+		}
 		systemMediaControls.DisplayUpdater.Thumbnail = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromUri(new Uri(mediaElement.Artwork ?? string.Empty));
 		if (mediaElement.SourceType == Primitives.MediaElementSourceType.Video)
 		{

@@ -14,11 +14,11 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	const string loadHls = "Load HTTP Live Stream (HLS)";
 	const string loadLocalResource = "Load Local Resource";
 	const string resetSource = "Reset Source to null";
-
+	const string subTitle = "Load Video with Subtitles";
 	public MediaElementPage(MediaElementViewModel viewModel, ILogger<MediaElementPage> logger) : base(viewModel)
 	{
 		InitializeComponent();
-
+		
 		this.logger = logger;
 		MediaElement.PropertyChanged += MediaElement_PropertyChanged;
 	}
@@ -153,11 +153,14 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	async void ChangeSourceClicked(Object sender, EventArgs e)
 	{
 		var result = await DisplayActionSheet("Choose a source", "Cancel", null,
-			loadOnlineMp4, loadHls, loadLocalResource, resetSource);
+			loadOnlineMp4, loadHls, loadLocalResource, resetSource, subTitle);
 
 		switch (result)
 		{
 			case loadOnlineMp4:
+				MediaElement.Title = "Big Buck Bunny";
+				MediaElement.Genre = "Animation";
+				MediaElement.Artwork = "https://michellevella.com/cdn/shop/products/BeatlesLonelyHearts4UP_1728x.jpg?v=1660582971";
 				MediaElement.Source =
 					MediaSource.FromUri(
 						"https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4");
@@ -187,6 +190,11 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				{
 					MediaElement.Source = MediaSource.FromResource("WindowsVideo.mp4");
 				}
+				return;
+
+			case subTitle:
+				MediaElement.SrtFile = MediaSource.FromResource("WindowsVideo.srt");
+				MediaElement.Source = MediaSource.FromResource("WindowsVideo.mp4");
 				return;
 		}
 	}

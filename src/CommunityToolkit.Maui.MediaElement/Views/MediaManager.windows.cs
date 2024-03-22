@@ -1,7 +1,6 @@
 ﻿using System.Collections.Frozen;
 using CommunityToolkit.Maui.Core.Primitives;
 using CommunityToolkit.Maui.Extensions;
-using CommunityToolkit.Maui.Primitives;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml.Controls;
@@ -9,6 +8,7 @@ using Windows.Media;
 using Windows.Media.Playback;
 using Windows.Storage;
 using Windows.System.Display;
+using Image = Microsoft.UI.Xaml.Controls.Image;
 using WindowsMediaElement = Windows.Media.Playback.MediaPlayer;
 using WinMediaSource = Windows.Media.Core.MediaSource;
 
@@ -308,7 +308,8 @@ partial class MediaManager : IDisposable
 			var uri = uriMediaSource.Uri?.AbsoluteUri;
 			if (!string.IsNullOrWhiteSpace(uri))
 			{
-				Player.Source = WinMediaSource.CreateFromUri(new Uri(uri));
+				var mediaSource = WinMediaSource.CreateFromUri(new Uri(uri));
+				Player.Source = SubtitleExtensions.SetSubTitles(mediaSource, MediaElement);
 			}
 		}
 		else if (MediaElement.Source is FileMediaSource fileMediaSource)
@@ -317,7 +318,8 @@ partial class MediaManager : IDisposable
 			if (!string.IsNullOrWhiteSpace(filename))
 			{
 				StorageFile storageFile = await StorageFile.GetFileFromPathAsync(filename);
-				Player.Source = WinMediaSource.CreateFromStorageFile(storageFile);
+				var mediaSource = WinMediaSource.CreateFromStorageFile(storageFile);
+				Player.Source = SubtitleExtensions.SetSubTitles(mediaSource, MediaElement);
 			}
 		}
 		else if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
@@ -325,9 +327,13 @@ partial class MediaManager : IDisposable
 			string path = "ms-appx:///" + resourceMediaSource.Path;
 			if (!string.IsNullOrWhiteSpace(path))
 			{
-				Player.Source = WinMediaSource.CreateFromUri(new Uri(path));
+				var mediaSource = WinMediaSource.CreateFromUri(new Uri(path));
+				Player.Source = SubtitleExtensions.SetSubTitles(mediaSource, MediaElement);
 			}
 		}
+		MediaElement.SrtFile = null;
+		MediaElement.IdxFile = null;
+		MediaElement.SubFile = null;
 	}
 
 	protected virtual partial void PlatformUpdateShouldLoopPlayback()
