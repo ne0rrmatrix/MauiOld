@@ -5,7 +5,10 @@ using CommunityToolkit.Maui.Views;
 using CoreFoundation;
 using CoreMedia;
 using Foundation;
+using GameKit;
+using MediaPlayer;
 using Microsoft.Extensions.Logging;
+using UIKit;
 
 namespace CommunityToolkit.Maui.Core.Views;
 
@@ -103,6 +106,10 @@ public partial class MediaManager : IDisposable
 			Player.Volume = (float)MediaElement.Volume;
 		}
 
+		AVAudioSession avSession = AVAudioSession.SharedInstance();
+
+		avSession.SetCategory(AVAudioSessionCategory.Playback);
+		avSession.SetActive(true);
 		AddStatusObservers();
 		AddPlayedToEndObserver();
 		AddErrorObservers();
@@ -273,7 +280,11 @@ public partial class MediaManager : IDisposable
 		if (PlayerItem is not null && PlayerItem.Error is null)
 		{
 			MediaElement.MediaOpened();
-
+			MPNowPlayingInfo np = new();
+			if (asset is not null)
+			{
+				SetNowPlayingInfo(np);
+			}
 			if (MediaElement.ShouldAutoPlay)
 			{
 				Player?.Play();
@@ -283,6 +294,42 @@ public partial class MediaManager : IDisposable
 		{
 			MediaElement.CurrentStateChanged(MediaElementState.None);
 		}
+	}
+	void SetNowPlayingInfo(MPNowPlayingInfo np)
+	{
+		UIImage image = new UIImage(MediaElement.Artwork);
+		MPMediaItemArtwork artwork = new MPMediaItemArtwork(image);
+		// Pass song info to the lockscreen/control screen
+		
+		np.AlbumTitle = MediaElement.Album;
+		np.Artist = MediaElement.Artist;
+		np.Title = MediaElement.Title;
+		if (MediaElement.Artwork != null)
+		{
+			np.Artwork = artwork;
+		}
+		np.PlaybackDuration = MediaElement.Duration.TotalSeconds;
+		MPNowPlayingInfoCenter.DefaultCenter.NowPlaying = np;
+	}
+
+	/// <summary>
+	/// 
+	/// </summary>
+	/// <param name="theEvent"></param>
+	public void RemoteControlReceived(UIEvent theEvent)
+	{
+		MPNowPlayingInfo np = new MPNowPlayingInfo();
+		if (theEvent.Subtype == UIEventSubtype.RemoteControlPause)
+		{
+			Player?.Pause();
+		}
+		else if (theEvent.Subtype == UIEventSubtype.RemoteControlPlay)
+		{
+			Player?.Play();
+		}
+
+		np.ElapsedPlaybackTime = Player?.CurrentTime.Seconds;
+		SetNowPlayingInfo(np);
 	}
 
 	protected virtual partial void PlatformUpdateSpeed()
