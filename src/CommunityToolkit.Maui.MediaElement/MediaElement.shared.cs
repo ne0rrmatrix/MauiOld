@@ -131,16 +131,6 @@ public class MediaElement : View, IMediaElement, IDisposable
 	public static readonly BindableProperty ArtworkProperty = BindableProperty.Create(nameof(Artwork), typeof(string), typeof(MediaElement), string.Empty);
 
 	/// <summary>
-	/// Backing store for the <see cref="IdxFileProperty"/> property.
-	/// </summary>
-	public static readonly BindableProperty IdxFileProperty = BindableProperty.Create(nameof(IdxFile), typeof(MediaSource), typeof(MediaElement), null);
-	
-	/// <summary>
-	/// Backing store for the <see cref="SubFileProperty"/> property.
-	/// </summary>
-	public static readonly BindableProperty SubFileProperty = BindableProperty.Create(nameof(SubFile), typeof(MediaSource), typeof(MediaElement), null);
-	
-	/// <summary>
 	/// Backing store for the <see cref="SrtFileProperty"/> property.
 	/// </summary>
 	public static readonly BindableProperty SrtFileProperty = BindableProperty.Create(nameof(SrtFile), typeof(MediaSource), typeof(MediaElement), null);
@@ -440,24 +430,6 @@ public class MediaElement : View, IMediaElement, IDisposable
 	{
 		get => (MediaElementSourceType)GetValue(MediaElementSourceTypeProperty);
 		set => SetValue(MediaElementSourceTypeProperty, value);
-	}
-	
-	/// <summary>
-	/// Gets or sets the Subtitle(idx) file for the media.
-	/// </summary>
-	public MediaSource? IdxFile
-	{
-		get => (MediaSource)GetValue(IdxFileProperty);
-		set => SetValue(IdxFileProperty, value);
-	}
-
-	/// <summary>
-	/// Gets or sets the Subtitle(sub) file for the media.
-	/// </summary>
-	public MediaSource? SubFile
-	{
-		get => (MediaSource)GetValue(SubFileProperty);
-		set => SetValue(SubFileProperty, value);
 	}
 
 	/// <summary>

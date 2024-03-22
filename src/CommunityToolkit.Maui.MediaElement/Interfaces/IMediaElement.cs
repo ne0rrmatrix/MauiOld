@@ -123,16 +123,6 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	double Volume { get; set; }
 
 	/// <summary>
-	/// Gets or sets the index file for the media
-	/// </summary>
-	MediaSource? IdxFile { get; set; }
-
-	/// <summary>
-	/// Gets or sets the subtitle(sub) file for the media
-	/// </summary>
-	MediaSource? SubFile { get; set; }
-
-	/// <summary>
 	/// Gets or sets the subtitle(idx) file for the media
 	/// </summary>
 	MediaSource? SrtFile { get; set; }

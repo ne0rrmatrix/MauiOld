@@ -332,8 +332,6 @@ partial class MediaManager : IDisposable
 			}
 		}
 		MediaElement.SrtFile = null;
-		MediaElement.IdxFile = null;
-		MediaElement.SubFile = null;
 	}
 
 	protected virtual partial void PlatformUpdateShouldLoopPlayback()
