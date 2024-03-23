@@ -1,7 +1,6 @@
 ﻿using Android.Support.V4.Media.Session;
 using Android.Views;
 using Android.Widget;
-using AndroidX.CoordinatorLayout.Widget;
 using Com.Google.Android.Exoplayer2;
 using Com.Google.Android.Exoplayer2.Audio;
 using Com.Google.Android.Exoplayer2.Metadata;
@@ -10,6 +9,7 @@ using Com.Google.Android.Exoplayer2.Trackselection;
 using Com.Google.Android.Exoplayer2.UI;
 using Com.Google.Android.Exoplayer2.Video;
 using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Extensions;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
 
@@ -17,6 +17,8 @@ namespace CommunityToolkit.Maui.Core.Views;
 
 public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 {
+	//DONE: Implemented Subtitle support
+	//TODO: Add support for Metadata
 	//TODO: Implement MediaSessionCompat.MediaButtonReceiver
 	//TODO: Implement MediaSessionCompat.Callback
 
@@ -318,15 +320,15 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 
 		Player.PlayWhenReady = MediaElement.ShouldAutoPlay;
-
+		
 		if (MediaElement.Source is UriMediaSource uriMediaSource)
 		{
 			var uri = uriMediaSource.Uri;
 			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
-			{
-				Player.SetMediaItem(MediaItem.FromUri(uri.AbsoluteUri));
-				Player.Prepare();
-
+			{	
+					Player.SetMediaSource(SubtitleExtensions.SetSubtitles(MediaElement, uri.AbsoluteUri, string.Empty));
+					Player.Prepare();
+				
 				hasSetSource = true;
 			}
 		}
@@ -335,8 +337,8 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 			var filePath = fileMediaSource.Path;
 			if (!string.IsNullOrWhiteSpace(filePath))
 			{
-				Player.SetMediaItem(MediaItem.FromUri(filePath));
-				Player.Prepare();
+					Player.SetMediaSource(SubtitleExtensions.SetSubtitles(MediaElement, filePath, string.Empty));
+					Player.Prepare();
 
 				hasSetSource = true;
 			}
@@ -348,8 +350,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 			if (!string.IsNullOrWhiteSpace(path))
 			{
 				var assetFilePath = $"asset://{package}{Path.PathSeparator}{path}";
-
-				Player.SetMediaItem(MediaItem.FromUri(assetFilePath));
+				Player.SetMediaSource(SubtitleExtensions.SetSubtitles(MediaElement, assetFilePath, package));
 				Player.Prepare();
 
 				hasSetSource = true;
