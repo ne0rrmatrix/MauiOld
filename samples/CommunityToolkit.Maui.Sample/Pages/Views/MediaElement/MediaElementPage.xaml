@@ -33,6 +33,8 @@
                 WidthRequest="{OnIdiom Tablet=410, Default=380}"
                 ShouldAutoPlay="True"
                 Source="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+                Artwork="https://michaelethomas.com/wp-content/uploads/2020/06/Big-Buck-Bunny-Poster.jpg"
+                Title="Big Buck Bunny"
               MediaEnded="OnMediaEnded"
                 MediaFailed="OnMediaFailed"
                 MediaOpened="OnMediaOpened"
