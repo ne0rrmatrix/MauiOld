@@ -8,37 +8,68 @@ namespace CommunityToolkit.Maui.Extensions;
 /// <summary>
 /// A class that provides methods to update the system UI for media transport controls to display media metadata.
 /// </summary>
-public class MetaDataExtensions
+public partial class MetaDataExtensions
 {
-	IMediaElement mediaElement { get; set; }
-	readonly SystemMediaTransportControls systemMediaControls;
+	/// <summary>
+	/// The media player to which the metadata will be applied.
+	/// </summary>
+	protected IMediaElement? mediaElement { get; set; }
+
+	/// <summary>
+	/// The system media transport controls for the current app.
+	/// </summary>
+	public SystemMediaTransportControls? SystemMediaControls { get; set; }
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="MetaDataExtensions"/> class.
 	/// </summary>
-	public MetaDataExtensions(SystemMediaTransportControls systemMediaTransportControls, IMediaElement mediaElement)
+	public MetaDataExtensions(SystemMediaTransportControls systemMediaTransportControls, IMediaElement MediaElement)
 	{
-		this.systemMediaControls = systemMediaTransportControls;
-		this.mediaElement = mediaElement;
+		mediaElement = MediaElement;
+		SystemMediaControls = systemMediaTransportControls;
+		this.SystemMediaControls.ButtonPressed += SystemMediaControls_ButtonPressed;
+	}
+
+
+	void SystemMediaControls_ButtonPressed(SystemMediaTransportControls sender, SystemMediaTransportControlsButtonPressedEventArgs args)
+	{
+		if (mediaElement is null)
+		{
+			return;
+		}
+
+		if (args.Button == SystemMediaTransportControlsButton.Play)
+		{
+			MainThread.InvokeOnMainThreadAsync(() => mediaElement.Play());
+		}
+		else if (args.Button == SystemMediaTransportControlsButton.Pause)
+		{
+			MainThread.InvokeOnMainThreadAsync(() => mediaElement.Pause());
+		}
 	}
 
 	/// <summary>
 	/// Sets the metadata for the given MediaElement.
 	/// </summary>
-	public async Task SetMetaData(IMediaElement MediaElement)
+	public async Task SetMetaData(IMediaElement mp)
 	{
-		systemMediaControls.DisplayUpdater.ClearAll();
-		mediaElement = MediaElement;
-		if (mediaElement is null)
+		if (SystemMediaControls is null)
 		{
 			return;
 		}
-		if (!string.IsNullOrEmpty(mediaElement.Title))
+
+		mediaElement = mp;
+		SystemMediaControls.DisplayUpdater.ClearAll();
+		if (mp is null)
 		{
-			ManuallyUpdateMetaData();
 			return;
 		}
-		if (MediaElement.Source is UriMediaSource uriMediaSource)
+		if (!string.IsNullOrEmpty(mp.Title))
+		{
+			ManuallyUpdateMetaData(mp);
+			return;
+		}
+		if (mp.Source is UriMediaSource uriMediaSource)
 		{
 			if (uriMediaSource.Uri is null)
 			{
@@ -48,7 +79,7 @@ public class MetaDataExtensions
 			await UpdateSystemMediaControlsDisplayAsync(file);
 		}
 
-		if (MediaElement.Source is FileMediaSource fileMediaSource)
+		if (mp.Source is FileMediaSource fileMediaSource)
 		{
 			if (fileMediaSource.Path is null)
 			{
@@ -58,7 +89,7 @@ public class MetaDataExtensions
 			await UpdateSystemMediaControlsDisplayAsync(mediaFile);
 		}
 
-		if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
+		if (mp.Source is ResourceMediaSource resourceMediaSource)
 		{
 			if (resourceMediaSource.Path is null)
 			{
@@ -76,27 +107,35 @@ public class MetaDataExtensions
 	/// <summary>
 	/// Manually updates the system UI for media transport controls to display media metadata from the given MediaPlaybackType.
 	/// </summary>
-	void ManuallyUpdateMetaData()
+	void ManuallyUpdateMetaData(IMediaElement mp)
 	{
-		if (mediaElement.SourceType == Primitives.MediaElementSourceType.Unknown)
+		if (SystemMediaControls is null || mediaElement is null)
 		{
 			return;
 		}
-		systemMediaControls.DisplayUpdater.Thumbnail = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromUri(new Uri(mediaElement.Artwork ?? string.Empty));
-		if (mediaElement.SourceType == Primitives.MediaElementSourceType.Video)
+		if (mp.SourceType == Primitives.MediaElementSourceType.Unknown)
 		{
-			systemMediaControls.DisplayUpdater.Type = MediaPlaybackType.Video;
-			systemMediaControls.DisplayUpdater.VideoProperties.Title = mediaElement.Title;
+			return;
 		}
-		else if (mediaElement.SourceType == Primitives.MediaElementSourceType.Audio)
+
+		if (!string.IsNullOrEmpty(mp.Artwork))
 		{
-			systemMediaControls.DisplayUpdater.Type = MediaPlaybackType.Music;
-			systemMediaControls.DisplayUpdater.MusicProperties.AlbumTitle = mediaElement.Album;
-			systemMediaControls.DisplayUpdater.MusicProperties.Title = mediaElement.Title;
-			systemMediaControls.DisplayUpdater.MusicProperties.Artist = mediaElement.Artist;
-			systemMediaControls.DisplayUpdater.MusicProperties.AlbumArtist = mediaElement.AlbumArtist;
+			SystemMediaControls.DisplayUpdater.Thumbnail = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromUri(new Uri(mp.Artwork ?? string.Empty));
 		}
-		systemMediaControls.DisplayUpdater.Update();
+		if (mp.SourceType == Primitives.MediaElementSourceType.Video)
+		{
+			SystemMediaControls.DisplayUpdater.Type = MediaPlaybackType.Video;
+			SystemMediaControls.DisplayUpdater.VideoProperties.Title = mp.Title;
+		}
+		else if (mp.SourceType == Primitives.MediaElementSourceType.Audio)
+		{
+			SystemMediaControls.DisplayUpdater.Type = MediaPlaybackType.Music;
+			SystemMediaControls.DisplayUpdater.MusicProperties.AlbumTitle = mp.Album;
+			SystemMediaControls.DisplayUpdater.MusicProperties.Title = mp.Title;
+			SystemMediaControls.DisplayUpdater.MusicProperties.Artist = mp.Artist;
+			SystemMediaControls.DisplayUpdater.MusicProperties.AlbumArtist = mp.AlbumArtist;
+		}
+		SystemMediaControls.DisplayUpdater.Update();
 	}
 
 	/// <summary>
@@ -109,20 +148,22 @@ public class MetaDataExtensions
 	/// <returns></returns>
 	async Task UpdateSystemMediaControlsDisplayAsync(StorageFile mediaFile)
 	{
+		if (SystemMediaControls is null)
+		{
+			return;
+		}
 		MediaPlaybackType mediaType = GetMediaTypeFromFileContentType(mediaFile);
 		if (MediaPlaybackType.Unknown == mediaType)
 		{
-			ManuallyUpdateMetaData();
 			return;
 		}
 		try
 		{
-			await systemMediaControls.DisplayUpdater.CopyFromFileAsync(mediaType, mediaFile);
-			systemMediaControls.DisplayUpdater.Update();
+			await SystemMediaControls.DisplayUpdater.CopyFromFileAsync(mediaType, mediaFile);
+			SystemMediaControls.DisplayUpdater.Update();
 		}
 		catch
 		{
-			ManuallyUpdateMetaData();
 		}
 	}
 

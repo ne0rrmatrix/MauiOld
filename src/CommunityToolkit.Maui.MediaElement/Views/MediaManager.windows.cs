@@ -60,7 +60,6 @@ partial class MediaManager : IDisposable
 		Player.MediaPlayer.IsMutedChanged += OnMediaElementIsMutedChanged;
 
 		systemMediaControls = Player.MediaPlayer.SystemMediaTransportControls;
-		systemMediaControls.ButtonPressed += SystemMediaControls_ButtonPressed;
 		return Player;
 	}
 
@@ -71,32 +70,6 @@ partial class MediaManager : IDisposable
 	{
 		Dispose(true);
 		GC.SuppressFinalize(this);
-	}
-
-	void SystemMediaControls_ButtonPressed(SystemMediaTransportControls sender, SystemMediaTransportControlsButtonPressedEventArgs args)
-	{
-		if (args.Button == SystemMediaTransportControlsButton.Play)
-		{
-			if (Dispatcher.IsDispatchRequired)
-			{
-				Dispatcher.Dispatch(() => MediaElement.Play());
-			}
-			else
-			{
-				MediaElement.Play();
-			}
-		}
-		else if (args.Button == SystemMediaTransportControlsButton.Pause)
-		{
-			if (Dispatcher.IsDispatchRequired)
-			{
-				Dispatcher.Dispatch(() => MediaElement.Pause());
-			}
-			else
-			{
-				MediaElement.Pause();
-			}
-		}
 	}
 
 	protected virtual partial void PlatformPlay()

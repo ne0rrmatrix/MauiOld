@@ -1,8 +1,10 @@
-﻿using System.ComponentModel;
+﻿using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using AVFoundation;
 using AVKit;
 using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Extensions;
 using CommunityToolkit.Maui.Views;
 using CoreFoundation;
 using CoreMedia;
@@ -17,7 +19,8 @@ namespace CommunityToolkit.Maui.Core.Views;
 public partial class MediaManager : IDisposable
 {
 	//TODO: Implement Metadata for iOS and macOS
-	MPNowPlayingInfo? nowPlayingInfo;
+	MetaDataExtensions? MetaData { get; set; }
+
 	// Media would still start playing when Speed was set although ShouldAutoPlay=False
 	// This field was added to overcome that.
 	bool initialSpeedSet;
@@ -95,7 +98,6 @@ public partial class MediaManager : IDisposable
 	public (PlatformMediaElement Player, AVPlayerViewController PlayerViewController) CreatePlatformView()
 	{
 		Player = new();
-		nowPlayingInfo = new();
 		PlayerViewController = new()
 		{
 			Player = Player
@@ -113,31 +115,11 @@ public partial class MediaManager : IDisposable
 		{
 			UIApplication.SharedApplication.BeginReceivingRemoteControlEvents();
 		});
+		PlayerViewController.UpdatesNowPlayingInfoCenter = false;
 
-		AVAudioSession avSession = AVAudioSession.SharedInstance();
-		try
-		{
-			PlayerViewController.UpdatesNowPlayingInfoCenter = false;
-			PlayerViewController.AllowsPictureInPicturePlayback = true;
-			PlayerViewController.BecomeFirstResponder();
-			Player.UsesExternalPlaybackWhileExternalScreenIsActive = true;
-			Player.AllowsExternalPlayback = true;
-			avSession.SetCategory(AVAudioSessionCategory.Playback);
-			avSession.SetActive(true, out var activeError);
-			if (activeError is not null)
-			{
-				Logger.LogWarning("{logMessage}", $"Failed to set AVAudioSession category: {activeError.LocalizedDescription}");
-			}
-			else
-			{
-				Logger.LogInformation("{logMessage}", "Successfully set AVAudioSession category.");
-			}
-			AVAudioSession.Notifications.ObserveInterruption(ToneInterruptionListener);
-		}
-		catch (Exception e)
-		{
-			Logger.LogError(e, "{logMessage}", "Failed to set AVAudioSession category.");
-		}
+		var avSession = AVAudioSession.SharedInstance();
+		avSession.SetCategory(AVAudioSessionCategory.Playback);
+		avSession.SetActive(true);
 
 		AddStatusObservers();
 		AddPlayedToEndObserver();
@@ -146,26 +128,6 @@ public partial class MediaManager : IDisposable
 		return (Player, PlayerViewController);
 	}
 
-	/// <summary>
-	/// 
-	/// </summary>
-	/// <param name="sender"></param>
-	/// <param name="e"></param>
-	protected virtual async void ToneInterruptionListener(object? sender, AVAudioSessionInterruptionEventArgs e)
-	{
-		switch (e.InterruptionType)
-		{
-			case AVAudioSessionInterruptionType.Began:
-				MediaElement.Pause();
-				break;
-			case AVAudioSessionInterruptionType.Ended:
-				if (e.Option == AVAudioSessionInterruptionOptions.ShouldResume)
-				{
-					MediaElement.Play();
-				}
-				break;
-		}
-	}
 	/// <summary>
 	/// Releases the managed and unmanaged resources used by the <see cref="MediaManager"/>.
 	/// </summary>
@@ -261,15 +223,21 @@ public partial class MediaManager : IDisposable
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 
 		AVAsset? asset = null;
-		ClearNowPlaying();
+		if (Player is null)
+		{
+			return;
+		}
+
+		MetaData ??= new(MediaElement, Player);		
+		MetaData.ClearNowPlaying();
 
 		if (MediaElement.Source is UriMediaSource uriMediaSource)
 		{
 			var uri = uriMediaSource.Uri;
-
 			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
 			{
 				asset = AVAsset.FromUrl(new NSUrl(uri.AbsoluteUri));
+				Task.Run(() => MetaData.SetMetaDataFromUrl(uri.AbsoluteUri));
 			}
 		}
 		else if (MediaElement.Source is FileMediaSource fileMediaSource)
@@ -279,6 +247,7 @@ public partial class MediaManager : IDisposable
 			if (!string.IsNullOrWhiteSpace(uri))
 			{
 				asset = AVAsset.FromUrl(NSUrl.CreateFileUrl(uri));
+				MetaData.SetMetaDataFromFile(uri);
 			}
 		}
 		else if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
@@ -294,14 +263,13 @@ public partial class MediaManager : IDisposable
 					extension, directory);
 
 				asset = AVAsset.FromUrl(url);
+				MetaData.SetMetaDataFromFile(path);
 			}
 		}
 
 		if (asset is not null)
 		{
 			PlayerItem = new AVPlayerItem(asset);
-			ClearNowPlaying();
-			SetMetaDataFromFile(asset);
 		}
 		else
 		{
@@ -344,156 +312,8 @@ public partial class MediaManager : IDisposable
 		}
 	}
 
-	void SetMetaDataFromFile(AVAsset asset)
-	{
-		var metadata = asset.Metadata;
-		if (nowPlayingInfo is null)
-		{
-			nowPlayingInfo = new();
-		}
-		foreach (var item in metadata)
-		{
-			if (item.CommonKey == "title")
-			{
-				nowPlayingInfo.Title = item.Value?.ToString() ?? string.Empty;
-			}
-			else if (item.CommonKey == "artist")
-			{
-				nowPlayingInfo.Artist = item.Value?.ToString() ?? string.Empty;
-			}
-			else if (item.CommonKey == "albumName")
-			{
-				nowPlayingInfo.AlbumTitle = item.Value?.ToString() ?? string.Empty;
-			}
-			else if (item.CommonKey == "artwork")
-			{
-				MPMediaItemArtwork? result = GetArtwork(item.Value?.ToString());
-				if (result is not null)
-				{
-					nowPlayingInfo.Artwork = result;
-				}
-			}
-			SetMetaDataFromMediaElement();
-		}
-
-	}
-	void ClearNowPlaying()
-	{
-		if (nowPlayingInfo is null)
-		{
-			nowPlayingInfo = new();
-		}
-		nowPlayingInfo.AlbumTitle = string.Empty;
-		nowPlayingInfo.Title = string.Empty;
-		nowPlayingInfo.Artist = string.Empty;
-		nowPlayingInfo.AlbumTitle = string.Empty;
-		nowPlayingInfo.PlaybackDuration = 0;
-		nowPlayingInfo.IsLiveStream = false;
-		nowPlayingInfo.PlaybackRate = 0;
-		nowPlayingInfo.ElapsedPlaybackTime = 0;
-		nowPlayingInfo.Artwork = new MPMediaItemArtwork(new UIImage());
-		MPNowPlayingInfoCenter.DefaultCenter.NowPlaying = nowPlayingInfo;
-	}
-	void SetMetaDataFromMediaElement()
-	{
-		if (nowPlayingInfo is null)
-		{
-			nowPlayingInfo = new();
-		}
-
-		nowPlayingInfo.AlbumTitle = MediaElement.Album;
-		nowPlayingInfo.Title = MediaElement.Title;
-		nowPlayingInfo.Artist = MediaElement.Artist;
-		nowPlayingInfo.AlbumTitle = MediaElement.Album;
-		nowPlayingInfo.PlaybackDuration = PlayerItem?.Duration.Seconds ?? 0;
-		nowPlayingInfo.IsLiveStream = false;
-		nowPlayingInfo.PlaybackRate = (float)MediaElement.Speed;
-		nowPlayingInfo.ElapsedPlaybackTime = PlayerItem?.CurrentTime.Seconds ?? 0;
-		MPMediaItemArtwork? artwork = GetArtwork(MediaElement.Artwork);
-		if (artwork is not null)
-		{
-			nowPlayingInfo.Artwork = artwork;
-		}
-		else
-		{
-			nowPlayingInfo.Artwork = new MPMediaItemArtwork(new UIImage());
-		}
-		MPNowPlayingInfoCenter.DefaultCenter.NowPlaying = nowPlayingInfo;
-	}
-	MPMediaItemArtwork? GetArtwork(string? ImageUri)
-	{
-		if (!string.IsNullOrWhiteSpace(ImageUri))
-		{
-			UIImage? image = GetImage(ImageUri);
-			return new MPMediaItemArtwork(image ?? new UIImage());
-		}
-		return null;
-	}
-	UIImage? GetImage(string? ImageUri)
-	{
-		object? image = null;
-		try
-		{
-			if (!string.IsNullOrEmpty(ImageUri))
-			{
-				if (ImageUri.StartsWith("http", StringComparison.CurrentCulture))
-				{
-					image = UIImage.LoadFromData(NSData.FromUrl(new NSUrl(ImageUri)));
-				}
-				else
-				{
-					if (UIDevice.CurrentDevice.CheckSystemVersion(9, 0))
-					{
-						image = UIImage.FromBundle(ImageUri);
-					}
-				}
-			}
-			return image as UIImage;
-		}
-		catch (Exception ex)
-		{
-			Debug.WriteLine(ex.Message);
-		}
-		return null;
-	}
-
-	/// <summary>
-	/// 
-	/// </summary>
-	/// <param name="receivedEvent"></param>
-	public void RemoteControlReceived(UIEvent? receivedEvent)
-	{
-		if (receivedEvent?.Type == UIEventType.RemoteControl)
-		{
-			switch (receivedEvent.Subtype)
-			{
-				case UIEventSubtype.RemoteControlPlay:
-					Debug.WriteLine("RemoteControlPlay: Play");
-					Player?.Play();
-					break;
-				case UIEventSubtype.RemoteControlPause:
-					Debug.WriteLine("RemoteControlPause: Pause");
-					Player?.Pause();
-					break;
-				case UIEventSubtype.RemoteControlStop:
-					Player?.Pause();
-					break;
-
-				case UIEventSubtype.RemoteControlTogglePlayPause:
-					if (MediaElement.CurrentState == MediaElementState.Playing)
-					{
-						Debug.WriteLine("RemoteControlTogglePlayPause: Pause");
-						Player?.Pause();
-					}
-					else
-					{
-						Debug.WriteLine("RemoteControlTogglePlayPause: Play");
-						Player?.Play();
-					}
-					break;
-			}
-		}
-	}
+	
+	
 	protected virtual partial void PlatformUpdateSpeed()
 	{
 		if (PlayerViewController?.Player is null)
@@ -595,11 +415,12 @@ public partial class MediaManager : IDisposable
 
 	protected virtual async partial Task PlatformUpdateMetaData()
 	{
-		if (nowPlayingInfo is null)
+		if (PlayerItem is null)
 		{
-			nowPlayingInfo = new();
+			MetaData?.ClearNowPlaying();
+			return;
 		}
-		SetMetaDataFromMediaElement();
+		MetaData?.SetMetaDataFromMediaElement(PlayerItem, MediaElement);
 	}
 
 	/// <summary>
@@ -752,14 +573,13 @@ public partial class MediaManager : IDisposable
 				newState = MediaElementState.Buffering;
 				break;
 		}
-		if (nowPlayingInfo is null)
+		if (MetaData is not null)
 		{
-			nowPlayingInfo = new();
+			MetaData.NowPlayingInfo.PlaybackRate = (float)MediaElement.Speed;
+			MetaData.NowPlayingInfo.ElapsedPlaybackTime = PlayerItem?.CurrentTime.Seconds ?? 0;
+			MetaData.NowPlayingInfo.PlaybackDuration = PlayerItem?.Duration.Seconds ?? 0;
+			MPNowPlayingInfoCenter.DefaultCenter.NowPlaying = MetaData.NowPlayingInfo;
 		}
-		nowPlayingInfo.PlaybackRate = (float)MediaElement.Speed;
-		nowPlayingInfo.ElapsedPlaybackTime = PlayerItem?.CurrentTime.Seconds ?? 0;
-		nowPlayingInfo.PlaybackDuration = PlayerItem?.Duration.Seconds ?? 0;
-		MPNowPlayingInfoCenter.DefaultCenter.NowPlaying = nowPlayingInfo;
 
 		MediaElement.CurrentStateChanged(newState);
 	}
@@ -821,6 +641,11 @@ public partial class MediaManager : IDisposable
 		if (!AreFloatingPointNumbersEqual(MediaElement.Speed, Player.Rate))
 		{
 			MediaElement.Speed = Player.Rate;
+			if (MetaData is not null)
+			{
+				MetaData.NowPlayingInfo.PlaybackRate = (float)MediaElement.Speed;
+				MPNowPlayingInfoCenter.DefaultCenter.NowPlaying = MetaData.NowPlayingInfo;
+			}
 		}
 	}
 }

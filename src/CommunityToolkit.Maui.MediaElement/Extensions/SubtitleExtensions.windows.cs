@@ -12,7 +12,7 @@ namespace CommunityToolkit.Maui.Extensions;
 public static class SubtitleExtensions
 {
 	/// <summary>
-	/// 
+	/// Initializes a new instance of the <see cref="SubtitleExtensions"/> class.
 	/// </summary>
 	/// <param name="mediaSource"></param>
 	/// <param name="MediaElement"></param>

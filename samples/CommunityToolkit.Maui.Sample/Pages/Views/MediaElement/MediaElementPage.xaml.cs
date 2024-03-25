@@ -167,16 +167,21 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case loadHls:
+				MediaElement.Title = string.Empty;
 				MediaElement.Source
 					= MediaSource.FromUri(
 						"https://mtoczko.github.io/hls-test-streams/test-gap/playlist.m3u8");
 				return;
 
 			case resetSource:
+				MediaElement.Artwork = string.Empty;
+				MediaElement.Title = string.Empty;
 				MediaElement.Source = null;
 				return;
 
 			case loadLocalResource:
+				MediaElement.Artwork = string.Empty;
+				MediaElement.Title = string.Empty;
 				if (DeviceInfo.Platform == DevicePlatform.MacCatalyst
 					|| DeviceInfo.Platform == DevicePlatform.iOS)
 				{

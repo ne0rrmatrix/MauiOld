@@ -50,7 +50,7 @@ public  static class SubtitleExtensions
 		var httpDataSourceFactory = new DefaultHttpDataSource.Factory();
 
 		var dataSourceFactory = new DefaultDataSourceFactory(Platform.CurrentActivity, Util.GetUserAgent(Platform.CurrentActivity, "CommunityToolkit.Maui.Sample"));
-		MediaItem.Subtitle subtitle = new MediaItem.Subtitle(subtitleUri, MimeTypes.ApplicationSubrip, "en", C.SelectionFlagDefault);
+		MediaItem.Subtitle subtitle = new(subtitleUri, MimeTypes.ApplicationSubrip, "en", C.SelectionFlagDefault);
 		
 		var subtitleSource = new SingleSampleMediaSource.Factory(httpDataSourceFactory).CreateMediaSource(subtitle, Int32.MaxValue);
 		var mediaSource = new DefaultMediaSourceFactory(httpDataSourceFactory).CreateMediaSource(MediaItem.FromUri(mediaUrl));
