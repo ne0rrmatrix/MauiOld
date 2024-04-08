@@ -3,6 +3,7 @@ using CommunityToolkit.Maui.Core.Primitives;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml.Controls;
+using Windows.Media;
 using Windows.Media.Playback;
 using Windows.Storage;
 using Windows.System.Display;
@@ -52,6 +53,20 @@ partial class MediaManager : IDisposable
 		Player.MediaPlayer.MediaEnded += OnMediaElementMediaEnded;
 		Player.MediaPlayer.VolumeChanged += OnMediaElementVolumeChanged;
 		Player.MediaPlayer.IsMutedChanged += OnMediaElementIsMutedChanged;
+		Player.TransportControls.IsPreviousTrackButtonVisible = true;
+		Player.TransportControls.IsNextTrackButtonVisible = true;
+		Player.TransportControls.IsSkipForwardEnabled = true;
+		Player.TransportControls.IsSkipBackwardEnabled = true;
+		Player.TransportControls.IsSkipBackwardButtonVisible = true;
+		Player.TransportControls.IsSkipForwardButtonVisible = true;
+		Player.TransportControls.IsPlaybackRateEnabled = true;
+		Player.TransportControls.IsZoomButtonVisible = true;
+		Player.TransportControls.IsZoomEnabled = true;
+		Player.TransportControls.IsSeekBarVisible = true;
+		Player.TransportControls.IsSeekEnabled = true;
+		Player.TransportControls.IsVolumeButtonVisible = true;
+		Player.TransportControls.IsVolumeEnabled = true;
+
 
 		return Player;
 	}
@@ -246,7 +261,10 @@ partial class MediaManager : IDisposable
 		{
 			return;
 		}
-
+		if (MediaElement.Sources.Count > 0)
+		{
+			return;
+		}
 		if (MediaElement.Source is null)
 		{
 			Player.Source = null;
@@ -325,6 +343,50 @@ partial class MediaManager : IDisposable
 				}
 			}
 		}
+	}
+
+	protected virtual async partial void PlatformAddSourcesToPlayer()
+	{
+		if (Player is null)
+		{
+			return;
+		}
+		MediaElement.Stop();
+		MediaElement.Position = TimeSpan.Zero;
+		MediaElement.Duration = TimeSpan.Zero;
+		Player.AutoPlay = MediaElement.ShouldAutoPlay;
+		MediaPlaybackList playbackList = new();
+
+		foreach (var item in MediaElement.Sources)
+		{
+
+			if (item is UriMediaSource uriMediaSource)
+			{
+				var uri = uriMediaSource.Uri?.AbsoluteUri;
+				if (!string.IsNullOrWhiteSpace(uri))
+				{
+					playbackList.Items.Add(new MediaPlaybackItem(WinMediaSource.CreateFromUri(new Uri(uri))));
+				}
+			}
+			else if (item is FileMediaSource fileMediaSource)
+			{
+				var filename = fileMediaSource.Path;
+				if (!string.IsNullOrWhiteSpace(filename))
+				{
+					StorageFile storageFile = await StorageFile.GetFileFromPathAsync(filename);
+					playbackList.Items.Add(new MediaPlaybackItem(WinMediaSource.CreateFromStorageFile(storageFile)));
+				}
+			}
+			else if (item is ResourceMediaSource resourceMediaSource)
+			{
+				string path = "ms-appx:///" + resourceMediaSource.Path;
+				if (!string.IsNullOrWhiteSpace(path))
+				{
+					playbackList.Items.Add(new MediaPlaybackItem(WinMediaSource.CreateFromUri(new Uri(path))));
+				}
+			}
+		}
+		Player.Source = playbackList;
 	}
 
 	void OnMediaElementMediaOpened(WindowsMediaElement sender, object args)

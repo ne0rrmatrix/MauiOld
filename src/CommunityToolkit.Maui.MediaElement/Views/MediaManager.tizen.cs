@@ -287,6 +287,11 @@ public partial class MediaManager : IDisposable
 
 	}
 
+	protected virtual partial void PlatformAddSourcesToPlayer()
+	{
+
+	}
+
 	/// <summary>
 	/// Releases the unmanaged resources used by the <see cref="MediaManager"/> and optionally releases the managed resources.
 	/// </summary>

@@ -174,6 +174,14 @@ public partial class MediaManager
 	}
 
 	/// <summary>
+	/// Add the media sources to the player.
+	/// </summary>
+	public void AddSourcesToPlayer()
+	{
+		PlatformAddSourcesToPlayer();
+	}
+
+	/// <summary>
 	/// Invokes the platform play functionality and starts media playback.
 	/// </summary>
 	protected virtual partial void PlatformPlay();
@@ -242,6 +250,11 @@ public partial class MediaManager
 	protected virtual partial void PlatformUpdateVolume();
 
 	static bool AreFloatingPointNumbersEqual(in double number1, in double number2, double tolerance = 0.01) => Math.Abs(number1 - number2) > tolerance;
+
+	/// <summary>
+	/// Invokes the platform functionality to add the media sources to the player.
+	/// </summary>
+	protected virtual partial void PlatformAddSourcesToPlayer();
 }
 
 #if !(WINDOWS || ANDROID || IOS || MACCATALYST || TIZEN)
@@ -264,5 +277,6 @@ partial class MediaManager
 	protected virtual partial void PlatformUpdateShouldKeepScreenOn() { }
 	protected virtual partial void PlatformUpdateShouldMute() { }
 	protected virtual partial void PlatformUpdateShouldLoopPlayback() { }
+	protected virtual partial void PlatformAddSourcesToPlayer() { }
 }
 #endif

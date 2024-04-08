@@ -382,6 +382,11 @@ public partial class MediaManager : IDisposable
 		// no-op we loop through using the PlayedToEndObserver
 	}
 
+	protected virtual partial void PlatformAddSourcesToPlayer()
+	{
+
+	}
+
 	/// <summary>
 	/// Releases the unmanaged resources used by the <see cref="MediaManager"/> and optionally releases the managed resources.
 	/// </summary>

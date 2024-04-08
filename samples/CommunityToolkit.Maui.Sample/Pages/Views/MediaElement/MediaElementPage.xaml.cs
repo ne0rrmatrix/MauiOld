@@ -14,6 +14,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	const string loadHls = "Load HTTP Live Stream (HLS)";
 	const string loadLocalResource = "Load Local Resource";
 	const string resetSource = "Reset Source to null";
+	const string loadPlaylist = "Load Playlist";
 
 	public MediaElementPage(MediaElementViewModel viewModel, ILogger<MediaElementPage> logger) : base(viewModel)
 	{
@@ -154,7 +155,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	async void ChangeSourceClicked(Object sender, EventArgs e)
 	{
 		var result = await DisplayActionSheet("Choose a source", "Cancel", null,
-			loadOnlineMp4, loadHls, loadLocalResource, resetSource);
+			loadOnlineMp4, loadHls, loadLocalResource, resetSource, loadPlaylist);
 
 		switch (result)
 		{
@@ -188,6 +189,15 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				{
 					MediaElement.Source = MediaSource.FromResource("WindowsVideo.mp4");
 				}
+				return;
+			case loadPlaylist:
+				MediaElement.Sources.Add(MediaSource.FromUri("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"));
+				MediaElement.Sources.Add(MediaSource.FromUri("https://mtoczko.github.io/hls-test-streams/test-gap/playlist.m3u8"));
+				MediaElement.Sources.Add(MediaSource.FromUri("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"));
+				MediaElement.Sources.Add(MediaSource.FromUri("https://mtoczko.github.io/hls-test-streams/test-gap/playlist.m3u8"));
+				MediaElement.Sources.Add(MediaSource.FromUri("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"));
+				MediaElement.Sources.Add(MediaSource.FromUri("https://mtoczko.github.io/hls-test-streams/test-gap/playlist.m3u8"));
+				MediaElement.AddSourcesToPlayer();
 				return;
 		}
 	}

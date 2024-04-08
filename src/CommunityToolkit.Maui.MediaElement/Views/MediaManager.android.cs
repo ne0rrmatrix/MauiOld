@@ -359,6 +359,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		}
 	}
 
+	
 	protected virtual partial void PlatformUpdateAspect()
 	{
 		if (PlayerView is null)
@@ -483,6 +484,11 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		}
 
 		Player.RepeatMode = MediaElement.ShouldLoopPlayback ? IPlayer.RepeatModeOne : IPlayer.RepeatModeOff;
+	}
+
+	protected virtual partial void PlatformAddSourcesToPlayer()
+	{
+
 	}
 
 	#region IPlayer.IListener implementation method stubs

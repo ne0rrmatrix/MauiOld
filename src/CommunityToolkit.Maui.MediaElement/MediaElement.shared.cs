@@ -75,6 +75,12 @@ public class MediaElement : View, IMediaElement, IDisposable
 			propertyChanging: OnSourcePropertyChanging, propertyChanged: OnSourcePropertyChanged);
 
 	/// <summary>
+	/// Backing store for the <see cref="Sources"/> property.
+	/// </summary>
+	public static readonly BindableProperty SourcesProperty =
+		BindableProperty.Create(nameof(Sources), typeof(List<MediaSource?>), typeof(MediaElement), new List<MediaSource?>(),
+			propertyChanging: OnSourcesPropertyChanging, propertyChanged: OnSourcesPropertyChanged);
+	/// <summary>
 	/// Backing store for the <see cref="Speed"/> property.
 	/// </summary>
 	public static readonly BindableProperty SpeedProperty =
@@ -184,6 +190,12 @@ public class MediaElement : View, IMediaElement, IDisposable
 		remove => eventManager.RemoveEventHandler(value);
 	}
 
+	internal event EventHandler AddSourcesToPlayerRequested
+	{
+		add => eventManager.AddEventHandler(value);
+		remove => eventManager.RemoveEventHandler(value);
+	}
+
 	/// <summary>
 	/// Finalizer
 	/// </summary>
@@ -264,6 +276,16 @@ public class MediaElement : View, IMediaElement, IDisposable
 	{
 		get => (MediaSource)GetValue(SourceProperty);
 		set => SetValue(SourceProperty, value);
+	}
+
+	/// <summary>
+	/// Gets or sets the sources of the media to play.
+	/// This is a bindable property.
+	/// </summary>
+	public List<MediaSource?> Sources
+	{
+		get => (List<MediaSource?>)GetValue(SourcesProperty);
+		set => SetValue(SourcesProperty, value);
 	}
 
 	/// <summary>
@@ -405,6 +427,13 @@ public class MediaElement : View, IMediaElement, IDisposable
 		Handler?.Invoke(nameof(StopRequested));
 	}
 
+	/// <inheritdoc cref="IMediaElement.AddSourcesToPlayer"/>
+	public void AddSourcesToPlayer()
+	{
+		OnAddSourcesToPlayerRequested();
+		Handler?.Invoke(nameof(AddSourcesToPlayerRequested));
+	}
+
 	internal void OnMediaEnded()
 	{
 		CurrentState = MediaElementState.Stopped;
@@ -456,8 +485,14 @@ public class MediaElement : View, IMediaElement, IDisposable
 	static void OnSourcePropertyChanged(BindableObject bindable, object oldValue, object newValue) =>
 		((MediaElement)bindable).OnSourcePropertyChanged((MediaSource?)newValue);
 
+	static void OnSourcesPropertyChanged(BindableObject bindable, object oldValue, object newValue) =>
+		((MediaElement)bindable).OnSourcesPropertyChanged((List<MediaSource?>)newValue);
+
 	static void OnSourcePropertyChanging(BindableObject bindable, object oldValue, object newValue) =>
 		((MediaElement)bindable).OnSourcePropertyChanging((MediaSource?)oldValue);
+
+	static void OnSourcesPropertyChanging(BindableObject bindable, object oldValue, object newValue) =>
+		((MediaElement)bindable).OnSourcesPropertyChanging((List<MediaSource?>)oldValue);
 
 	static void OnCurrentStatePropertyChanged(BindableObject bindable, object oldValue, object newValue)
 	{
@@ -515,7 +550,13 @@ public class MediaElement : View, IMediaElement, IDisposable
 		OnPropertyChanged(SourceProperty.PropertyName);
 		InvalidateMeasure();
 	}
+	void OnSourcesChanged(object? sender, EventArgs eventArgs)
+	{
+		OnPropertyChanged(SourcesProperty.PropertyName);
+		InvalidateMeasure();
+	}
 
+	
 	void OnSourcePropertyChanged(MediaSource? newValue)
 	{
 		ClearTimer();
@@ -530,6 +571,26 @@ public class MediaElement : View, IMediaElement, IDisposable
 		InitializeTimer();
 	}
 
+	void OnSourcesPropertyChanged(List<MediaSource?> newValue)
+	{
+		ClearTimer();
+
+		if (newValue is not null)
+		{
+			foreach (var source in newValue)
+			{
+				if (source is not null)
+				{
+					source.SourceChanged += OnSourcesChanged;
+					SetInheritedBindingContext(source, BindingContext);
+				}
+			}
+		}
+
+		InvalidateMeasure();
+		InitializeTimer();
+	}
+
 	void OnSourcePropertyChanging(MediaSource? oldValue)
 	{
 		if (oldValue is null)
@@ -538,6 +599,22 @@ public class MediaElement : View, IMediaElement, IDisposable
 		}
 
 		oldValue.SourceChanged -= OnSourceChanged;
+	}
+
+	void OnSourcesPropertyChanging(List<MediaSource?> oldValue)
+	{
+		if (oldValue is null)
+		{
+			return;
+		}
+
+		foreach (var source in oldValue)
+		{
+			if (source is not null)
+			{
+				source.SourceChanged -= OnSourcesChanged;
+			}
+		}
 	}
 
 	void IMediaElement.MediaEnded()
@@ -579,4 +656,6 @@ public class MediaElement : View, IMediaElement, IDisposable
 	void OnPositionRequested() => eventManager.HandleEvent(this, EventArgs.Empty, nameof(PositionRequested));
 
 	void OnUpdateStatus() => eventManager.HandleEvent(this, EventArgs.Empty, nameof(StatusUpdated));
+
+	void OnAddSourcesToPlayerRequested() => eventManager.HandleEvent(this, EventArgs.Empty, nameof(AddSourcesToPlayerRequested));
 }

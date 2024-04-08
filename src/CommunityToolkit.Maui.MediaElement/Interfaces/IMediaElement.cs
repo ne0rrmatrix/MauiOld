@@ -74,6 +74,10 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	MediaSource? Source { get; set; }
 
 	/// <summary>
+	/// Gets or sets the sources of the media to play.
+	/// </summary>
+	List<MediaSource?> Sources { get; set; }
+	/// <summary>
 	/// Gets or sets the speed with which the media should be played.
 	/// </summary>
 	/// <remarks>A value of 1 means normal speed.
@@ -122,6 +126,11 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	/// Starts playing the loaded media.
 	/// </summary>
 	void Play();
+
+	/// <summary>
+	/// Adds the <see cref="Sources"/> to the player.
+	/// </summary>
+	void AddSourcesToPlayer();
 
 	/// <summary>
 	/// Seek to a specific position in the currently playing media.

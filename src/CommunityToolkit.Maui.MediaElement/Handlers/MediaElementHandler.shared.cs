@@ -42,7 +42,8 @@ public partial class MediaElementHandler
 		[nameof(MediaElement.PlayRequested)] = MapPlayRequested,
 		[nameof(MediaElement.PauseRequested)] = MapPauseRequested,
 		[nameof(MediaElement.SeekRequested)] = MapSeekRequested,
-		[nameof(MediaElement.StopRequested)] = MapStopRequested
+		[nameof(MediaElement.StopRequested)] = MapStopRequested,
+		[nameof(MediaElement.AddSourcesToPlayerRequested)] = MapAddSourcesToPlayerRequested
 	};
 
 	/// <summary>
@@ -205,6 +206,17 @@ public partial class MediaElementHandler
 	public static void MapStopRequested(MediaElementHandler handler, MediaElement mediaElement, object? args)
 	{
 		handler.mediaManager?.Stop();
+	}
+
+	/// <summary>
+	/// Maps the operation request between the abstract <see cref="MediaElement"/> and platform counterpart.
+	/// </summary>
+	/// <param name="handler"></param>
+	/// <param name="mediaElement"></param>
+	/// <param name="args"></param>
+	public static void MapAddSourcesToPlayerRequested(MediaElementHandler handler, MediaElement mediaElement, object? args)
+	{
+		handler.mediaManager?.AddSourcesToPlayer();
 	}
 
 	/// <summary>
