@@ -16,8 +16,10 @@ namespace CommunityToolkit.Maui.Core.Views;
 
 public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 {
+	public static event EventHandler<StyledPlayerView>? AndroidSurfaceCreated;
 	readonly SemaphoreSlim seekToSemaphoreSlim = new(1, 1);
-
+	TextureView? textureView;
+	SurfaceView? surfaceView;
 	double? previousSpeed;
 	float volumeBeforeMute = 1;
 	TaskCompletionSource? seekToTaskCompletionSource;
@@ -48,6 +50,11 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		};
 
 		return (Player, PlayerView);
+	}
+
+	protected virtual void OnSurfaceCreated(StyledPlayerView styledPlayerView)
+	{
+		AndroidSurfaceCreated?.Invoke(null, styledPlayerView);
 	}
 
 	/// <summary>
@@ -312,8 +319,8 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		}
 
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
-
 		Player.PlayWhenReady = MediaElement.ShouldAutoPlay;
+		SetPlayerSurface();
 
 		if (MediaElement.Source is UriMediaSource uriMediaSource)
 		{
@@ -358,6 +365,62 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		}
 	}
 
+	void SetPlayerSurface()
+	{
+		if (Player is null)
+		{
+			return;
+		}
+
+		if (MediaElement.AndroidSurface == AndroidSurfaceType.TextureView)
+		{
+			textureView = new TextureView(Platform.AppContext);
+			Player.SetVideoTextureView(textureView);
+		}
+
+		else
+		{
+			surfaceView = new SurfaceView(Platform.AppContext);
+			Player.SetVideoSurfaceView(surfaceView);
+		}
+
+		PlayerView = new StyledPlayerView(MauiContext.Context)
+		{
+			Player = Player,
+			UseController = MediaElement.ShouldShowPlaybackControls,
+			ControllerAutoShow = MediaElement.ShouldShowPlaybackControls,
+			LayoutParameters = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)
+		};
+
+		PlayerView.SetBackgroundColor(HextoARGB(MediaElement.AndroidColorHEX));
+		AndroidSurfaceCreated?.Invoke(null, PlayerView);
+	}
+
+	static Android.Graphics.Color HextoARGB(string hex)
+	{
+		hex = hex.Replace("#", "");
+		int a = 255; // Default alpha value
+		int r = 0, g = 0, b = 0;
+
+		if (hex.Length == 8)
+		{
+			a = int.Parse(hex.Substring(0, 2), System.Globalization.NumberStyles.HexNumber);
+			r = int.Parse(hex.Substring(2, 2), System.Globalization.NumberStyles.HexNumber);
+			g = int.Parse(hex.Substring(4, 2), System.Globalization.NumberStyles.HexNumber);
+			b = int.Parse(hex.Substring(6, 2), System.Globalization.NumberStyles.HexNumber);
+		}
+		else if (hex.Length == 6)
+		{
+			r = int.Parse(hex.Substring(0, 2), System.Globalization.NumberStyles.HexNumber);
+			g = int.Parse(hex.Substring(2, 2), System.Globalization.NumberStyles.HexNumber);
+			b = int.Parse(hex.Substring(4, 2), System.Globalization.NumberStyles.HexNumber);
+		}
+		else
+		{
+			throw new ArgumentException("Invalid hex string length.");
+		}
+		return Android.Graphics.Color.Argb(a, r, g, b);
+	}
 	protected virtual partial void PlatformUpdateAspect()
 	{
 		if (PlayerView is null)

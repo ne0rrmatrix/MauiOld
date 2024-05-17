@@ -14,6 +14,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	const string loadHls = "Load HTTP Live Stream (HLS)";
 	const string loadLocalResource = "Load Local Resource";
 	const string resetSource = "Reset Source to null";
+	const string textureView = "TextureView";
 
 	public MediaElementPage(MediaElementViewModel viewModel, ILogger<MediaElementPage> logger) : base(viewModel)
 	{
@@ -154,7 +155,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	async void ChangeSourceClicked(Object sender, EventArgs e)
 	{
 		var result = await DisplayActionSheet("Choose a source", "Cancel", null,
-			loadOnlineMp4, loadHls, loadLocalResource, resetSource);
+			loadOnlineMp4, loadHls, loadLocalResource, resetSource, textureView);
 
 		switch (result)
 		{
@@ -188,6 +189,11 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				{
 					MediaElement.Source = MediaSource.FromResource("WindowsVideo.mp4");
 				}
+				return;
+			case textureView:
+				MediaElement.AndroidSurface = AndroidSurfaceType.TextureView;
+				MediaElement.AndroidColorHEX = "#43ff64d9";
+				MediaElement.Source = MediaSource.FromResource("WindowsVideo.mp4");
 				return;
 		}
 	}

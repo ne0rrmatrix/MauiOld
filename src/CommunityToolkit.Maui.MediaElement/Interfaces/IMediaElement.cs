@@ -9,6 +9,16 @@ namespace CommunityToolkit.Maui.Core;
 public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 {
 	/// <summary>
+	/// Sets the type of surface to use for the <see cref="MediaElement"/>.
+	/// </summary>
+	AndroidSurfaceType AndroidSurface { get; set; }
+
+	/// <summary>
+	/// Sets the color of the background of the <see cref="MediaElement"/>.
+	/// </summary>
+	string AndroidColorHEX { get; set; }
+
+	/// <summary>
 	/// Gets the media aspect ratio.
 	/// </summary>
 	/// <remarks>Not functional for non-visual media.</remarks>

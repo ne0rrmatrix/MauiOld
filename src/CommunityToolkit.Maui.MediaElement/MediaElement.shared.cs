@@ -16,6 +16,18 @@ public class MediaElement : View, IMediaElement, IDisposable
 	public static readonly BindableProperty AspectProperty =
 		BindableProperty.Create(nameof(Aspect), typeof(Aspect), typeof(MediaElement), Aspect.AspectFit);
 
+	/// <summary>
+	/// Backing store for the <see cref="AndroidSurface"/> property.
+	/// </summary>
+	public static readonly BindableProperty AndroidSurfaceProperty =
+		BindableProperty.Create(nameof(AndroidSurface), typeof(AndroidSurfaceType), typeof(MediaElement), AndroidSurfaceType.SurfaceView);
+
+	/// <summary>
+	/// Backing store for the <see cref="AndroidColorHEX"/> property.
+	/// </summary>
+	public static readonly BindableProperty AndroidColorHEXProperty =
+		BindableProperty.Create(nameof(AndroidColorHEX), typeof(string), typeof(MediaElement), "#000000");
+
 	static readonly BindablePropertyKey durationPropertyKey =
 		BindableProperty.CreateReadOnly(nameof(Duration), typeof(TimeSpan), typeof(MediaElement), TimeSpan.Zero);
 
@@ -188,6 +200,20 @@ public class MediaElement : View, IMediaElement, IDisposable
 	/// Finalizer
 	/// </summary>
 	~MediaElement() => Dispose(false);
+
+	/// <inheritdoc cref="IMediaElement.AndroidColorHEX"/>
+	public string AndroidColorHEX
+	{
+		get => (string)GetValue(AndroidColorHEXProperty);
+		set => SetValue(AndroidColorHEXProperty, value);
+	}
+
+	/// <inheritdoc cref="IMediaElement.AndroidSurface"/>
+	public AndroidSurfaceType AndroidSurface
+	{
+		get => (AndroidSurfaceType)GetValue(AndroidSurfaceProperty);
+		set => SetValue(AndroidSurfaceProperty, value);
+	}
 
 	/// <summary>
 	/// The current position of the playing media. This is a bindable property.
