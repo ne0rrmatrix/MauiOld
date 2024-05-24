@@ -192,7 +192,12 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 			case textureView:
 				MediaElement.AndroidSurface = AndroidSurfaceType.TextureView;
-				MediaElement.AndroidColorHEX = "#43ff64d9";
+				// 50 percent transparent image
+				MediaElement.PlayerAlpha = 0.5f;
+				MediaElement.PlayerBackgroundColor = Primitives.MediaElementColor.Transparent;
+				// 50 percent transparent white
+				MediaElement.PlayerForegroundAlpha = 128;
+				MediaElement.PlayerForegroundColor = Primitives.MediaElementColor.White;
 				MediaElement.Source = MediaSource.FromResource("WindowsVideo.mp4");
 				return;
 		}

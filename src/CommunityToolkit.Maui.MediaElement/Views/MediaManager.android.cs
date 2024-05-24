@@ -9,6 +9,7 @@ using Com.Google.Android.Exoplayer2.Trackselection;
 using Com.Google.Android.Exoplayer2.UI;
 using Com.Google.Android.Exoplayer2.Video;
 using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Extensions;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
 
@@ -392,34 +393,19 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 			LayoutParameters = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)
 		};
 
-		PlayerView.SetBackgroundColor(HextoARGB(MediaElement.AndroidColorHEX));
-		AndroidSurfaceCreated?.Invoke(null, PlayerView);
-	}
-
-	static Android.Graphics.Color HextoARGB(string hex)
-	{
-		hex = hex.Replace("#", "");
-		int a = 255; // Default alpha value
-		int r = 0, g = 0, b = 0;
-
-		if (hex.Length == 8)
+		// Set the background color of the player view
+		if (MediaElement.AndroidSurface == AndroidSurfaceType.TextureView)
 		{
-			a = int.Parse(hex.Substring(0, 2), System.Globalization.NumberStyles.HexNumber);
-			r = int.Parse(hex.Substring(2, 2), System.Globalization.NumberStyles.HexNumber);
-			g = int.Parse(hex.Substring(4, 2), System.Globalization.NumberStyles.HexNumber);
-			b = int.Parse(hex.Substring(6, 2), System.Globalization.NumberStyles.HexNumber);
-		}
-		else if (hex.Length == 6)
-		{
-			r = int.Parse(hex.Substring(0, 2), System.Globalization.NumberStyles.HexNumber);
-			g = int.Parse(hex.Substring(2, 2), System.Globalization.NumberStyles.HexNumber);
-			b = int.Parse(hex.Substring(4, 2), System.Globalization.NumberStyles.HexNumber);
+			PlayerView.SetBackgroundColor(MediaElementColorExtensions.ToAndroidColor(MediaElement.PlayerBackgroundColor));
+			PlayerView.Foreground = new Android.Graphics.Drawables.ColorDrawable(MediaElementColorExtensions.ToAndroidColor(MediaElement.PlayerForegroundColor));
+			PlayerView.Foreground.Alpha = MediaElement.PlayerForegroundAlpha;
+			PlayerView.Alpha = MediaElement.PlayerAlpha;
 		}
 		else
 		{
-			throw new ArgumentException("Invalid hex string length.");
+			PlayerView.SetBackgroundColor(MediaElementColorExtensions.ToAndroidColor(MediaElement.PlayerBackgroundColor));
 		}
-		return Android.Graphics.Color.Argb(a, r, g, b);
+		AndroidSurfaceCreated?.Invoke(null, PlayerView);
 	}
 	protected virtual partial void PlatformUpdateAspect()
 	{

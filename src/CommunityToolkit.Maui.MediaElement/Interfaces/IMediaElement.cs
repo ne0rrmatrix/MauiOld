@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Primitives;
 using CommunityToolkit.Maui.Views;
 
 namespace CommunityToolkit.Maui.Core;
@@ -14,9 +15,24 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	AndroidSurfaceType AndroidSurface { get; set; }
 
 	/// <summary>
-	/// Sets the color of the background of the <see cref="MediaElement"/>.
+	/// Sets the background color of the <see cref="MediaElement"/>.
 	/// </summary>
-	string AndroidColorHEX { get; set; }
+	MediaElementColor PlayerBackgroundColor { get; set; }
+
+	/// <summary>
+	/// Sets the alpha value of the <see cref="MediaElement"/>.
+	/// </summary>
+	float PlayerAlpha { get; set; }
+
+	/// <summary>
+	/// Sets the foreground color of the <see cref="MediaElement"/>.
+	/// </summary>
+	MediaElementColor PlayerForegroundColor { get; set; }
+
+	/// <summary>
+	/// Sets the alpha value of the foreground color of the <see cref="MediaElement"/>.
+	/// </summary>
+	int PlayerForegroundAlpha { get; set; }
 
 	/// <summary>
 	/// Gets the media aspect ratio.

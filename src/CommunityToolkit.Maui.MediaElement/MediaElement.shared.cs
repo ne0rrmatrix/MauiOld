@@ -2,6 +2,7 @@
 using CommunityToolkit.Maui.Converters;
 using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Primitives;
 
 namespace CommunityToolkit.Maui.Views;
 
@@ -23,10 +24,28 @@ public class MediaElement : View, IMediaElement, IDisposable
 		BindableProperty.Create(nameof(AndroidSurface), typeof(AndroidSurfaceType), typeof(MediaElement), AndroidSurfaceType.SurfaceView);
 
 	/// <summary>
-	/// Backing store for the <see cref="AndroidColorHEX"/> property.
+	/// Backing store for the <see cref="PlayerBackgroundColor"/> property.
 	/// </summary>
-	public static readonly BindableProperty AndroidColorHEXProperty =
-		BindableProperty.Create(nameof(AndroidColorHEX), typeof(string), typeof(MediaElement), "#000000");
+	public static readonly BindableProperty PlayerBackgroundColorProperty =
+		BindableProperty.Create(nameof(PlayerBackgroundColor), typeof(MediaElementColor), typeof(MediaElement), MediaElementColor.Default);
+
+	/// <summary>
+	/// Backing store for the <see cref="PlayerAlpha"/> property.
+	/// </summary>
+	public static readonly BindableProperty PlayerAlphaProperty =
+		BindableProperty.Create(nameof(PlayerAlpha), typeof(float), typeof(MediaElement), 1.0f);
+
+	/// <summary>
+	/// Backing store for the <see cref="PlayerForegroundColor"/> property.
+	/// </summary>
+	public static readonly BindableProperty PlayerForegroundColorProperty =
+		BindableProperty.Create(nameof(PlayerForegroundColor), typeof(MediaElementColor), typeof(MediaElement), MediaElementColor.Default);
+
+	/// <summary>
+	/// Backing store for the <see cref="PlayerForegroundAlpha"/> property.
+	/// </summary>
+	public static readonly BindableProperty PlayerForegroundAlphaProperty = 
+		BindableProperty.Create(nameof(PlayerForegroundAlpha), typeof(int), typeof(MediaElement), 255);
 
 	static readonly BindablePropertyKey durationPropertyKey =
 		BindableProperty.CreateReadOnly(nameof(Duration), typeof(TimeSpan), typeof(MediaElement), TimeSpan.Zero);
@@ -201,11 +220,32 @@ public class MediaElement : View, IMediaElement, IDisposable
 	/// </summary>
 	~MediaElement() => Dispose(false);
 
-	/// <inheritdoc cref="IMediaElement.AndroidColorHEX"/>
-	public string AndroidColorHEX
+	/// <inheritdoc cref="IMediaElement.PlayerBackgroundColor"/>
+	public MediaElementColor PlayerBackgroundColor
 	{
-		get => (string)GetValue(AndroidColorHEXProperty);
-		set => SetValue(AndroidColorHEXProperty, value);
+		get => (MediaElementColor)GetValue(PlayerBackgroundColorProperty);
+		set => SetValue(PlayerBackgroundColorProperty, value);
+	}
+
+	/// <inheritdoc cref="IMediaElement.PlayerAlpha"/>
+	public float PlayerAlpha
+	{
+		get => (float)GetValue(PlayerAlphaProperty);
+		set => SetValue(PlayerAlphaProperty, value);
+	}
+
+	/// <inheritdoc cref="IMediaElement.PlayerForegroundAlpha"/>
+	public MediaElementColor PlayerForegroundColor
+	{
+		get => (MediaElementColor)GetValue(PlayerForegroundColorProperty);
+		set => SetValue(PlayerForegroundColorProperty, value);
+	}
+
+	/// <inheritdoc cref="IMediaElement.PlayerForegroundAlpha"/>
+	public int PlayerForegroundAlpha
+	{
+		get => (int)GetValue(PlayerForegroundAlphaProperty);
+		set => SetValue(PlayerForegroundAlphaProperty, value);
 	}
 
 	/// <inheritdoc cref="IMediaElement.AndroidSurface"/>
