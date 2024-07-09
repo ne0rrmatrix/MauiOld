@@ -1,4 +1,6 @@
-﻿using Windows.Media;
+﻿using CommunityToolkit.Maui.Views;
+using Windows.Media;
+using Windows.Storage;
 
 namespace CommunityToolkit.Maui.Core.Primitives;
 
@@ -53,16 +55,46 @@ class Metadata
 	/// <summary>
 	/// Sets the metadata for the given MediaElement.
 	/// </summary>
-	public void SetMetadata(IMediaElement mp)
+	public async Task SetMetadata(IMediaElement mp)
 	{
 		if (systemMediaControls is null || mediaElement is null)
 		{
 			return;
 		}
-
-		if (!string.IsNullOrEmpty(mp.MetadataArtworkUrl))
+		if (mediaElement.MetadataArtworkUrl is UriMediaSource uri)
 		{
-			systemMediaControls.DisplayUpdater.Thumbnail = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromUri(new Uri(mp.MetadataArtworkUrl ?? string.Empty));
+			systemMediaControls.DisplayUpdater.Thumbnail = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromUri(uri.Uri);
+		}
+		
+		if (mediaElement.MetadataArtworkUrl is FileMediaSource fileMediaSource)
+		{
+			var filename = fileMediaSource.Path;
+			if (!string.IsNullOrWhiteSpace(filename))
+			{
+				var fileInfo = new FileInfo(filename);
+				StorageFile? storageFile = null;
+				if(fileInfo.FullName is not null)
+				{
+					storageFile = await StorageFile.GetFileFromPathAsync(fileInfo.FullName);
+				}
+
+				if (storageFile is not null)
+				{
+					systemMediaControls.DisplayUpdater.Thumbnail = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromFile(storageFile);
+				}
+				else
+				{
+					System.Diagnostics.Trace.TraceError($"FileMediaSource: {fileInfo.FullName} not found");
+				}
+			}
+		}
+		else if (mediaElement.MetadataArtworkUrl is ResourceMediaSource resourceMediaSource)
+		{
+			var filename = resourceMediaSource.Path;
+			if (!string.IsNullOrWhiteSpace(filename))
+			{
+				systemMediaControls.DisplayUpdater.Thumbnail = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromUri(new Uri($"ms-appx:///{filename}"));
+			}
 		}
 		systemMediaControls.DisplayUpdater.Type = MediaPlaybackType.Music;
 		systemMediaControls.DisplayUpdater.MusicProperties.Artist = mp.MetadataTitle;

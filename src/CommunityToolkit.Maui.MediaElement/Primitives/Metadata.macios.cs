@@ -1,5 +1,5 @@
 ﻿using AVFoundation;
-using CommunityToolkit.Maui.Core;
+using CommunityToolkit.Maui.Views;
 using CoreMedia;
 using Foundation;
 using MediaPlayer;
@@ -88,18 +88,43 @@ class Metadata
 		MPNowPlayingInfoCenter.DefaultCenter.NowPlaying = NowPlayingInfo;
 	}
 
-	static UIImage GetImage(string imageUri)
+	static UIImage GetImage(MediaSource? imageUri)
 	{
 		try
 		{
-			if (imageUri.StartsWith(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
+			if (imageUri is FileMediaSource fileMediaSource)
 			{
-				return UIImage.LoadFromData(NSData.FromUrl(new NSUrl(imageUri))) ?? defaultUIImage;
+				return UIImage.LoadFromData(NSData.FromFile(fileMediaSource.Path ?? string.Empty)) ?? defaultUIImage;
 			}
+			if (imageUri is ResourceMediaSource resourceMediaSource)
+			{
+				var path = resourceMediaSource.Path;
+
+				if (!string.IsNullOrWhiteSpace(path) && Path.HasExtension(path))
+				{
+					string directory = Path.GetDirectoryName(path) ?? string.Empty;
+					string filename = Path.GetFileNameWithoutExtension(path);
+					string extension = Path.GetExtension(path)[1..];
+					var url = NSBundle.MainBundle.GetUrlForResource(filename,
+						extension, directory);
+
+					return UIImage.LoadFromData(NSData.FromUrl(url)) ?? defaultUIImage;
+				}
+				else
+				{
+					System.Diagnostics.Trace.TraceError("Invalid file path for ResourceMediaSource.");
+				}
+			}
+			if (imageUri is UriMediaSource uriMediaSource)
+			{
+				return UIImage.LoadFromData(NSData.FromUrl(new NSUrl(uriMediaSource.Uri?.ToString() ?? string.Empty))) ?? defaultUIImage;
+			}
+			System.Diagnostics.Trace.TraceError("Invalid MediaSource type or location for artwork.");
 			return defaultUIImage;
 		}
 		catch
 		{
+			System.Diagnostics.Trace.TraceError("Invalid MediaSource type or location for artwork.");
 			return defaultUIImage;
 		}
 	}

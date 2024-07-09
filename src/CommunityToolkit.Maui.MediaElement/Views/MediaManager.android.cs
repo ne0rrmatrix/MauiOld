@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.Versioning;
 using Android.Content;
 using Android.Graphics;
 using Android.OS;
@@ -53,29 +54,58 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 	/// <param name="cancellationToken"></param>
 	/// <returns></returns>
 	/// <exception cref="InvalidOperationException"></exception>
+	[SupportedOSPlatform("Android26.0")]
 	public static async Task<Bitmap?> GetBitmapFromUrl(string? url, CancellationToken cancellationToken = default)
 	{
 		var bitmapConfig = Bitmap.Config.Argb8888 ?? throw new InvalidOperationException("Bitmap config cannot be null");
 		var bitmap = Bitmap.CreateBitmap(1024, 768, bitmapConfig, true);
-
 		Canvas canvas = new();
 		canvas.SetBitmap(bitmap);
 		canvas.DrawColor(Android.Graphics.Color.White);
 		canvas.Save();
-
+		if (string.IsNullOrWhiteSpace(url))
+		{
+			return bitmap;
+		}
 		try
 		{
-			var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
-			var stream = response.IsSuccessStatusCode ? await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false) : null;
-
-			return stream switch
+			if (url.StartsWith("https") || url.StartsWith("http"))
 			{
-				null => bitmap,
-				_ => await BitmapFactory.DecodeStreamAsync(stream)
-			};
+				var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
+				var stream = response.IsSuccessStatusCode ? await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false) : null;
+				return stream switch
+				{
+					null => bitmap,
+					_ => await BitmapFactory.DecodeStreamAsync(stream)
+				};
+			}
+
+			if (!OperatingSystem.IsAndroidVersionAtLeast(33))
+			{
+				var status = await Permissions.RequestAsync<Permissions.StorageRead>().WaitAsync(cancellationToken).ConfigureAwait(false);
+				if (status is not PermissionStatus.Granted)
+				{
+					throw new PermissionException("Storage permission is not granted.");
+				}
+			}
+		
+			var temp = await BitmapFactory.DecodeFileAsync(url).ConfigureAwait(false);
+			if (temp is not null)
+			{
+				return temp;
+				
+			}
+
+			using Stream inputStream = await FileSystem.Current.OpenAppPackageFileAsync(url);
+			if (inputStream is not null)
+			{
+				return await BitmapFactory.DecodeStreamAsync(inputStream).ConfigureAwait(false);
+			}
+			return bitmap;
 		}
-		catch
+		catch (Exception e)
 		{
+			System.Diagnostics.Trace.TraceError($"[error] {e}, {e.Message}");
 			return bitmap;
 		}
 	}
@@ -198,7 +228,6 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 			ControllerAutoShow = false,
 			LayoutParameters = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)
 		};
-
 		checkPermissionsTask = CheckAndRequestForegroundPermission(checkPermissionSourceToken.Token);
 		return (Player, PlayerView);
 	}
@@ -397,14 +426,13 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 			Player.ClearMediaItems();
 			MediaElement.Duration = TimeSpan.Zero;
 			MediaElement.CurrentStateChanged(MediaElementState.None);
-
 			return;
 		}
-
+		ArtworkBitmapSource.MediaSourceItem = MediaElement.MetadataArtworkUrl;
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 
 		Player.PlayWhenReady = MediaElement.ShouldAutoPlay;
-
+		
 		if (MediaElement.Source is UriMediaSource uriMediaSource)
 		{
 			var uri = uriMediaSource.Uri;
@@ -434,7 +462,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 			if (!string.IsNullOrWhiteSpace(path))
 			{
 				var assetFilePath = $"asset://{package}{System.IO.Path.PathSeparator}{path}";
-
+				
 				Player.SetMediaItem(MediaItem.FromUri(assetFilePath));
 				Player.Prepare();
 
@@ -618,7 +646,6 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		{
 			return;
 		}
-
 		await Permissions.RequestAsync<AndroidMediaPermissions>().WaitAsync(cancellationToken).ConfigureAwait(false);
 	}
 
@@ -659,12 +686,13 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		{
 			await checkPermissionsTask.WaitAsync(cancellationToken);
 		}
-
-		var bitmap = await GetBitmapFromUrl(MediaElement.MetadataArtworkUrl, cancellationToken);
 		var mediaMetadata = new MediaMetadataCompat.Builder();
+		ArtworkBitmapSource.MediaSourceItem = MediaElement.MetadataArtworkUrl;
+		var artwork = ArtworkBitmapSource.Source();
+		var bitmap = await GetBitmapFromUrl(artwork, cancellationToken);
+		mediaMetadata.PutBitmap(MediaMetadataCompat.MetadataKeyAlbumArt, bitmap);
 		mediaMetadata.PutString(MediaMetadataCompat.MetadataKeyArtist, MediaElement.MetadataArtist);
 		mediaMetadata.PutString(MediaMetadataCompat.MetadataKeyTitle, MediaElement.MetadataTitle);
-		mediaMetadata.PutBitmap(MediaMetadataCompat.MetadataKeyAlbumArt, bitmap);
 		mediaMetadata.PutLong(MediaMetadataCompat.MetadataKeyDuration, Player?.Duration ?? 0);
 		mediaMetadata.Build();
 
@@ -675,7 +703,6 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		{
 			intent.PutExtra("title", MediaElement.MetadataTitle);
 			intent.PutExtra("artist", MediaElement.MetadataArtist);
-			intent.PutExtra("albumArtUri", MediaElement.MetadataArtworkUrl);
 			intent.PutExtra("position", ((long)MediaElement.Position.TotalSeconds));
 			intent.PutExtra("currentTime", SystemClock.ElapsedRealtime());
 			intent.PutExtra("duration", ((long)MediaElement.Duration.TotalSeconds));
@@ -745,6 +772,42 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 	public void OnTrackSelectionParametersChanged(TrackSelectionParameters? trackSelectionParameters) { }
 
 	#endregion
+
+	/// <summary>
+	/// 
+	/// </summary>
+	public static class ArtworkBitmapSource
+	{
+		public static MediaSource? MediaSourceItem { get; set; }
+		public static string Source()
+		{
+			if (MediaSourceItem is UriMediaSource uriMediaSource)
+			{
+				var uri = uriMediaSource.Uri;
+				if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
+				{
+					return uri.AbsoluteUri;
+				}
+			}
+			else if (MediaSourceItem is FileMediaSource fileMediaSource)
+			{
+				var filePath = fileMediaSource.Path;
+				if (!string.IsNullOrWhiteSpace(filePath))
+				{
+					return filePath;
+				}
+			}
+			else if (MediaSourceItem is ResourceMediaSource resourceMediaSource)
+			{
+				var path = resourceMediaSource.Path?.Replace("Assets/", string.Empty);
+				if (!string.IsNullOrWhiteSpace(path))
+				{
+					return path;
+				}
+			}
+			return string.Empty;
+		}
+	}
 
 	/// <summary>
 	/// A <see cref="BroadcastReceiver"/> that listens for updates from the <see cref="MediaControlsService"/>.

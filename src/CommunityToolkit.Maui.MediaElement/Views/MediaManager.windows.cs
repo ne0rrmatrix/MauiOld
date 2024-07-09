@@ -14,6 +14,7 @@ namespace CommunityToolkit.Maui.Core.Views;
 
 partial class MediaManager : IDisposable
 {
+	Task? metaDataUpdate;
 	Metadata? metadata;
 	SystemMediaTransportControls? systemMediaControls;
 
@@ -332,11 +333,12 @@ partial class MediaManager : IDisposable
 					Player.MediaPlayer.PlaybackSession.PlaybackStateChanged -= OnPlaybackSessionPlaybackStateChanged;
 					Player.MediaPlayer.PlaybackSession.SeekCompleted -= OnPlaybackSessionSeekCompleted;
 				}
+				metaDataUpdate?.Dispose();
 			}
 		}
 	}
 
-	void UpdateMetadata()
+	async Task UpdateMetadata()
 	{
 		if (systemMediaControls is null)
 		{
@@ -344,7 +346,7 @@ partial class MediaManager : IDisposable
 		}
 
 		metadata ??= new(systemMediaControls, MediaElement, Dispatcher);
-		metadata.SetMetadata(MediaElement);
+		await metadata.SetMetadata(MediaElement);
 	}
 
 	void OnMediaElementMediaOpened(WindowsMediaElement sender, object args)
@@ -365,7 +367,7 @@ partial class MediaManager : IDisposable
 
 		MediaElement.MediaOpened();
 
-		UpdateMetadata();
+		metaDataUpdate = UpdateMetadata();
 
 		static void SetDuration(in IMediaElement mediaElement, in MediaPlayerElement mediaPlayerElement)
 		{
