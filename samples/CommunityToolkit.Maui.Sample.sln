@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# 17
+# Visual Studio Version 17
 VisualStudioVersion = 17.0.31521.260
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CommunityToolkit.Maui.UnitTests", "..\src\CommunityToolkit.Maui.UnitTests\CommunityToolkit.Maui.UnitTests.csproj", "{7D49CC16-93CF-471B-B1FA-0BA44DECC15D}"
@@ -48,6 +48,16 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CommunityToolkit.Maui.Camera.Analyzers.CodeFixes", "..\src\CommunityToolkit.Maui.Camera.Analyzers.CodeFixes\CommunityToolkit.Maui.Camera.Analyzers.CodeFixes.csproj", "{372D6A40-A4E0-434A-A463-C001441C68EB}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CommunityToolkit.Maui.Camera.Analyzers", "..\src\CommunityToolkit.Maui.Camera.Analyzers\CommunityToolkit.Maui.Camera.Analyzers.csproj", "{02C5B93A-B8D6-421D-B0EA-D0CC41A00F0B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UITests.Shared", "..\src\CommunityToolkit.Maui.UI.UnitTests\UITests.Shared\UITests.Shared.csproj", "{845414F2-9F65-4D52-B2A2-724BD6DEBFA2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UITests.Android", "..\src\CommunityToolkit.Maui.UI.UnitTests\UITests.Android\UITests.Android.csproj", "{03591A45-A648-40CB-A4FA-29754B49DC0D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UITests.iOS", "..\src\CommunityToolkit.Maui.UI.UnitTests\UITests.iOS\UITests.iOS.csproj", "{EA545CCD-77B6-4EF2-9E9F-88FAAA813BDB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UITests.macOS", "..\src\CommunityToolkit.Maui.UI.UnitTests\UITests.macOS\UITests.macOS.csproj", "{F9A6B0A0-C4F0-458C-BF7C-3636F9C5D544}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UITests.Windows", "..\src\CommunityToolkit.Maui.UI.UnitTests\UITests.Windows\UITests.Windows.csproj", "{97283B6C-99C3-4062-9566-BAA7D2D6F996}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -123,6 +133,26 @@ Global
 		{02C5B93A-B8D6-421D-B0EA-D0CC41A00F0B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{02C5B93A-B8D6-421D-B0EA-D0CC41A00F0B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{02C5B93A-B8D6-421D-B0EA-D0CC41A00F0B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{845414F2-9F65-4D52-B2A2-724BD6DEBFA2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{845414F2-9F65-4D52-B2A2-724BD6DEBFA2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{845414F2-9F65-4D52-B2A2-724BD6DEBFA2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{845414F2-9F65-4D52-B2A2-724BD6DEBFA2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{03591A45-A648-40CB-A4FA-29754B49DC0D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{03591A45-A648-40CB-A4FA-29754B49DC0D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{03591A45-A648-40CB-A4FA-29754B49DC0D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{03591A45-A648-40CB-A4FA-29754B49DC0D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EA545CCD-77B6-4EF2-9E9F-88FAAA813BDB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EA545CCD-77B6-4EF2-9E9F-88FAAA813BDB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EA545CCD-77B6-4EF2-9E9F-88FAAA813BDB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EA545CCD-77B6-4EF2-9E9F-88FAAA813BDB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F9A6B0A0-C4F0-458C-BF7C-3636F9C5D544}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F9A6B0A0-C4F0-458C-BF7C-3636F9C5D544}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F9A6B0A0-C4F0-458C-BF7C-3636F9C5D544}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F9A6B0A0-C4F0-458C-BF7C-3636F9C5D544}.Release|Any CPU.Build.0 = Release|Any CPU
+		{97283B6C-99C3-4062-9566-BAA7D2D6F996}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{97283B6C-99C3-4062-9566-BAA7D2D6F996}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{97283B6C-99C3-4062-9566-BAA7D2D6F996}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{97283B6C-99C3-4062-9566-BAA7D2D6F996}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -137,8 +167,13 @@ Global
 		{85B875BD-62F6-4EC3-BCFF-4DC25E94BCAE} = {9BFC4026-BC8F-43E2-BAA9-5BC2D764D37D}
 		{215083C8-D9CA-48FA-8B0A-1D21A989D055} = {9BFC4026-BC8F-43E2-BAA9-5BC2D764D37D}
 		{8CDCF66E-D969-4BFD-A6E3-816BBE5F80B6} = {9BFC4026-BC8F-43E2-BAA9-5BC2D764D37D}
-		{02C5B93A-B8D6-421D-B0EA-D0CC41A00F0B} = {9BFC4026-BC8F-43E2-BAA9-5BC2D764D37D}
 		{372D6A40-A4E0-434A-A463-C001441C68EB} = {9BFC4026-BC8F-43E2-BAA9-5BC2D764D37D}
+		{02C5B93A-B8D6-421D-B0EA-D0CC41A00F0B} = {9BFC4026-BC8F-43E2-BAA9-5BC2D764D37D}
+		{845414F2-9F65-4D52-B2A2-724BD6DEBFA2} = {9F7D54C0-EA17-409A-804F-B2E8D7F4A7F3}
+		{03591A45-A648-40CB-A4FA-29754B49DC0D} = {9F7D54C0-EA17-409A-804F-B2E8D7F4A7F3}
+		{EA545CCD-77B6-4EF2-9E9F-88FAAA813BDB} = {9F7D54C0-EA17-409A-804F-B2E8D7F4A7F3}
+		{F9A6B0A0-C4F0-458C-BF7C-3636F9C5D544} = {9F7D54C0-EA17-409A-804F-B2E8D7F4A7F3}
+		{97283B6C-99C3-4062-9566-BAA7D2D6F996} = {9F7D54C0-EA17-409A-804F-B2E8D7F4A7F3}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {1E9E61C1-5CB7-4C8E-87BA-6C1D38238679}
