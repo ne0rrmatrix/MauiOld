@@ -30,6 +30,7 @@
                                     WinUI='20, 0',
                                     MacCatalyst='4, 100, 4, 0'}"
                FontSize="24"
+               AutomationId="Menu"
                HorizontalTextAlignment="Start"
                IsVisible="{OnPlatform WinUI=false, Default=true}"
                Text="Toolkit Features"
@@ -93,6 +94,7 @@
 
     <FlyoutItem Title="Views"
                 Route="ViewsGalleryPage"
+                AutomationId="Views"
                 Icon="{OnPlatform Default='dotnet_bot.png', MacCatalyst={x:Null}}">
         <ShellContent ContentTemplate="{DataTemplate views:ViewsGalleryPage}" />
     </FlyoutItem>

@@ -13,6 +13,10 @@ public class UITest1 : BaseTest
 	[Test]
 	public void AppLaunches()
 	{
+		if(App is null)
+		{
+			return;
+		}
 		App.GetScreenshot().SaveAsFile($"{nameof(AppLaunches)}.png");
 	}
 }

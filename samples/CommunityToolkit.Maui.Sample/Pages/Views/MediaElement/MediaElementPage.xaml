@@ -9,7 +9,8 @@
              x:TypeArguments="viewModels:MediaElementViewModel"
              x:DataType="viewModels:MediaElementViewModel"
              x:Class="CommunityToolkit.Maui.Sample.Pages.Views.MediaElementPage"
-             Title="MediaElement">
+             Title="MediaElement"
+             AutomationId="MediaElement">
     <pages:BasePage.Resources>
         <toolkit:TimeSpanToSecondsConverter x:Key="TimeSpanConverter" />
         <converters:SecondsToStringConverter x:Key="SecondsToStringConverter" />
@@ -55,10 +56,10 @@
             </HorizontalStackLayout>
 
             <Grid Grid.Row="2" Padding="0,10,0,10" ColumnDefinitions="*,*,*,*,*" ColumnSpacing="5">
-                <Button Grid.Column="0" Text="Play" Clicked="OnPlayClicked" />
-                <Button Grid.Column="1" Text="Pause" Clicked="OnPauseClicked" />
-                <Button Grid.Column="2" Text="Stop" Clicked="OnStopClicked" />
-                <Button Grid.Column="3" Text="Mute" Clicked="OnMuteClicked">
+                <Button Grid.Column="0" Text="Play" Clicked="OnPlayClicked" AutomationId="PlayBtn"/>
+                <Button Grid.Column="1" Text="Pause" Clicked="OnPauseClicked" AutomationId="PauseBtn"/>
+                <Button Grid.Column="2" Text="Stop" Clicked="OnStopClicked" AutomationId="StopBtn"/>
+                <Button Grid.Column="3" Text="Mute" Clicked="OnMuteClicked" AutomationId="MuteBtn">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button"
                                      Binding="{Binding ShouldMute, Source={x:Reference MediaElement}}"
@@ -83,7 +84,7 @@
                 DragCompleted="Slider_DragCompleted"/>
 
             <Grid Grid.Row="4" HorizontalOptions="Fill">
-                <Label HorizontalOptions="Start"  Text="{Binding Position, Source={x:Reference MediaElement}, Converter={StaticResource SecondsToStringConverter}}" />
+                <Label HorizontalOptions="Start" AutomationId="Position" Text="{Binding Position, Source={x:Reference MediaElement}, Converter={StaticResource SecondsToStringConverter}}" />
                 <Label HorizontalOptions="End" HorizontalTextAlignment="End" Text="{Binding Duration, Source={x:Reference MediaElement}, Converter={StaticResource SecondsToStringConverter}}" />
             </Grid>
 

@@ -8,11 +8,15 @@ public class AppiumSetup
 {
 	static AppiumDriver? driver;
 
-	public static AppiumDriver App => driver ?? throw new NullReferenceException("AppiumDriver is null");
+	public static AppiumDriver? App => driver;
 
 	[OneTimeSetUp]
 	public void RunBeforeAnyTests()
 	{
+		if (OperatingSystem.IsWindows())
+		{
+			return;
+		}
 		// If you started an Appium server manually, make sure to comment out the next line
 		// This line starts a local Appium server for you as part of the test run
 		AppiumServerHelper.StartAppiumLocalServer();
@@ -39,6 +43,10 @@ public class AppiumSetup
 	[OneTimeTearDown]
 	public void RunAfterAnyTests()
 	{
+		if (OperatingSystem.IsWindows()) 
+		{
+			return;
+		}
 		driver?.Quit();
 
 		// If an Appium server was started locally above, make sure we clean it up here

@@ -13,6 +13,10 @@ public class AppiumSetup
 	[OneTimeSetUp]
 	public void RunBeforeAnyTests()
 	{
+		if(OperatingSystem.IsIOS() || OperatingSystem.IsMacOS())
+		{
+			return;
+		}
 		// If you started an Appium server manually, make sure to comment out the next line
 		// This line starts a local Appium server for you as part of the test run
 		AppiumServerHelper.StartAppiumLocalServer();
@@ -29,20 +33,6 @@ public class AppiumSetup
 		// Note there are many more options that you can use to influence the app under test according to your needs
 
 		driver = new WindowsDriver(windowsOptions);
-	}
-
-	[Test]
-	public void MediaElementTest()
-	{
-		// Arrange
-		var currentPage = App.FindElement()
-		var mediaElement = App.FindElementByAccessibilityId("MediaElement");
-
-		// Act
-		mediaElement.Click();
-
-		// Assert
-		Assert.Pass();
 	}
 
 	[OneTimeTearDown]

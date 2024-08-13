@@ -8,10 +8,14 @@ public class AppiumSetup : IDisposable
 	bool disposedValue;
 	static AppiumDriver? driver;
 
-	public static AppiumDriver App => driver ?? throw new NullReferenceException("AppiumDriver is null");
+	public static AppiumDriver? App => driver;
 
 	public AppiumSetup()
 	{
+		if (OperatingSystem.IsWindows())
+		{
+			return;
+		}
 		// If you started an Appium server manually, make sure to comment out the next line
 		// This line starts a local Appium server for you as part of the test run
 		AppiumServerHelper.StartAppiumLocalServer();
