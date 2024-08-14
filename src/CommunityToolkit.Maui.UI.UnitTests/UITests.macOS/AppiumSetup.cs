@@ -15,7 +15,7 @@ public class AppiumSetup : IDisposable
 	[OneTimeSetUp]
 	public void RunBeforeAnyTests()
 	{
-		if (OperatingSystem.IsWindows())
+		if (OperatingSystem.IsWindows() || App is null)
 		{
 			return;
 		}

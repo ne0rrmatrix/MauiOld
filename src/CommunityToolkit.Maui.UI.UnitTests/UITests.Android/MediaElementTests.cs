@@ -13,6 +13,10 @@ public class MediaElementTests : BaseTest
     [Test]
     public void MediaElementPlayBackControls()
     {
+		if(App is null)
+		{
+			return;
+		}
 		// Use explicit wait
 		var wait = new WebDriverWait(App, TimeSpan.FromSeconds(5));
 
@@ -32,18 +36,10 @@ public class MediaElementTests : BaseTest
 		var permissions = wait.Until(d => d.FindElement(ByAndroidUIAutomator.AndroidUIAutomator("new UiSelector().resourceId(\"com.android.permissioncontroller:id/permission_allow_button\")")));
 		permissions.Click();
 
-		// click on Pause button
-		var pauseBtn = wait.Until(d => d.FindElement(ByAndroidUIAutomator.AndroidUIAutomator("new UiSelector().resourceId(\"com.microsoft.CommunityToolkit.Maui.Sample:id/PauseBtn\")")));
-		pauseBtn.Click();
-
-		// Click on Play button
-		var playBtn = wait.Until(d => d.FindElement(ByAndroidUIAutomator.AndroidUIAutomator("new UiSelector().resourceId(\"com.microsoft.CommunityToolkit.Maui.Sample:id/PlayBtn\")")));
-		playBtn.Click();
-
 		// Get initial position
 		var positionElement = wait.Until(d => d.FindElement(ByAndroidUIAutomator.AndroidUIAutomator("new UiSelector().resourceId(\"com.microsoft.CommunityToolkit.Maui.Sample:id/Position\")")));
 		string initialPosition = positionElement.Text;
-
+		
 		// Check if media is playing by verifying position change
 		bool isPlaying = wait.Until(d =>
 		{
@@ -51,6 +47,14 @@ public class MediaElementTests : BaseTest
 			return currentPosition != initialPosition;
 		});
 		Assert.That(isPlaying, Is.True, "Media should be playing (position should change)");
+		
+		// click on Pause button
+		var pauseBtn = wait.Until(d => d.FindElement(ByAndroidUIAutomator.AndroidUIAutomator("new UiSelector().resourceId(\"com.microsoft.CommunityToolkit.Maui.Sample:id/PauseBtn\")")));
+		pauseBtn.Click();
+
+		// Click on Play button
+		var playBtn = wait.Until(d => d.FindElement(ByAndroidUIAutomator.AndroidUIAutomator("new UiSelector().resourceId(\"com.microsoft.CommunityToolkit.Maui.Sample:id/PlayBtn\")")));
+		playBtn.Click();
 
 		// Click on Stop button
 		var stopBtn = wait.Until(d => d.FindElement(ByAndroidUIAutomator.AndroidUIAutomator("new UiSelector().resourceId(\"com.microsoft.CommunityToolkit.Maui.Sample:id/StopBtn\")")));

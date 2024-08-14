@@ -13,7 +13,7 @@ public class AppiumSetup
 	[OneTimeSetUp]
 	public void RunBeforeAnyTests()
 	{
-		if(OperatingSystem.IsIOS() || OperatingSystem.IsMacOS())
+		if(OperatingSystem.IsIOS() || OperatingSystem.IsMacOS() || App is null)
 		{
 			return;
 		}

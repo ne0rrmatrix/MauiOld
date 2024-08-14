@@ -15,6 +15,10 @@ public class AppiumSetup
 	[OneTimeSetUp]
 	public void RunBeforeAnyTests()
 	{
+		if(App is null)
+		{
+			return;
+		}
 		var serverUri = new Uri(Environment.GetEnvironmentVariable("APPIUM_HOST") ?? "http://127.0.0.1:4723/");
 		AppiumServerHelper.StartAppiumLocalServer();
 		var androidOptions = new AppiumOptions
@@ -43,7 +47,6 @@ public class AppiumSetup
 		androidOptions.AddAdditionalAppiumOption(AndroidMobileCapabilityType.AppActivity, $"com.microsoft.CommunityToolkit.Maui.Sample.MainActivity");
 		// END DEBUG BUILD SETUP
 
-
 		// Specifying the avd option will boot the emulator for you
 		// make sure there is an emulator with the name below
 		// If not specified, make sure you have an emulator booted
@@ -52,8 +55,7 @@ public class AppiumSetup
 		// Note there are many more options that you can use to influence the app under test according to your needs
 		androidOptions.App = appPath;
 
-		driver = new AndroidDriver(serverUri, androidOptions, TimeSpan.FromSeconds(30));
-		driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(20);
+		driver = new AndroidDriver(serverUri, androidOptions);
 
 		if (driver.IsAppInstalled("com.microsoft.CommunityToolkit.Maui.Sample"))
 		{

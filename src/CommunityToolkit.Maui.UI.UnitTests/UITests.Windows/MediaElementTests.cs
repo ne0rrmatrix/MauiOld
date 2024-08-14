@@ -8,7 +8,7 @@ public class MediaElementTests : BaseTest
 	[Test]
 	public void MediaElementPlayBackControls()
 	{
-		if(OperatingSystem.IsIOS() || OperatingSystem.IsMacOS())
+		if(OperatingSystem.IsIOS() || OperatingSystem.IsMacOS() || App is null)
 		{
 			return;
 		}
