@@ -12,10 +12,11 @@ public class MediaElementUITests : BaseTest
     [Test]
 	public void MediaElementPlayBackControls()
 	{
-		if(OperatingSystem.IsWindows() || App is null)
+		if (OperatingSystem.IsWindows())
 		{
 			return;
 		}
+
 		var menu = App.FindElement(ByIosUIAutomation.XPath("//XCUIElementTypeButton[@name='OK']"));
 		menu?.Click();
 		var views = App.FindElement(ByIosUIAutomation.XPath("//XCUIElementTypeOther[@name='Views']"));

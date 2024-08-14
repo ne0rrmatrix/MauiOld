@@ -29,4 +29,15 @@ public static class AppiumServerHelper
 	{
 		appiumLocalService?.Dispose();
 	}
+
+	public static bool IsWindowsValid()
+	{
+		string userDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+		string appiumPath = Path.Combine(userDirectory, ".appium");
+		if (OperatingSystem.IsWindows() && !Directory.Exists(appiumPath))
+		{
+			return false;
+		}
+		return true;
+	}
 }

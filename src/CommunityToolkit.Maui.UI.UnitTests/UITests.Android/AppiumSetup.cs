@@ -10,15 +10,16 @@ public class AppiumSetup
 {
 	static AppiumDriver? driver;
 
-	public static AppiumDriver App => driver ?? throw new NullReferenceException("AppiumDriver is null");
+	public static AppiumDriver? App => driver;
 
 	[OneTimeSetUp]
 	public void RunBeforeAnyTests()
 	{
-		if(App is null)
+		if(!AppiumServerHelper.IsWindowsValid() && !OperatingSystem.IsMacOS())
 		{
 			return;
 		}
+
 		var serverUri = new Uri(Environment.GetEnvironmentVariable("APPIUM_HOST") ?? "http://127.0.0.1:4723/");
 		AppiumServerHelper.StartAppiumLocalServer();
 		var androidOptions = new AppiumOptions
@@ -55,7 +56,9 @@ public class AppiumSetup
 		// Note there are many more options that you can use to influence the app under test according to your needs
 		androidOptions.App = appPath;
 
-		driver = new AndroidDriver(serverUri, androidOptions);
+		driver = new AndroidDriver(serverUri, androidOptions, TimeSpan.FromSeconds(180));
+		
+		driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(180);
 
 		if (driver.IsAppInstalled("com.microsoft.CommunityToolkit.Maui.Sample"))
 		{

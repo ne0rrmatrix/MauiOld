@@ -8,12 +8,12 @@ public class AppiumSetup
 {
 	static AppiumDriver? driver;
 
-	public static AppiumDriver App => driver ?? throw new NullReferenceException("AppiumDriver is null");
+	public static AppiumDriver? App => driver;
 
 	[OneTimeSetUp]
 	public void RunBeforeAnyTests()
 	{
-		if(OperatingSystem.IsIOS() || OperatingSystem.IsMacOS() || App is null)
+		if(OperatingSystem.IsIOS() || OperatingSystem.IsMacOS())
 		{
 			return;
 		}

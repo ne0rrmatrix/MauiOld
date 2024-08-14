@@ -12,7 +12,7 @@ public class MediaElementUITests : BaseTest
     [Test]
 	public void MediaElementPlayBackControls()
 	{
-		if(OperatingSystem.IsWindows() || App is null)
+		if(OperatingSystem.IsWindows())
 		{
 			return;
 		}

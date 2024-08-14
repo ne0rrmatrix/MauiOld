@@ -1,11 +1,6 @@
 ﻿using NUnit.Framework;
-using OpenQA.Selenium.Support.UI;
 using OpenQA.Selenium.Appium;
-using OpenQA.Selenium.Appium.Android;
-using OpenQA.Selenium.Appium.Enums;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Interactions;
-using System.Drawing;
+using OpenQA.Selenium.Support.UI;
 
 namespace UITests;
 public class MediaElementTests : BaseTest
@@ -13,12 +8,13 @@ public class MediaElementTests : BaseTest
     [Test]
     public void MediaElementPlayBackControls()
     {
-		if(App is null)
+		if(!AppiumServerHelper.IsWindowsValid() && !OperatingSystem.IsMacOS())
 		{
 			return;
 		}
+
 		// Use explicit wait
-		var wait = new WebDriverWait(App, TimeSpan.FromSeconds(5));
+		var wait = new WebDriverWait(App, TimeSpan.FromSeconds(10));
 
 		// Open the menu
 		var menu = wait.Until(d => d.FindElement(ByAndroidUIAutomator.AndroidUIAutomator("new UiSelector().description(\"Open navigation drawer\")")));
