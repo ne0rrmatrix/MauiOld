@@ -1,14 +1,9 @@
-using NUnit.Framework;
-using OpenQA.Selenium.Appium;
-using OpenQA.Selenium.Appium.iOS;
-using OpenQA.Selenium.Support.UI;
-using OpenQA.Selenium.Appium.Enums;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Interactions;
 using System.Drawing;
-using NUnit.Framework.Internal.Execution;
-using OpenQA.Selenium.Appium.MultiTouch;
-using OpenQA.Selenium.DevTools.V123.DOM;
+using NUnit.Framework;
+using OpenQA.Selenium;
+using OpenQA.Selenium.Appium;
+using OpenQA.Selenium.Interactions;
+using OpenQA.Selenium.Support.UI;
 
 namespace UITests;
 
