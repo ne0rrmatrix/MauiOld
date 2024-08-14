@@ -17,6 +17,7 @@ public class MediaElementUITests : BaseTest
 			return;
 		}
 
+		ArgumentNullException.ThrowIfNull(App);
 		var menu = App.FindElement(ByIosUIAutomation.XPath("//XCUIElementTypeButton[@name='OK']"));
 		menu?.Click();
 		var views = App.FindElement(ByIosUIAutomation.XPath("//XCUIElementTypeOther[@name='Views']"));
