@@ -1,8 +1,10 @@
+using NUnit.Framework;
 using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Appium.Enums;
 using OpenQA.Selenium.Appium.Mac;
 
 namespace UITests;
+[SetUpFixture]
 public class AppiumSetup : IDisposable
 {
 	bool disposedValue;
@@ -10,7 +12,8 @@ public class AppiumSetup : IDisposable
 
 	public static AppiumDriver? App => driver;
 
-	public AppiumSetup()
+	[OneTimeSetUp]
+	public void RunBeforeAnyTests()
 	{
 		if (OperatingSystem.IsWindows())
 		{
@@ -26,12 +29,13 @@ public class AppiumSetup : IDisposable
 			// Always Mac for Mac
 			PlatformName = "Mac",
 			// The full path to the .app file to test
-			App = "/path/to/MauiApp/bin/Debug/net8.0-maccatalyst/maccatalyst-x64/BasicAppiumSample.app",
+			App = "..//..//..//..//..//..//samples/CommunityToolkit.Maui.Sample/bin/Debug/net8.0-maccatalyst/maccatalyst-x64/CommunityToolkit.Maui.Sample.app",
 		};
 
 		// Setting the Bundle ID is required, else the automation will run on Finder
 		macOptions.AddAdditionalAppiumOption(IOSMobileCapabilityType.BundleId, "com.microsoft.CommunityToolkit.Maui.Sample");
-
+		macOptions.AddAdditionalAppiumOption("appium:includeSafariInWebviews", true);
+        macOptions.AddAdditionalAppiumOption("appium:connectHardwareKeyboard", true);
 		// Note there are many more options that you can use to influence the app under test according to your needs
 
 		driver = new MacDriver(macOptions);
@@ -50,6 +54,19 @@ public class AppiumSetup : IDisposable
 
 			disposedValue = true;
 		}
+	}
+
+	[OneTimeTearDown]
+	public void RunAfterAnyTests()
+	{
+		if (OperatingSystem.IsWindows()) 
+		{
+			return;
+		}
+		driver?.Quit();
+
+		// If an Appium server was started locally above, make sure we clean it up here
+		AppiumServerHelper.DisposeAppiumLocalServer();
 	}
 
 	public void Dispose()
