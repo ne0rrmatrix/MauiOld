@@ -13,7 +13,7 @@ public class AppiumSetup
 	[OneTimeSetUp]
 	public void RunBeforeAnyTests()
 	{
-		if (OperatingSystem.IsWindows())
+		if (OperatingSystem.IsWindows() && !AppiumServerHelper.IsMacValid())
 		{
 			return;
 		}
@@ -46,7 +46,7 @@ public class AppiumSetup
 	[OneTimeTearDown]
 	public void RunAfterAnyTests()
 	{
-		if (OperatingSystem.IsWindows()) 
+		if (OperatingSystem.IsWindows() && !AppiumServerHelper.IsMacValid())
 		{
 			return;
 		}

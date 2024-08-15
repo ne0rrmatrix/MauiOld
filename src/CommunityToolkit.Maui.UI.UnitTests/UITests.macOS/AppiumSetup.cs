@@ -15,7 +15,7 @@ public class AppiumSetup : IDisposable
 	[OneTimeSetUp]
 	public void RunBeforeAnyTests()
 	{
-		if (OperatingSystem.IsWindows())
+		if (OperatingSystem.IsWindows() && !AppiumServerHelper.IsMacValid())
 		{
 			return;
 		}
@@ -59,7 +59,7 @@ public class AppiumSetup : IDisposable
 	[OneTimeTearDown]
 	public void RunAfterAnyTests()
 	{
-		if (OperatingSystem.IsWindows()) 
+		if (OperatingSystem.IsWindows() && !AppiumServerHelper.IsMacValid())
 		{
 			return;
 		}

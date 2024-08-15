@@ -40,4 +40,13 @@ public static class AppiumServerHelper
 		}
 		return true;
 	}
+	public static bool IsMacValid()
+	{
+		string appiumPath = "/lib/node_modules/appium/index.js";
+		if (OperatingSystem.IsWindows() && !File.Exists(appiumPath))
+		{
+			return false;
+		}
+		return true;
+	}
 }
