@@ -29,7 +29,7 @@ public class AppiumSetup : IDisposable
 			// Always Mac for Mac
 			PlatformName = "Mac",
 			// The full path to the .app file to test
-			App = "..//..//..//..//..//..//samples/CommunityToolkit.Maui.Sample/bin/Debug/net8.0-maccatalyst/maccatalyst-x64/CommunityToolkit.Maui.Sample.app",
+			App = "..//..//..//..//..//..//samples/CommunityToolkit.Maui.Sample/bin/Debug/net8.0-maccatalyst/maccatalyst-arm64/CommunityToolkit.Maui.Sample.app",
 		};
 
 		// Setting the Bundle ID is required, else the automation will run on Finder
