@@ -89,7 +89,7 @@
             </Grid>
 
             <VerticalStackLayout Padding="0,20,0,0" Grid.Row="5" Spacing="5">
-                <Button Text="Change Source" Clicked="ChangeSourceClicked" />
+                <Button AutomationId="ChooseSource" Text="Change Source" Clicked="ChangeSourceClicked" />
 
                 <Grid ColumnDefinitions="*, 100" ColumnSpacing="5">
                     <Entry x:Name="CustomSourceEntry" Placeholder="Enter URL" HorizontalOptions="FillAndExpand" />
