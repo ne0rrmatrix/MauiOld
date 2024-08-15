@@ -60,6 +60,11 @@ public class MediaElementTests : BaseTest
 	[Test, Order(2)]
 	public void FullScreen()
 	{
+		if (OperatingSystem.IsMacOS() || !AppiumServerHelper.IsWindowsValid())
+		{
+			return;
+		}
+
 		ArgumentNullException.ThrowIfNull(App);
 		var wait = new WebDriverWait(App, TimeSpan.FromSeconds(60));
 		var windowSize = App.Manage().Window.Size;
