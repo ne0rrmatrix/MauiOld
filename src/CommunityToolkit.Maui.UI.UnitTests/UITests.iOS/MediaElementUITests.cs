@@ -9,7 +9,15 @@ namespace UITests;
 
 public class MediaElementUITests : BaseTest
 {
-    [Test]
+	public void SourceMenu()
+	{
+		// Use explicit wait
+		var wait = new WebDriverWait(App, TimeSpan.FromSeconds(120));
+		var chooseSource = wait.Until(d => d.FindElement(ByIosUIAutomation.XPath("//XCUIElementTypeStaticText[@name='Change Source']")));
+		chooseSource.Click();
+	}
+
+	[Test, Order(1)]
 	public void MediaElementPlayBackControls()
 	{
 		if (OperatingSystem.IsWindows())
@@ -30,13 +38,16 @@ public class MediaElementUITests : BaseTest
 		
 		// Get initial position
 		var positionElement = wait.Until(d => d.FindElement(ByIosUIAutomation.AccessibilityId("Position")));
+		Assert.That(positionElement.Displayed, Is.True, "Position element should be visible");
 		string initialPosition = positionElement.Text;
 
 		var stopBtn = wait.Until(d => d.FindElement(ByIosUIAutomation.AccessibilityId("StopBtn")));
+		Assert.That(stopBtn.Displayed, Is.True, "Stop button should be visible");
 		stopBtn.Click();
 
 		// Wait for the media to stop and verify
 		var playBtn = wait.Until(d => d.FindElement(ByIosUIAutomation.AccessibilityId("PlayBtn")));
+		Assert.That(playBtn.Displayed, Is.True, "Play button should be visible");
 		playBtn.Click();
 
 		// Check if media is playing by verifying position change
@@ -50,9 +61,44 @@ public class MediaElementUITests : BaseTest
 
 		var pauseBtn = wait.Until(d => d.FindElement(ByIosUIAutomation.AccessibilityId("PauseBtn")));
 		Assert.That(pauseBtn.Displayed, Is.True, "Pause button should be visible after playing");
-		Assert.That(playBtn.Displayed, Is.True, "Play button should be visible");
-		Assert.That(stopBtn.Displayed, Is.True, "Stop button should be visible");
-		Assert.That(positionElement.Displayed, Is.True, "Position element should be visible");
+		pauseBtn.Click();
+	}
+
+	[Test, Order(2)]
+	public void MediaSource()
+	{
+		if (OperatingSystem.IsMacOS() || !AppiumServerHelper.IsWindowsValid())
+		{
+			return;
+		}
+
+		// Use explicit wait
+		var wait = new WebDriverWait(App, TimeSpan.FromSeconds(120));
+
+		SourceMenu();
+		var loadHls = wait.Until(d => d.FindElement(ByIOSAutomation.XPath("//XCUIElementTypeButton[@name='Load HTTP Live Stream (HLS)']")));
+		Assert.That(loadHls.Displayed, Is.True, "Load HTTP Live Stream (HLS) button should be visible");
+		loadHls.Click();
+
+		SourceMenu();
+		var loadLocalResource = wait.Until(d => d.FindElement(ByIosAutomation.XPath("//XCUIElementTypeButton[@name='Load Local Resource']")));
+		Assert.That(loadLocalResource.Displayed, Is.True, "Load Local Resource button should be visible");
+		loadLocalResource.Click();
+		
+		SourceMenu();
+		var resetSource = wait.Until(d => d.FindElement(ByIosAutomation.XPath("//XCUIElementTypeButton[@name='Reset Source to null']")));
+		Assert.That(resetSource.Displayed, Is.True, "Reset Source to null button should be visible");
+		resetSource.Click();
+
+		SourceMenu();
+		var loadMusic = wait.Until(d => d.FindElement(ByIosSAutomation.XPath("//XCUIElementTypeButton[@name='Load Music']")));
+		Assert.That(loadMusic.Displayed, Is.True, "Load Music button should be visible");
+		loadMusic.Click();
+
+		SourceMenu();
+		var loadOnlineMp4 = wait.Until(d => d.FindElement(ByIosAutomation.XPath("//XCUIElementTypeButton[@name='Load Online MP4']")));
+		Assert.That(loadOnlineMp4.Displayed, Is.True, "Load Online MP4 button should be visible");
+		loadOnlineMp4.Click();
 	}
 	
 	public void ScrollUntilElementFound(string elementId, int maxScrolls = 10)
