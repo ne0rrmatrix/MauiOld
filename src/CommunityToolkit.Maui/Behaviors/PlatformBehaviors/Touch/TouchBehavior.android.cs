@@ -4,7 +4,7 @@ using Android.OS;
 using Android.Views;
 using Android.Views.Accessibility;
 using CommunityToolkit.Maui.Core;
-using Microsoft.Maui.Controls.Compatibility.Platform.Android;
+using Microsoft.Maui.Platform;
 using static System.OperatingSystem;
 using AView = Android.Views.View;
 using MColor = Microsoft.Maui.Graphics.Color;
@@ -42,7 +42,7 @@ public partial class TouchBehavior
 
 		Element = bindable;
 		view = platformView;
-		viewGroup = Microsoft.Maui.Platform.ViewExtensions.GetParentOfType<ViewGroup>(platformView);
+		viewGroup = platformView.GetParentOfType<ViewGroup>();
 
 		platformView.Touch += OnTouch;
 		UpdateClickHandler();
@@ -113,7 +113,7 @@ public partial class TouchBehavior
 		var animationColor = color;
 		animationColor ??= defaultNativeAnimationColor;
 
-		return new ColorStateList([[]], [animationColor.ToAndroid()]);
+		return new ColorStateList([[]], [animationColor.ToPlatform()]);
 	}
 
 	void UpdateClickHandler()
@@ -289,28 +289,34 @@ public partial class TouchBehavior
 		AccessibilityManager.IAccessibilityStateChangeListener,
 		AccessibilityManager.ITouchExplorationStateChangeListener
 	{
-		TouchBehavior? platformTouchBehavior;
+		readonly WeakReference<TouchBehavior?> platformTouchBehaviorReference;
 
 		internal AccessibilityListener(TouchBehavior platformTouchBehavior)
 		{
-			this.platformTouchBehavior = platformTouchBehavior;
+			platformTouchBehaviorReference = new(platformTouchBehavior);
 		}
 
 		public void OnAccessibilityStateChanged(bool enabled)
 		{
-			platformTouchBehavior?.UpdateClickHandler();
+			if (platformTouchBehaviorReference.TryGetTarget(out var platformTouchBehavior))
+			{
+				platformTouchBehavior.UpdateClickHandler();
+			}
 		}
 
 		public void OnTouchExplorationStateChanged(bool enabled)
 		{
-			platformTouchBehavior?.UpdateClickHandler();
+			if (platformTouchBehaviorReference.TryGetTarget(out var platformTouchBehavior))
+			{
+				platformTouchBehavior.UpdateClickHandler();
+			}
 		}
 
 		protected override void Dispose(bool disposing)
 		{
 			if (disposing)
 			{
-				platformTouchBehavior = null;
+				platformTouchBehaviorReference.SetTarget(null);
 			}
 
 			base.Dispose(disposing);

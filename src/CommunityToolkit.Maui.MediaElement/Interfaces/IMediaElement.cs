@@ -10,6 +10,21 @@ namespace CommunityToolkit.Maui.Core;
 public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 {
 	/// <summary>
+	/// Gets or sets the title of the media.
+	/// </summary>
+	string MetadataTitle { get; set; }
+
+	/// <summary>
+	/// Gets or sets the artist of the media.
+	/// </summary>
+	string MetadataArtist { get; set; }
+
+	/// <summary>
+	/// Gets or sets the artwork Image Url.
+	/// </summary>
+	string MetadataArtworkUrl { get; set; }
+
+	/// <summary>
 	/// Sets the type of surface to use for the <see cref="MediaElement"/>.
 	/// </summary>
 	AndroidSurfaceType AndroidSurface { get; set; }
@@ -49,13 +64,13 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	/// Gets the height (in pixels) of the loaded media in pixels.
 	/// </summary>
 	/// <remarks>Not reported for non-visual media.</remarks>
-	int MediaHeight { get; }
+	int MediaHeight { get; internal set; }
 
 	/// <summary>
 	/// Gets the width (in pixels) of the loaded media in pixels.
 	/// </summary>
 	/// <remarks>Not reported for non-visual media.</remarks>
-	int MediaWidth { get; }
+	int MediaWidth { get; internal set; }
 
 	/// <summary>
 	/// The current position of the playing media.
