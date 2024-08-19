@@ -157,8 +157,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	async void ChangeSourceClicked(Object sender, EventArgs e)
 	{
 		var result = await DisplayActionSheet("Choose a source", "Cancel", null,
-			loadOnlineMp4, loadHls, loadLocalResource, resetSource, textureView);
-			loadOnlineMp4, loadHls, loadLocalResource, resetSource, loadMusic);
+			loadOnlineMp4, loadHls, loadLocalResource, resetSource,loadMusic, textureView);
 
 		switch (result)
 		{
