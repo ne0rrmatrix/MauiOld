@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
-using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Primitives;
 using CommunityToolkit.Maui.Sample.ViewModels.Views;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
@@ -162,7 +162,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		switch (result)
 		{
 			case loadOnlineMp4:
-				MediaElement.PlayerBackgroundColor = Primitives.MediaElementColor.Black;
+				MediaElement.PlayerBackgroundColor = MediaElementColor.Black;
 				MediaElement.AndroidSurface = AndroidSurfaceType.SurfaceView;
 				MediaElement.MetadataTitle = "Big Buck Bunny";
 				MediaElement.MetadataArtworkUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
@@ -173,7 +173,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case loadHls:
-				MediaElement.PlayerBackgroundColor = Primitives.MediaElementColor.Black;
+				MediaElement.PlayerBackgroundColor = MediaElementColor.Black;
 				MediaElement.AndroidSurface = AndroidSurfaceType.SurfaceView;
 				MediaElement.MetadataArtist = "HLS Album";
 				MediaElement.MetadataArtworkUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
@@ -184,7 +184,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case resetSource:
-				MediaElement.PlayerBackgroundColor = Primitives.MediaElementColor.Black;
+				MediaElement.PlayerBackgroundColor = MediaElementColor.Black;
 				MediaElement.AndroidSurface = AndroidSurfaceType.SurfaceView;
 				MediaElement.MetadataArtworkUrl = string.Empty;
 				MediaElement.MetadataTitle = string.Empty;
@@ -193,7 +193,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case loadLocalResource:
-				MediaElement.PlayerBackgroundColor = Primitives.MediaElementColor.Black;
+				MediaElement.PlayerBackgroundColor = MediaElementColor.Black;
 				MediaElement.AndroidSurface = AndroidSurfaceType.SurfaceView;
 				MediaElement.MetadataArtworkUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
 				MediaElement.MetadataTitle = "Local Resource Title";
@@ -215,7 +215,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case loadMusic:
-				MediaElement.PlayerBackgroundColor = Primitives.MediaElementColor.Black;
+				MediaElement.PlayerBackgroundColor = MediaElementColor.Black;
 				MediaElement.AndroidSurface = AndroidSurfaceType.SurfaceView;
 				MediaElement.MetadataTitle = "HAL 9000";
 				MediaElement.MetadataArtist = "HAL 9000 Album";
@@ -223,14 +223,13 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				MediaElement.Source = MediaSource.FromUri("https://github.com/prof3ssorSt3v3/media-sample-files/raw/master/hal-9000.mp3");
 				return;
 			case textureView:
-				MediaElement.PlayerBackgroundColor = Primitives.MediaElementColor.Black;
 				MediaElement.AndroidSurface = AndroidSurfaceType.TextureView;
 				// 50 percent transparent image
 				MediaElement.PlayerAlpha = 0.5f;
-				MediaElement.PlayerBackgroundColor = Primitives.MediaElementColor.Transparent;
+				MediaElement.PlayerBackgroundColor = MediaElementColor.Transparent;
 				// 50 percent transparent white
 				MediaElement.PlayerForegroundAlpha = 128;
-				MediaElement.PlayerForegroundColor = Primitives.MediaElementColor.White;
+				MediaElement.PlayerForegroundColor = MediaElementColor.White;
 				MediaElement.Source = MediaSource.FromResource("WindowsVideo.mp4");
 				return;
 		}
@@ -260,14 +259,15 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	void DisplayPopup(object sender, EventArgs e)
 	{
 		MediaElement.Pause();
-		MediaElement popupMediaElement = new MediaElement
+		var width = MediaElement.Width;
+		var height = MediaElement.Height;
+		MediaElement.WidthRequest = 250;
+		MediaElement.HeightRequest = 200;
+		var parent = MediaElement.Parent as Grid;
+		if (parent is not null)
 		{
-			Source = MediaSource.FromResource("AppleVideo.mp4"),
-			HeightRequest = 600,
-			WidthRequest = 600,
-			ShouldAutoPlay = true,
-			ShouldShowPlaybackControls = true,
-		};
+			parent.Children.Remove(MediaElement);
+		}
 		var popup = new Popup
 		{
 			VerticalOptions = LayoutAlignment.Center,
@@ -277,14 +277,24 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		{
 			Children =
 			{
-				popupMediaElement,
+				MediaElement,
 			}
 		};
 
 		this.ShowPopup(popup);
 		popup.Closed += (s, e) =>
 		{
-			popupMediaElement.Stop();
+			var popupParent = MediaElement.Parent as StackLayout;
+			popupParent?.Children.Remove(MediaElement);
+			
+			MediaElement.WidthRequest = width;
+			MediaElement.HeightRequest = height;
+			
+			if (parent is not null)
+			{
+				parent.Children.Add(MediaElement);
+				
+			}
 		};
 	}
 }
