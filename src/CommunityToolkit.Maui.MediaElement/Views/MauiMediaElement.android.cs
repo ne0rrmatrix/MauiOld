@@ -38,7 +38,7 @@ public class MauiMediaElement : CoordinatorLayout
 	public MauiMediaElement(Context context, StyledPlayerView playerView) : base(context)
 	{
 		this.playerView = playerView;
-
+		
 		playerView.FullscreenButtonClick += OnFullscreenButtonClick;
 
 		var layout = new RelativeLayout.LayoutParams(LayoutParams.WrapContent, LayoutParams.WrapContent);
@@ -60,12 +60,13 @@ public class MauiMediaElement : CoordinatorLayout
 		RemoveView(relativeLayout);
 		relativeLayout.RemoveView(playerView);
 		playerView.FullscreenButtonClick -= OnFullscreenButtonClick;
-		e.FullscreenButtonClick += OnFullscreenButtonClick;
-		relativeLayout.AddView(e);
+		playerView = e;
+		playerView.FullscreenButtonClick += OnFullscreenButtonClick;
+		relativeLayout.AddView(playerView);
 		AddView(relativeLayout);
 		
 	}
-
+	
 	public override void OnDetachedFromWindow()
 	{
 		if (isFullScreen)

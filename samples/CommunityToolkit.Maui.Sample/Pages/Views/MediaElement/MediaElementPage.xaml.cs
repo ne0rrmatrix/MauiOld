@@ -285,7 +285,6 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		popup.Closed += (s, e) =>
 		{
 			popupMediaElement.Stop();
-			popupMediaElement.Handler?.DisconnectHandler();
 		};
 	}
 }

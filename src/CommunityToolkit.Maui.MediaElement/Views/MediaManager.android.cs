@@ -45,7 +45,8 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 	MediaSessionCompat? mediaSession;
 	UIUpdateReceiver? uiUpdateReceiver;
 	MediaElementState currentState;
-
+	AndroidSurfaceType androidSurfaceType = AndroidSurfaceType.SurfaceView;
+	
 	/// <summary>
 	/// The platform native counterpart of <see cref="MediaElement"/>.
 	/// </summary>
@@ -456,10 +457,14 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 			MediaElement.MediaOpened();
 		}
 	}
-
+	
 	void SetPlayerSurface()
 	{
 		if (Player is null)
+		{
+			return;
+		}
+		if(androidSurfaceType == MediaElement.AndroidSurface)
 		{
 			return;
 		}
@@ -496,8 +501,10 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		{
 			PlayerView.SetBackgroundColor(MediaElementColorExtensions.ToAndroidColor(MediaElement.PlayerBackgroundColor));
 		}
+		androidSurfaceType = MediaElement.AndroidSurface;
 		AndroidSurfaceCreated?.Invoke(null, PlayerView);
 	}
+
 	protected virtual partial void PlatformUpdateAspect()
 	{
 		if (PlayerView is null)
