@@ -162,6 +162,8 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		switch (result)
 		{
 			case loadOnlineMp4:
+				MediaElement.PlayerBackgroundColor = Primitives.MediaElementColor.Black;
+				MediaElement.AndroidSurface = AndroidSurfaceType.SurfaceView;
 				MediaElement.MetadataTitle = "Big Buck Bunny";
 				MediaElement.MetadataArtworkUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
 				MediaElement.MetadataArtist = "Big Buck Bunny Album";
@@ -171,6 +173,8 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case loadHls:
+				MediaElement.PlayerBackgroundColor = Primitives.MediaElementColor.Black;
+				MediaElement.AndroidSurface = AndroidSurfaceType.SurfaceView;
 				MediaElement.MetadataArtist = "HLS Album";
 				MediaElement.MetadataArtworkUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
 				MediaElement.MetadataTitle = "HLS Title";
@@ -180,6 +184,8 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case resetSource:
+				MediaElement.PlayerBackgroundColor = Primitives.MediaElementColor.Black;
+				MediaElement.AndroidSurface = AndroidSurfaceType.SurfaceView;
 				MediaElement.MetadataArtworkUrl = string.Empty;
 				MediaElement.MetadataTitle = string.Empty;
 				MediaElement.MetadataArtist = string.Empty;
@@ -187,6 +193,8 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case loadLocalResource:
+				MediaElement.PlayerBackgroundColor = Primitives.MediaElementColor.Black;
+				MediaElement.AndroidSurface = AndroidSurfaceType.SurfaceView;
 				MediaElement.MetadataArtworkUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
 				MediaElement.MetadataTitle = "Local Resource Title";
 				MediaElement.MetadataArtist = "Local Resource Album";
@@ -207,12 +215,15 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case loadMusic:
+				MediaElement.PlayerBackgroundColor = Primitives.MediaElementColor.Black;
+				MediaElement.AndroidSurface = AndroidSurfaceType.SurfaceView;
 				MediaElement.MetadataTitle = "HAL 9000";
 				MediaElement.MetadataArtist = "HAL 9000 Album";
 				MediaElement.MetadataArtworkUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
 				MediaElement.Source = MediaSource.FromUri("https://github.com/prof3ssorSt3v3/media-sample-files/raw/master/hal-9000.mp3");
 				return;
 			case textureView:
+				MediaElement.PlayerBackgroundColor = Primitives.MediaElementColor.Black;
 				MediaElement.AndroidSurface = AndroidSurfaceType.TextureView;
 				// 50 percent transparent image
 				MediaElement.PlayerAlpha = 0.5f;

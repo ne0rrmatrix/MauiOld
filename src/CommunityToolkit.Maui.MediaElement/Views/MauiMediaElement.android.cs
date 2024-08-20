@@ -52,17 +52,18 @@ public class MauiMediaElement : CoordinatorLayout
 		relativeLayout.AddView(playerView);
 
 		AddView(relativeLayout);
-		AddView(playerView);
 		MediaManager.AndroidSurfaceCreated += MediaManager_AndroidSurfaceCreated;
 	}
 
 	void MediaManager_AndroidSurfaceCreated(object? sender, StyledPlayerView e)
 	{
-		RemoveView(playerView);
+		RemoveView(relativeLayout);
+		relativeLayout.RemoveView(playerView);
 		playerView.FullscreenButtonClick -= OnFullscreenButtonClick;
-		playerView = e;
-		AddView(e);
-		playerView.FullscreenButtonClick += OnFullscreenButtonClick;
+		e.FullscreenButtonClick += OnFullscreenButtonClick;
+		relativeLayout.AddView(e);
+		AddView(relativeLayout);
+		
 	}
 
 	public override void OnDetachedFromWindow()

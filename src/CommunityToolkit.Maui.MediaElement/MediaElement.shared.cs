@@ -47,9 +47,6 @@ public class MediaElement : View, IMediaElement, IDisposable
 	public static readonly BindableProperty PlayerForegroundAlphaProperty = 
 		BindableProperty.Create(nameof(PlayerForegroundAlpha), typeof(int), typeof(MediaElement), 255);
 
-	static readonly BindablePropertyKey durationPropertyKey =
-		BindableProperty.CreateReadOnly(nameof(Duration), typeof(TimeSpan), typeof(MediaElement), TimeSpan.Zero);
-
 	/// <summary>
 	/// Backing store for the <see cref="CurrentState"/> property.
 	/// </summary>
