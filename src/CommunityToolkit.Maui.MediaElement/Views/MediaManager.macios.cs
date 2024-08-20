@@ -9,6 +9,7 @@ using Foundation;
 using MediaPlayer;
 using Microsoft.Extensions.Logging;
 using UIKit;
+using CommunityToolkit.Maui.Extensions;
 
 namespace CommunityToolkit.Maui.Core.Views;
 
@@ -226,7 +227,11 @@ public partial class MediaManager : IDisposable
 		metaData ??= new(Player);
 		Metadata.ClearNowPlaying();
 		PlayerViewController?.ContentOverlayView?.Subviews?.FirstOrDefault()?.RemoveFromSuperview();
-
+		if (PlayerViewController?.View?.BackgroundColor is not null)
+		{
+			PlayerViewController.View.BackgroundColor = MediaElementColorExtensions.ToUIColor(MediaElement.BackgroundColor);
+		}
+		
 		if (MediaElement.Source is UriMediaSource uriMediaSource)
 		{
 			var uri = uriMediaSource.Uri;
