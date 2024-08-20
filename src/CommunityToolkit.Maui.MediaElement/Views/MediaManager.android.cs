@@ -86,11 +86,6 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		}
 	}
 
-	protected virtual void OnSurfaceCreated(StyledPlayerView styledPlayerView)
-	{
-		AndroidSurfaceCreated?.Invoke(null, styledPlayerView);
-	}
-
 	/// <summary>
 	/// Occurs when ExoPlayer changes the playback parameters.
 	/// </summary>
@@ -464,10 +459,6 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		{
 			return;
 		}
-		if(androidSurfaceType == MediaElement.AndroidSurface)
-		{
-			return;
-		}
 
 		if (MediaElement.AndroidSurface == AndroidSurfaceType.TextureView)
 		{
@@ -475,7 +466,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 			Player.SetVideoTextureView(textureView);
 		}
 
-		else
+		else if(MediaElement.AndroidSurface == AndroidSurfaceType.SurfaceView)
 		{
 			surfaceView = new SurfaceView(Platform.AppContext);
 			Player.SetVideoSurfaceView(surfaceView);
@@ -489,18 +480,17 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 			LayoutParameters = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)
 		};
 
-		// Set the background color of the player view
+		PlayerView.SetBackgroundColor(MediaElementColorExtensions.ToAndroidColor(MediaElement.BackgroundColor));
 		if (MediaElement.AndroidSurface == AndroidSurfaceType.TextureView)
 		{
-			PlayerView.SetBackgroundColor(MediaElementColorExtensions.ToAndroidColor(MediaElement.PlayerBackgroundColor));
-			PlayerView.Foreground = new Android.Graphics.Drawables.ColorDrawable(MediaElementColorExtensions.ToAndroidColor(MediaElement.PlayerForegroundColor));
-			PlayerView.Foreground.Alpha = MediaElement.PlayerForegroundAlpha;
-			PlayerView.Alpha = MediaElement.PlayerAlpha;
+			PlayerView.Foreground = new ColorDrawable(MediaElementColorExtensions.ToAndroidColor(MediaElement.ForegroundColor));
+			if (PlayerView.Background is not null)
+			{
+				PlayerView.Background.Alpha = (int)MediaElement.BackgroundAlpha;
+			}
+			PlayerView.Foreground.Alpha = MediaElement.ForegroundAlpha;
 		}
-		else
-		{
-			PlayerView.SetBackgroundColor(MediaElementColorExtensions.ToAndroidColor(MediaElement.PlayerBackgroundColor));
-		}
+		
 		androidSurfaceType = MediaElement.AndroidSurface;
 		AndroidSurfaceCreated?.Invoke(null, PlayerView);
 	}

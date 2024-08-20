@@ -269,6 +269,12 @@ partial class MediaManager : IDisposable
 
 			return;
 		}
+		Player.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(CommunityToolkit.Maui.Extensions. MediaElementColorExtensions.ToWindowsColor(MediaElement.BackgroundColor));
+		Player.Opacity = MediaElement.BackgroundAlpha;
+		Player.TransportControls.Opacity = MediaElement.BackgroundAlpha;
+		Player.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(CommunityToolkit.Maui.Extensions.MediaElementColorExtensions.ToWindowsColor(MediaElement.ForegroundColor));
+		Player.TransportControls.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(CommunityToolkit.Maui.Extensions.MediaElementColorExtensions.ToWindowsColor(MediaElement.ForegroundColor));
+		Player.Foreground.Opacity = MediaElement.ForegroundAlpha;
 
 		MediaElement.Position = TimeSpan.Zero;
 		MediaElement.Duration = TimeSpan.Zero;

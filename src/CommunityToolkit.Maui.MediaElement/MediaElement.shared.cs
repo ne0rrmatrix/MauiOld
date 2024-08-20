@@ -24,28 +24,28 @@ public class MediaElement : View, IMediaElement, IDisposable
 		BindableProperty.Create(nameof(AndroidSurface), typeof(AndroidSurfaceType), typeof(MediaElement), AndroidSurfaceType.SurfaceView);
 
 	/// <summary>
-	/// Backing store for the <see cref="PlayerBackgroundColor"/> property.
+	/// Backing store for the <see cref="BackgroundColor"/> property.
 	/// </summary>
 	public static readonly BindableProperty PlayerBackgroundColorProperty =
-		BindableProperty.Create(nameof(PlayerBackgroundColor), typeof(MediaElementColor), typeof(MediaElement), MediaElementColor.Default);
+		BindableProperty.Create(nameof(BackgroundColor), typeof(MediaElementColor), typeof(MediaElement), MediaElementColor.Black);
 
 	/// <summary>
-	/// Backing store for the <see cref="PlayerAlpha"/> property.
+	/// Backing store for the <see cref="BackgroundAlpha"/> property.
 	/// </summary>
 	public static readonly BindableProperty PlayerAlphaProperty =
-		BindableProperty.Create(nameof(PlayerAlpha), typeof(float), typeof(MediaElement), 1.0f);
+		BindableProperty.Create(nameof(BackgroundAlpha), typeof(float), typeof(MediaElement), 1.0f);
 
 	/// <summary>
-	/// Backing store for the <see cref="PlayerForegroundColor"/> property.
+	/// Backing store for the <see cref="ForegroundColor"/> property.
 	/// </summary>
 	public static readonly BindableProperty PlayerForegroundColorProperty =
-		BindableProperty.Create(nameof(PlayerForegroundColor), typeof(MediaElementColor), typeof(MediaElement), MediaElementColor.Default);
+		BindableProperty.Create(nameof(ForegroundColor), typeof(MediaElementColor), typeof(MediaElement), MediaElementColor.Black);
 
 	/// <summary>
-	/// Backing store for the <see cref="PlayerForegroundAlpha"/> property.
+	/// Backing store for the <see cref="ForegroundAlpha"/> property.
 	/// </summary>
 	public static readonly BindableProperty PlayerForegroundAlphaProperty = 
-		BindableProperty.Create(nameof(PlayerForegroundAlpha), typeof(int), typeof(MediaElement), 255);
+		BindableProperty.Create(nameof(ForegroundAlpha), typeof(int), typeof(MediaElement), 255);
 
 	/// <summary>
 	/// Backing store for the <see cref="CurrentState"/> property.
@@ -241,29 +241,29 @@ public class MediaElement : View, IMediaElement, IDisposable
 	/// </summary>
 	~MediaElement() => Dispose(false);
 
-	/// <inheritdoc cref="IMediaElement.PlayerBackgroundColor"/>
-	public MediaElementColor PlayerBackgroundColor
+	/// <inheritdoc cref="IMediaElement.BackgroundColor"/>
+	public MediaElementColor BackgroundColor
 	{
 		get => (MediaElementColor)GetValue(PlayerBackgroundColorProperty);
 		set => SetValue(PlayerBackgroundColorProperty, value);
 	}
 
-	/// <inheritdoc cref="IMediaElement.PlayerAlpha"/>
-	public float PlayerAlpha
+	/// <inheritdoc cref="IMediaElement.BackgroundAlpha"/>
+	public float BackgroundAlpha
 	{
 		get => (float)GetValue(PlayerAlphaProperty);
 		set => SetValue(PlayerAlphaProperty, value);
 	}
 
-	/// <inheritdoc cref="IMediaElement.PlayerForegroundAlpha"/>
-	public MediaElementColor PlayerForegroundColor
+	/// <inheritdoc cref="IMediaElement.ForegroundAlpha"/>
+	public MediaElementColor ForegroundColor
 	{
 		get => (MediaElementColor)GetValue(PlayerForegroundColorProperty);
 		set => SetValue(PlayerForegroundColorProperty, value);
 	}
 
-	/// <inheritdoc cref="IMediaElement.PlayerForegroundAlpha"/>
-	public int PlayerForegroundAlpha
+	/// <inheritdoc cref="IMediaElement.ForegroundAlpha"/>
+	public int ForegroundAlpha
 	{
 		get => (int)GetValue(PlayerForegroundAlphaProperty);
 		set => SetValue(PlayerForegroundAlphaProperty, value);

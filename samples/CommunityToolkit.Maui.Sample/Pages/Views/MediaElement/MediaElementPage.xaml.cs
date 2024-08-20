@@ -162,8 +162,11 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		switch (result)
 		{
 			case loadOnlineMp4:
-				MediaElement.PlayerBackgroundColor = MediaElementColor.Black;
+				MediaElement.BackgroundColor = MediaElementColor.Black;
 				MediaElement.AndroidSurface = AndroidSurfaceType.SurfaceView;
+				MediaElement.BackgroundAlpha = 1.0f;
+				MediaElement.ForegroundAlpha = 255;
+				MediaElement.ForegroundColor = MediaElementColor.Black;
 				MediaElement.MetadataTitle = "Big Buck Bunny";
 				MediaElement.MetadataArtworkUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
 				MediaElement.MetadataArtist = "Big Buck Bunny Album";
@@ -173,8 +176,11 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case loadHls:
-				MediaElement.PlayerBackgroundColor = MediaElementColor.Black;
+				MediaElement.BackgroundColor = MediaElementColor.Black;
 				MediaElement.AndroidSurface = AndroidSurfaceType.SurfaceView;
+				MediaElement.BackgroundAlpha = 1.0f;
+				MediaElement.ForegroundAlpha = 255;
+				MediaElement.ForegroundColor = MediaElementColor.Black;
 				MediaElement.MetadataArtist = "HLS Album";
 				MediaElement.MetadataArtworkUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
 				MediaElement.MetadataTitle = "HLS Title";
@@ -184,8 +190,11 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case resetSource:
-				MediaElement.PlayerBackgroundColor = MediaElementColor.Black;
+				MediaElement.BackgroundColor = MediaElementColor.Black;
 				MediaElement.AndroidSurface = AndroidSurfaceType.SurfaceView;
+				MediaElement.BackgroundAlpha = 1.0f;
+				MediaElement.ForegroundAlpha = 255;
+				MediaElement.ForegroundColor = MediaElementColor.Black;
 				MediaElement.MetadataArtworkUrl = string.Empty;
 				MediaElement.MetadataTitle = string.Empty;
 				MediaElement.MetadataArtist = string.Empty;
@@ -193,8 +202,11 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case loadLocalResource:
-				MediaElement.PlayerBackgroundColor = MediaElementColor.Black;
+				MediaElement.BackgroundColor = MediaElementColor.Black;
 				MediaElement.AndroidSurface = AndroidSurfaceType.SurfaceView;
+				MediaElement.BackgroundAlpha = 1.0f;
+				MediaElement.ForegroundAlpha = 255;
+				MediaElement.ForegroundColor = MediaElementColor.Black;
 				MediaElement.MetadataArtworkUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
 				MediaElement.MetadataTitle = "Local Resource Title";
 				MediaElement.MetadataArtist = "Local Resource Album";
@@ -215,8 +227,11 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case loadMusic:
-				MediaElement.PlayerBackgroundColor = MediaElementColor.Black;
+				MediaElement.BackgroundColor = MediaElementColor.Black;
 				MediaElement.AndroidSurface = AndroidSurfaceType.SurfaceView;
+				MediaElement.BackgroundAlpha = 1.0f;
+				MediaElement.ForegroundAlpha = 255;
+				MediaElement.ForegroundColor = MediaElementColor.Black;
 				MediaElement.MetadataTitle = "HAL 9000";
 				MediaElement.MetadataArtist = "HAL 9000 Album";
 				MediaElement.MetadataArtworkUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
@@ -225,11 +240,11 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 			case textureView:
 				MediaElement.AndroidSurface = AndroidSurfaceType.TextureView;
 				// 50 percent transparent image
-				MediaElement.PlayerAlpha = 0.5f;
-				MediaElement.PlayerBackgroundColor = MediaElementColor.Transparent;
+				MediaElement.BackgroundAlpha = 0.5f;
+				MediaElement.BackgroundColor = MediaElementColor.Transparent;
 				// 50 percent transparent white
-				MediaElement.PlayerForegroundAlpha = 128;
-				MediaElement.PlayerForegroundColor = MediaElementColor.White;
+				MediaElement.ForegroundAlpha = 128;
+				MediaElement.ForegroundColor = MediaElementColor.White;
 				MediaElement.Source = MediaSource.FromResource("WindowsVideo.mp4");
 				return;
 		}

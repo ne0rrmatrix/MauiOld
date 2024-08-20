@@ -104,6 +104,8 @@ public class MauiMediaElement : CoordinatorLayout
 				playerView.Player?.Release();
 				playerView.Player?.Dispose();
 				playerView.Dispose();
+				MediaManager.AndroidSurfaceCreated -= MediaManager_AndroidSurfaceCreated;
+				playerView.FullscreenButtonClick -= OnFullscreenButtonClick;
 			}
 			catch (ObjectDisposedException)
 			{

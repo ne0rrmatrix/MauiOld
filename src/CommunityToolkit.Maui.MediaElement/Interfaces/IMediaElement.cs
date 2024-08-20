@@ -32,22 +32,22 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	/// <summary>
 	/// Sets the background color of the <see cref="MediaElement"/>.
 	/// </summary>
-	MediaElementColor PlayerBackgroundColor { get; set; }
+	MediaElementColor BackgroundColor { get; set; }
 
 	/// <summary>
 	/// Sets the alpha value of the <see cref="MediaElement"/>.
 	/// </summary>
-	float PlayerAlpha { get; set; }
+	float BackgroundAlpha { get; set; }
 
 	/// <summary>
 	/// Sets the foreground color of the <see cref="MediaElement"/>.
 	/// </summary>
-	MediaElementColor PlayerForegroundColor { get; set; }
+	MediaElementColor ForegroundColor { get; set; }
 
 	/// <summary>
 	/// Sets the alpha value of the foreground color of the <see cref="MediaElement"/>.
 	/// </summary>
-	int PlayerForegroundAlpha { get; set; }
+	int ForegroundAlpha { get; set; }
 
 	/// <summary>
 	/// Gets the media aspect ratio.
