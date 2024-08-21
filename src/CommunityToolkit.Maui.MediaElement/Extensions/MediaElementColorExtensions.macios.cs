@@ -1,16 +1,15 @@
-using System;
 using CommunityToolkit.Maui.Primitives;
 using UIKit;
 
 namespace CommunityToolkit.Maui.Extensions;
 
 /// <summary>
-/// Converts a <see cref="MediaElementColor"/> to a native macOS <see cref="NSColor"/>.
+/// Converts a <see cref="MediaElementColor"/> to a native macOS <see cref="Color"/>.
 /// </summary>
 public static class MediaElementColorExtensions
 {
     /// <summary>
-    /// Converts a <see cref="MediaElementColor"/> to a native macOS <see cref="NSColor"/>.
+    /// Converts a <see cref="MediaElementColor"/> to a native macOS <see cref="Color"/>.
     /// </summary>
     /// <param name="mediaElementColor"></param>
     /// <returns></returns>
