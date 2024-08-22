@@ -10,6 +10,7 @@ namespace CommunityToolkit.Maui.Sample.Pages.Views;
 
 public partial class MediaElementPage : BasePage<MediaElementViewModel>
 {
+	Grid? grid;
 	readonly ILogger logger;
 	const string loadOnlineMp4 = "Load Online MP4";
 	const string loadHls = "Load HTTP Live Stream (HLS)";
@@ -273,43 +274,34 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 
 	void DisplayPopup(object sender, EventArgs e)
 	{
-		MediaElement.Pause();
-		var width = MediaElement.Width;
-		var height = MediaElement.Height;
-		MediaElement.WidthRequest = 250;
-		MediaElement.HeightRequest = 200;
-		var parent = MediaElement.Parent as Grid;
-		if (parent is not null)
+		if (MediaElement.Parent is not Grid parent)
 		{
-			parent.Children.Remove(MediaElement);
+			logger.LogError("Parent of MediaElement is not a Grid");
+			return;
 		}
+		grid = parent;
+		parent.Children.Remove(MediaElement);
 		var popup = new Popup
 		{
 			VerticalOptions = LayoutAlignment.Center,
 			HorizontalOptions = LayoutAlignment.Center,
-		};
-		popup.Content = new StackLayout
-		{
-			Children =
+			Content = new Grid
 			{
-				MediaElement,
+				WidthRequest = 300,
+				HeightRequest = 300,
+				Children =
+				{
+					MediaElement,
+				}
 			}
 		};
 
 		this.ShowPopup(popup);
 		popup.Closed += (s, e) =>
 		{
-			var popupParent = MediaElement.Parent as StackLayout;
+			var popupParent = MediaElement.Parent as Grid;
 			popupParent?.Children.Remove(MediaElement);
-			
-			MediaElement.WidthRequest = width;
-			MediaElement.HeightRequest = height;
-			
-			if (parent is not null)
-			{
-				parent.Children.Add(MediaElement);
-				
-			}
+			grid.Children.Add(MediaElement);
 		};
 	}
 }
