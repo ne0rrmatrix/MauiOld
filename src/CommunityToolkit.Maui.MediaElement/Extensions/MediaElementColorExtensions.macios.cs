@@ -3,17 +3,14 @@ using UIKit;
 
 namespace CommunityToolkit.Maui.Extensions;
 
-/// <summary>
-/// Converts a <see cref="MediaElementColor"/> to a native macOS <see cref="Color"/>.
-/// </summary>
-public static class MediaElementColorExtensions
+static class MediaElementColorExtensions
 {
-    /// <summary>
-    /// Converts a <see cref="MediaElementColor"/> to a native macOS <see cref="Color"/>.
-    /// </summary>
-    /// <param name="mediaElementColor"></param>
-    /// <returns></returns>
-    public static UIColor ToUIColor(this MediaElementColor mediaElementColor)
+	/// <summary>
+	/// A <see cref="UIColor"/> extension method that converts a <see cref="MediaElementColor"/> to a <see cref="UIColor"/>.
+	/// </summary>
+	/// <param name="mediaElementColor"></param>
+	/// <returns><see cref="UIColor"/></returns>
+	public static UIColor ToUIColor(this MediaElementColor mediaElementColor)
 	{
 		switch (mediaElementColor)
 		{

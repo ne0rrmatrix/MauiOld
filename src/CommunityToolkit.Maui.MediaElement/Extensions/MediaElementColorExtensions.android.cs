@@ -3,11 +3,13 @@ using Color = Android.Graphics.Color;
 
 namespace CommunityToolkit.Maui.Extensions;
 
-/// <summary>
-/// 
-/// </summary>
-public static class MediaElementColorExtensions
+static class MediaElementColorExtensions
 {
+	/// <summary>
+	/// A <see cref="Android.Graphics.Color"/> extension method that converts a <see cref="MediaElementColor"/> to a <see cref="Android.Graphics.Color"/>.
+	/// </summary>
+	/// <param name="mediaElementColor"></param>
+	/// <returns><see cref="Android.Graphics.Color"/></returns>
 	public static Color ToAndroidColor(this MediaElementColor mediaElementColor)
 	{
 		switch (mediaElementColor)

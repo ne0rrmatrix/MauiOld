@@ -3,16 +3,13 @@ using Colors = Microsoft.UI.Colors;
 
 namespace CommunityToolkit.Maui.Extensions;
 
-/// <summary>
-/// 
-/// </summary>
-public static class MediaElementColorExtensions
+static class MediaElementColorExtensions
 {
 	/// <summary>
-	/// 
+	/// A <see cref="Windows.UI.Color"/> extension method that converts a <see cref="MediaElementColor"/> to a <see cref="Windows.UI.Color"/>.
 	/// </summary>
 	/// <param name="mediaElementColor"></param>
-	/// <returns></returns>
+	/// <returns><see cref="Colors"/></returns>
 	public static Windows.UI.Color ToWindowsColor(this MediaElementColor mediaElementColor)
 	{
 		

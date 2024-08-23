@@ -35,7 +35,7 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	MediaElementColor BackgroundColor { get; set; }
 
 	/// <summary>
-	/// Sets the alpha value of the <see cref="MediaElement"/>.
+	/// Sets the background alpha value of the <see cref="MediaElement"/>.
 	/// </summary>
 	float BackgroundAlpha { get; set; }
 
@@ -45,7 +45,7 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	MediaElementColor ForegroundColor { get; set; }
 
 	/// <summary>
-	/// Sets the alpha value of the foreground color of the <see cref="MediaElement"/>.
+	/// Sets the foreground alpha of the <see cref="MediaElement"/>.
 	/// </summary>
 	int ForegroundAlpha { get; set; }
 
