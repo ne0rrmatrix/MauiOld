@@ -1,5 +1,5 @@
 ﻿using AVFoundation;
-using CommunityToolkit.Maui.Core;
+using CommunityToolkit.Maui.Core.Views;
 using CoreMedia;
 using Foundation;
 using MediaPlayer;
@@ -70,38 +70,34 @@ class Metadata
 	/// </summary>
 	/// <param name="playerItem"></param>
 	/// <param name="mediaElement"></param>
-	public void SetMetadata(AVPlayerItem? playerItem, IMediaElement? mediaElement)
+	public async Task SetMetadata(AVPlayerItem? playerItem, IMediaElement? mediaElement)
 	{
 		if (mediaElement is null)
 		{
 			Metadata.ClearNowPlaying();
 			return;
 		}
-
+		var artwork = MediaManager.MetadataArtworkUrl(mediaElement.MetadataArtworkUrl);
+		if (!string.IsNullOrEmpty(artwork))
+		{
+			var image = MediaManager.GetBitmapFromUrl(artwork) ?? await MediaManager.GetBitmapFromFile(artwork).ConfigureAwait(false);
+			if (image is null)
+			{
+				image = await MediaManager.GetBitmapFromResource(artwork);
+			}
+			NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: _ => image);
+		}
+		else
+		{
+			NowPlayingInfo.Artwork = new(boundsSize: new(0, 0), requestHandler: _ => defaultUIImage);
+		}
 		NowPlayingInfo.Title = mediaElement.MetadataTitle;
 		NowPlayingInfo.Artist = mediaElement.MetadataArtist;
 		NowPlayingInfo.PlaybackDuration = playerItem?.Duration.Seconds ?? 0;
 		NowPlayingInfo.IsLiveStream = false;
 		NowPlayingInfo.PlaybackRate = mediaElement.Speed;
 		NowPlayingInfo.ElapsedPlaybackTime = playerItem?.CurrentTime.Seconds ?? 0;
-		NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: _ => GetImage(mediaElement.MetadataArtworkUrl));
 		MPNowPlayingInfoCenter.DefaultCenter.NowPlaying = NowPlayingInfo;
-	}
-
-	static UIImage GetImage(string imageUri)
-	{
-		try
-		{
-			if (imageUri.StartsWith(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
-			{
-				return UIImage.LoadFromData(NSData.FromUrl(new NSUrl(imageUri))) ?? defaultUIImage;
-			}
-			return defaultUIImage;
-		}
-		catch
-		{
-			return defaultUIImage;
-		}
 	}
 
 	MPRemoteCommandHandlerStatus SeekCommand(MPRemoteCommandEvent? commandEvent)

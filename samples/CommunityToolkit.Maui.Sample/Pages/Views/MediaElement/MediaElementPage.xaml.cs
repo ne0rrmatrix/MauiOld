@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
-using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Core.Primitives;
 using CommunityToolkit.Maui.Sample.ViewModels.Views;
+using CommunityToolkit.Maui.Storage;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
 using LayoutAlignment = Microsoft.Maui.Primitives.LayoutAlignment;
@@ -16,6 +16,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	const string loadLocalResource = "Load Local Resource";
 	const string resetSource = "Reset Source to null";
 	const string loadMusic = "Load Music";
+	const string loadLocalArtwork = "Load Local Artwork";
 
 	public MediaElementPage(MediaElementViewModel viewModel, ILogger<MediaElementPage> logger) : base(viewModel)
 	{
@@ -156,7 +157,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	async void ChangeSourceClicked(Object sender, EventArgs e)
 	{
 		var result = await DisplayActionSheet("Choose a source", "Cancel", null,
-			loadOnlineMp4, loadHls, loadLocalResource, resetSource, loadMusic);
+			loadOnlineMp4, loadHls, loadLocalResource, resetSource, loadMusic, loadLocalArtwork);
 
 		switch (result)
 		{
@@ -186,7 +187,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case loadLocalResource:
-				MediaElement.MetadataArtworkUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
+				MediaElement.MetadataArtworkUrl = MediaSource.FromResource("robot.jpg");
 				MediaElement.MetadataTitle = "Local Resource Title";
 				MediaElement.MetadataArtist = "Local Resource Album";
 
@@ -211,6 +212,63 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				MediaElement.MetadataArtworkUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
 				MediaElement.Source = MediaSource.FromUri("https://github.com/prof3ssorSt3v3/media-sample-files/raw/master/hal-9000.mp3");
 				return;
+
+			case loadLocalArtwork:
+				await SetupDownload().ConfigureAwait(true);
+				MediaElement.MetadataTitle = "Local Video Title";
+				MediaElement.MetadataArtist = "Local Video Album";
+				
+				MediaElement.MetadataArtworkUrl = await GetArtwork(new PickOptions
+				{
+					FileTypes = FilePickerFileType.Images,		
+					PickerTitle = "Please select a Metadata Artwork file"
+				}).ConfigureAwait(true);
+				MediaElement.Source =
+					MediaSource.FromUri(
+						"https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4");
+				return;
+		}
+	}
+	async Task SetupDownload()
+	{
+		var fileStream = await GetFileStream("https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm").ConfigureAwait(true);
+		if (fileStream is not null)
+		{
+			MemoryStream memoryStream = new();
+			await fileStream.CopyToAsync(memoryStream, CancellationToken.None).ConfigureAwait(true);
+			memoryStream.Seek(0, SeekOrigin.Begin);
+			await FileSaver.Default.SaveAsync("robot.jpg", memoryStream, CancellationToken.None).ConfigureAwait(true);
+		}
+	}
+	async Task<string> GetArtwork(PickOptions options)
+	{
+		try
+		{
+			var result = await FilePicker.Default.PickAsync(options).ConfigureAwait(true);
+			if (result is not null && (result.FileName.EndsWith("jpg", StringComparison.OrdinalIgnoreCase) ||
+					result.FileName.EndsWith("png", StringComparison.OrdinalIgnoreCase)))
+			{
+				return result.FullPath;
+			}
+			return string.Empty;
+		}
+		catch (Exception ex)
+		{
+			System.Diagnostics.Trace.TraceError(Title + " Error: " + ex.Message);
+			return string.Empty;
+		}
+	}
+	async Task<Stream> GetFileStream(string fileUrl)
+	{
+		HttpClient httpClient = new();
+		try
+		{
+			return await httpClient.GetStreamAsync(fileUrl).ConfigureAwait(false);
+		}
+		catch (Exception ex)
+		{
+			System.Diagnostics.Trace.TraceError(Title + " Error: " + ex.Message);
+			return Stream.Null;
 		}
 	}
 

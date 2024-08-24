@@ -213,7 +213,7 @@ public partial class MediaManager : IDisposable
 		};
 	}
 
-	protected virtual partial void PlatformUpdateSource()
+	protected virtual async partial void PlatformUpdateSource()
 	{
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 
@@ -268,7 +268,7 @@ public partial class MediaManager : IDisposable
 			? new AVPlayerItem(asset)
 			: null;
 
-		metaData.SetMetadata(PlayerItem, MediaElement);
+		await metaData.SetMetadata(PlayerItem, MediaElement).ConfigureAwait(false);
 		CurrentItemErrorObserver?.Dispose();
 
 		Player.ReplaceCurrentItemWithPlayerItem(PlayerItem);
@@ -302,7 +302,7 @@ public partial class MediaManager : IDisposable
 			{
 				Player.Play();
 			}
-			SetPoster();
+			await SetPoster().ConfigureAwait(false);
 		}
 		else if (PlayerItem is null)
 		{
@@ -311,10 +311,15 @@ public partial class MediaManager : IDisposable
 			MediaElement.CurrentStateChanged(MediaElementState.None);
 		}
 	}
-	void SetPoster()
+	async Task SetPoster()
 	{
 
 		if (PlayerItem is null || metaData is null)
+		{
+			return;
+		}
+		var artwork = MetadataArtworkUrl(MediaElement.MetadataArtworkUrl);
+		if (string.IsNullOrEmpty(artwork))
 		{
 			return;
 		}
@@ -328,10 +333,15 @@ public partial class MediaManager : IDisposable
 			// No video track found and no tracks found. This is likely an audio file. So we can't set a poster.
 			return;
 		}
-
-		if (PlayerViewController?.View is not null && PlayerViewController.ContentOverlayView is not null && !string.IsNullOrEmpty(MediaElement.MetadataArtworkUrl))
+		
+		if (PlayerViewController?.View is not null && PlayerViewController.ContentOverlayView is not null && !string.IsNullOrEmpty(MetadataArtworkUrl(MediaElement.MetadataArtworkUrl)))
 		{
-			var image = UIImage.LoadFromData(NSData.FromUrl(new NSUrl(MediaElement.MetadataArtworkUrl))) ?? new UIImage();
+
+			var image = GetBitmapFromUrl(artwork) ?? await MediaManager.GetBitmapFromFile(artwork).ConfigureAwait(false);
+			if (image is null)
+			{
+				image = await MediaManager.GetBitmapFromResource(artwork) ?? new UIImage();
+			}
 			var imageView = new UIImageView(image)
 			{
 				ContentMode = UIViewContentMode.ScaleAspectFit,
@@ -354,6 +364,120 @@ public partial class MediaManager : IDisposable
 		}
 	}
 
+	/// <summary>
+	/// Gets the bitmap from the specified resource.
+	/// </summary>
+	/// <param name="resource"></param>
+	/// <param name="cancellationToken"></param>
+	/// <returns></returns>
+	public static async Task<UIImage> GetBitmapFromResource(string resource, CancellationToken cancellationToken = default)
+	{
+		UIImage image = new();
+		try
+		{
+			using var inputStream = await FileSystem.OpenAppPackageFileAsync(resource);
+			using var memoryStream = new MemoryStream();
+			await inputStream.CopyToAsync(memoryStream, cancellationToken).ConfigureAwait(false);
+			memoryStream.Position = 0;
+			NSData temp = NSData.FromStream(memoryStream) ?? new NSData();
+			return UIImage.LoadFromData(temp) ?? image;
+
+		}
+		catch (Exception e)
+		{
+			System.Diagnostics.Trace.TraceInformation($"Error: {e.Message}");
+			return image;
+		}
+	}
+
+	/// <summary>
+	/// Gets the artwork URL from the <see cref="MediaSource"/>.
+	/// </summary>
+	/// <param name="resource"></param>
+	/// <param name="cancellationToken"></param>
+	/// <returns></returns>
+	public static async Task<UIImage?> GetBitmapFromFile(string resource, CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			using var fileStream = File.OpenRead(resource);
+			using var memoryStream = new MemoryStream();
+			await fileStream.CopyToAsync(memoryStream, cancellationToken).ConfigureAwait(false);
+			memoryStream.Position = 0;
+			NSData temp = NSData.FromStream(memoryStream) ?? new NSData();
+			return UIImage.LoadFromData(temp) ?? null;
+		}
+		catch (Exception e)
+		{
+			System.Diagnostics.Trace.TraceInformation($"Error: {e.Message}");
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// Gets the bitmap from the specified URL.
+	/// </summary>
+	/// <param name="resource"></param>
+	/// <param name="cancellationToken"></param>
+	/// <returns></returns>
+	public static UIImage? GetBitmapFromUrl(string resource, CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			return UIImage.LoadFromData(NSData.FromUrl(new NSUrl(resource)));
+		}
+		catch (Exception e)
+		{
+			System.Diagnostics.Trace.TraceInformation($"Error: {e.Message}");
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// Gets the artwork URL from the <see cref="MediaSource"/>.
+	/// </summary>
+	/// <param name="artworkUrl"></param>
+	/// <returns></returns>
+	public static string MetadataArtworkUrl(MediaSource? artworkUrl)
+	{
+		if (artworkUrl is UriMediaSource uriMediaSource)
+		{
+			var uri = uriMediaSource.Uri;
+			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
+			{
+				return uri.AbsoluteUri;
+			}
+		}
+		else if (artworkUrl is FileMediaSource fileMediaSource)
+		{
+			var uri = fileMediaSource.Path;
+
+			if (!string.IsNullOrWhiteSpace(uri))
+			{
+				return uri;
+			}
+		}
+		else if (artworkUrl is ResourceMediaSource resourceMediaSource)
+		{
+			var path = resourceMediaSource.Path;
+
+			if (!string.IsNullOrWhiteSpace(path) && Path.HasExtension(path))
+			{
+				string directory = Path.GetDirectoryName(path) ?? "";
+				string filename = Path.GetFileNameWithoutExtension(path);
+				string extension = Path.GetExtension(path)[1..];
+				var url = NSBundle.MainBundle.GetUrlForResource(filename,
+					extension, directory);
+
+				return url.FilePathUrl?.AbsoluteString ?? string.Empty;
+			}
+			else
+			{
+				System.Diagnostics.Trace.TraceError("Invalid file path for ResourceMediaSource.");
+			}
+		}
+		return string.Empty;
+	}
 	protected virtual partial void PlatformUpdateSpeed()
 	{
 		if (PlayerViewController?.Player is null)

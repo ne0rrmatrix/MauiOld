@@ -301,6 +301,40 @@ partial class MediaManager : IDisposable
 		}
 	}
 
+	/// <summary>
+	/// Gets the artwork Image Url.
+	/// </summary>
+	/// <param name="artwork"></param>
+	/// <returns></returns>
+	public static string ArtworkUrl(MediaSource? artwork)
+	{
+		if (artwork is UriMediaSource uriMediaSource)
+		{
+			var uri = uriMediaSource.Uri?.AbsoluteUri;
+			if (!string.IsNullOrWhiteSpace(uri))
+			{
+				return uri;
+			}
+		}
+		else if (artwork is FileMediaSource fileMediaSource)
+		{
+			var filename = fileMediaSource.Path;
+			if (!string.IsNullOrWhiteSpace(filename))
+			{
+				return filename;
+			}
+		}
+		else if (artwork is ResourceMediaSource resourceMediaSource)
+		{
+			string path = "ms-appx:///" + resourceMediaSource.Path;
+			if (!string.IsNullOrWhiteSpace(path))
+			{
+				return path;
+			}
+		}
+		return string.Empty;
+	}
+
 	protected virtual partial void PlatformUpdateShouldLoopPlayback()
 	{
 		if (Player is null)
@@ -344,7 +378,7 @@ partial class MediaManager : IDisposable
 		}
 	}
 
-	void UpdateMetadata()
+	async Task UpdateMetadata()
 	{
 		if (systemMediaControls is null || Player is null)
 		{
@@ -352,11 +386,16 @@ partial class MediaManager : IDisposable
 		}
 
 		metadata ??= new(systemMediaControls, MediaElement, Dispatcher);
-		metadata.SetMetadata(MediaElement);
-		Dispatcher.Dispatch(() => Player.PosterSource = new BitmapImage(new Uri(MediaElement.MetadataArtworkUrl)));
+		await metadata.SetMetadata(MediaElement);
+		var artwork = ArtworkUrl(MediaElement.MetadataArtworkUrl);
+		if(string.IsNullOrEmpty(artwork))
+		{
+			return;
+		}
+		Dispatcher.Dispatch(() => Player.PosterSource = new BitmapImage(new Uri(artwork)));
 	}
 
-	void OnMediaElementMediaOpened(WindowsMediaElement sender, object args)
+	async void OnMediaElementMediaOpened(WindowsMediaElement sender, object args)
 	{
 		if (Player is null)
 		{
@@ -374,7 +413,7 @@ partial class MediaManager : IDisposable
 
 		MediaElement.MediaOpened();
 
-		UpdateMetadata();
+		await UpdateMetadata();
 
 		static void SetDuration(in IMediaElement mediaElement, in MediaPlayerElement mediaPlayerElement)
 		{
