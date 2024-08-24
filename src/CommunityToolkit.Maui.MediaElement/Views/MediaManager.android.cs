@@ -620,7 +620,6 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		mediaSession.SetFlags(MediaSessionCompat.FlagHandlesMediaButtons | MediaSessionCompat.FlagHandlesTransportControls);
 	}
 
-	
 	public record struct GetArtwork
 	{
 		public static string? ArtworkUrl { get; set; }

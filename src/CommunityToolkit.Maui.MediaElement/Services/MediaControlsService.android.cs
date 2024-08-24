@@ -183,7 +183,6 @@ class MediaControlsService : Service
 	{
 		var albumArtUri = mediaManagerIntent.GetStringExtra("albumArtUri") ?? string.Empty;
 		var bitmap = await MediaManager.GetArtwork.Getbitmap(albumArtUri, CancellationToken.None).ConfigureAwait(false);
-		//var (bitmap, artwork) = await MediaManager.GetArtworkAsync(albumArtUri, cancellationToken);
 		var title = mediaManagerIntent.GetStringExtra("title") ?? string.Empty;
 		var artist = mediaManagerIntent.GetStringExtra("artist") ?? string.Empty;
 		notification?.SetContentTitle(title);

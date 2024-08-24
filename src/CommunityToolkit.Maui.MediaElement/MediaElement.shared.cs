@@ -571,7 +571,7 @@ public class MediaElement : View, IMediaElement, IDisposable
 		OnPropertyChanged(SourceProperty.PropertyName);
 		InvalidateMeasure();
 	}
-	
+
 	void OnSourcePropertyChanged(MediaSource? newValue)
 	{
 		ClearTimer();
