@@ -47,7 +47,7 @@
     <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
 
     <EmbeddedResource Include="Resources\Embedded\*" />
-    
+
     <!-- Custom Fonts -->
     <MauiFont Include="Resources\Fonts\*" />
 
@@ -84,10 +84,5 @@
 
   <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('windows'))=='false' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)'))=='maccatalyst' and $(Configuration) == 'Debug'">
     <RuntimeIdentifiers>maccatalyst-arm64;maccatalyst-x64</RuntimeIdentifiers>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(TargetFramework)'=='net8.0-ios'">
-    <CodesignKey>Apple Development: Created via API (337FZG5B84)</CodesignKey>
-    <CodesignProvision>VS: WildCard Development</CodesignProvision>
   </PropertyGroup>
 </Project>
