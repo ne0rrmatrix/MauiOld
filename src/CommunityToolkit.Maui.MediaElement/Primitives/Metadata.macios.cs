@@ -76,8 +76,15 @@ class Metadata
 			Metadata.ClearNowPlaying();
 			return;
 		}
-		var artwork = await MediaManager.GetArtwork.MetadataArtworkUrl(mediaElement.MetadataArtworkUrl).ConfigureAwait(false);
-		NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: _ => artwork);
+		var artwork = await MediaManager.GetArtwork.MetadataArtworkUrl(mediaElement.MetadataArtworkUrl);
+		if (artwork is UIImage image)
+		{
+			NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: _ => image);
+		}
+		else
+		{
+			NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: _ => defaultUIImage);
+		}
 		NowPlayingInfo.Title = mediaElement.MetadataTitle;
 		NowPlayingInfo.Artist = mediaElement.MetadataArtist;
 		NowPlayingInfo.PlaybackDuration = playerItem?.Duration.Seconds ?? 0;

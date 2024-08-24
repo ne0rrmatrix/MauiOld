@@ -304,7 +304,7 @@ public partial class MediaManager : IDisposable
 			{
 				Player.Play();
 			}
-			await SetPoster().ConfigureAwait(false);
+			await SetPoster().ConfigureAwait(true);
 		}
 		else if (PlayerItem is null)
 		{
@@ -316,11 +316,15 @@ public partial class MediaManager : IDisposable
 	async Task SetPoster()
 	{
 
-		if (PlayerItem is null || metaData is null)
+		if (PlayerItem is null || metaData is null || MediaElement is null)
 		{
 			return;
 		}
-		UIImage artwork = await GetArtwork.MetadataArtworkUrl(MediaElement.MetadataArtworkUrl).ConfigureAwait(false);
+		var artwork = await GetArtwork.MetadataArtworkUrl(MediaElement.MetadataArtworkUrl);
+		if(artwork is null)
+		{
+			return;
+		}
 		var videoTrack = PlayerItem.Asset.TracksWithMediaType(AVMediaTypes.Video.GetConstant()).FirstOrDefault();
 		if (videoTrack is not null)
 		{
@@ -367,10 +371,10 @@ public partial class MediaManager : IDisposable
 			{
 				using var fileStream = File.OpenRead(resource);
 				using var memoryStream = new MemoryStream();
-				await fileStream.CopyToAsync(memoryStream, cancellationToken).ConfigureAwait(true);
+				await fileStream.CopyToAsync(memoryStream, cancellationToken);
 				memoryStream.Position = 0;
 				NSData temp = NSData.FromStream(memoryStream) ?? new NSData();
-				return UIImage.LoadFromData(temp) ?? defaultUIImage;
+				return UIImage.LoadFromData(temp);
 			}
 			catch (Exception e)
 			{
@@ -390,20 +394,18 @@ public partial class MediaManager : IDisposable
 				return null;
 			}
 		}
-		static async Task<UIImage> GetBitmapFromResource(string resource, CancellationToken cancellationToken = default)
+		static async Task<UIImage?> GetBitmapFromResource(string resource, CancellationToken cancellationToken = default)
 		{
 			UIImage image = new();
 			try
 			{
-
-				System.Diagnostics.Trace.TraceInformation($"string: {resource}");
 				using var inputStream = await FileSystem.OpenAppPackageFileAsync(resource);
 				using var memoryStream = new MemoryStream();
-				await inputStream.CopyToAsync(memoryStream, cancellationToken).ConfigureAwait(false);
+				await inputStream.CopyToAsync(memoryStream, cancellationToken);
 				memoryStream.Position = 0;
-				NSData temp = NSData.FromStream(memoryStream) ?? new NSData();
-				return UIImage.LoadFromData(temp) ?? image;
-
+				NSData nsdata = NSData.FromStream(memoryStream) ?? new NSData();
+				var temp =  UIImage.LoadFromData(nsdata);
+				return temp;
 			}
 			catch (Exception e)
 			{
@@ -417,14 +419,14 @@ public partial class MediaManager : IDisposable
 		/// </summary>
 		/// <param name="artworkUrl"></param>
 		/// <returns></returns>
-		public static async Task<UIImage> MetadataArtworkUrl(MediaSource? artworkUrl)
+		public static async Task<UIImage?> MetadataArtworkUrl(MediaSource? artworkUrl)
 		{
 			if (artworkUrl is UriMediaSource uriMediaSource)
 			{
 				var uri = uriMediaSource.Uri;
 				if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
 				{
-					return GetBitmapFromUrl(uri.AbsoluteUri) ?? defaultUIImage;
+					return GetBitmapFromUrl(uri.AbsoluteUri);
 				}
 			}
 			else if (artworkUrl is FileMediaSource fileMediaSource)
@@ -433,7 +435,7 @@ public partial class MediaManager : IDisposable
 
 				if (!string.IsNullOrWhiteSpace(uri))
 				{
-					return await GetBitmapFromFile(uri, CancellationToken.None) ?? defaultUIImage;
+					return await GetBitmapFromFile(uri, CancellationToken.None);
 				}
 			}
 			else if (artworkUrl is ResourceMediaSource resourceMediaSource)
@@ -442,20 +444,14 @@ public partial class MediaManager : IDisposable
 
 				if (!string.IsNullOrWhiteSpace(path) && Path.HasExtension(path))
 				{
-					string directory = Path.GetDirectoryName(path) ?? "";
-					string filename = Path.GetFileNameWithoutExtension(path);
-					string extension = Path.GetExtension(path)[1..];
-					var url = NSBundle.MainBundle.GetUrlForResource(filename,
-						extension, directory);
-					ArgumentNullException.ThrowIfNull(url.FilePathUrl?.AbsoluteString);
-					return await GetBitmapFromResource(url.FilePathUrl.AbsoluteString) ?? defaultUIImage;
+					return await GetBitmapFromResource(path);
 				}
 				else
 				{
 					System.Diagnostics.Trace.TraceError("Invalid file path for ResourceMediaSource.");
 				}
 			}
-			return defaultUIImage;
+			return null;
 		}
 	}
 	
