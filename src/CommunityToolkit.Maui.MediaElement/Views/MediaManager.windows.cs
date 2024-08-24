@@ -389,16 +389,13 @@ partial class MediaManager : IDisposable
 		metadata ??= new(systemMediaControls, MediaElement, Dispatcher);
 		await metadata.SetMetadata(MediaElement);
 		var artwork = ArtworkUrl(MediaElement.MetadataArtworkUrl);
-		if(string.IsNullOrEmpty(artwork))
+		if (!Uri.TryCreate(artwork, UriKind.RelativeOrAbsolute, out var metadataArtworkUri))
 		{
+			Trace.TraceError($"{nameof(MediaElement)} unable to update artwork because {nameof(MediaElement.MetadataArtworkUrl)} is not a valid URI");
 			return;
 		}
-		Dispatcher.Dispatch(() => Player.PosterSource = new BitmapImage(new Uri(artwork)));
-		metadata.SetMetadata(MediaElement);
-
-		if (!Uri.TryCreate(MediaElement.MetadataArtworkUrl, UriKind.RelativeOrAbsolute, out var metadataArtworkUri))
+		if (string.IsNullOrEmpty(artwork))
 		{
-			Trace.WriteLine($"{nameof(MediaElement)} unable to update artwork because {nameof(MediaElement.MetadataArtworkUrl)} is not a valid URI");
 			return;
 		}
 

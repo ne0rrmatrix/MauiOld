@@ -1,7 +1,6 @@
 ﻿using AVFoundation;
 using CommunityToolkit.Maui.Core.Views;
 using CoreMedia;
-using Foundation;
 using MediaPlayer;
 using UIKit;
 
@@ -77,20 +76,8 @@ class Metadata
 			Metadata.ClearNowPlaying();
 			return;
 		}
-		var artwork = MediaManager.MetadataArtworkUrl(mediaElement.MetadataArtworkUrl);
-		if (!string.IsNullOrEmpty(artwork))
-		{
-			var image = MediaManager.GetBitmapFromUrl(artwork) ?? await MediaManager.GetBitmapFromFile(artwork).ConfigureAwait(false);
-			if (image is null)
-			{
-				image = await MediaManager.GetBitmapFromResource(artwork);
-			}
-			NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: _ => image);
-		}
-		else
-		{
-			NowPlayingInfo.Artwork = new(boundsSize: new(0, 0), requestHandler: _ => defaultUIImage);
-		}
+		var artwork = await MediaManager.GetArtwork.MetadataArtworkUrl(mediaElement.MetadataArtworkUrl).ConfigureAwait(false);
+		NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: _ => artwork);
 		NowPlayingInfo.Title = mediaElement.MetadataTitle;
 		NowPlayingInfo.Artist = mediaElement.MetadataArtist;
 		NowPlayingInfo.PlaybackDuration = playerItem?.Duration.Seconds ?? 0;

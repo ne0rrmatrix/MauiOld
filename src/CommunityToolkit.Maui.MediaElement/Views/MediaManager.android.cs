@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Threading;
 using Android.Content;
 using Android.Graphics;
 using Android.Graphics.Drawables;
@@ -47,68 +48,6 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 	/// </summary>
 	protected StyledPlayerView? PlayerView { get; set; }
 
-	/// <summary>
-	/// Retrieves bitmap for the given url
-	/// </summary>
-	/// <param name="url"></param>
-	/// <param name="cancellationToken"></param>
-	/// <returns></returns>
-	/// <exception cref="InvalidOperationException"></exception>
-	public static async Task<Bitmap?> GetBitmapFromUrl(string url, CancellationToken cancellationToken = default)
-	{
-		var bitmapConfig = Bitmap.Config.Argb8888 ?? throw new InvalidOperationException("Bitmap config cannot be null");
-		var bitmap = Bitmap.CreateBitmap(1024, 768, bitmapConfig, true);
-
-		Canvas canvas = new();
-		canvas.SetBitmap(bitmap);
-		canvas.DrawColor(Android.Graphics.Color.White);
-		canvas.Save();
-
-		try
-		{
-			var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
-			var stream = response.IsSuccessStatusCode ? await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false) : null;
-
-			return stream switch
-			{
-				null => null,
-				_ => await BitmapFactory.DecodeStreamAsync(stream).ConfigureAwait(false),
-			};
-		}
-		catch
-		{
-			return null;
-		}
-	}
-	public static async Task<Bitmap?> GetBitmapFromFile(string filePath, CancellationToken cancellationToken = default)
-	{
-		try
-		{
-			if(File.Exists(filePath))
-			{
-				var stream = File.OpenRead(filePath);
-				return await BitmapFactory.DecodeStreamAsync(stream).WaitAsync(cancellationToken).ConfigureAwait(false);
-			}
-		}
-		catch (Exception e)
-		{
-			System.Diagnostics.Trace.TraceInformation($"Error: {e.Message}");
-			return null;
-		}
-		return null;
-	}
-
-	public static Bitmap CreateBlankBitmap()
-	{
-		var bitmapConfig = Bitmap.Config.Argb8888 ?? throw new InvalidOperationException("Bitmap config cannot be null");
-		var bitmap = Bitmap.CreateBitmap(1024, 768, bitmapConfig, true);
-
-		Canvas canvas = new();
-		canvas.SetBitmap(bitmap);
-		canvas.DrawColor(Android.Graphics.Color.Transparent);
-		canvas.Save();
-		return bitmap;
-	}
 	/// <summary>
 	/// Occurs when ExoPlayer changes the playback parameters.
 	/// </summary>
@@ -681,58 +620,121 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		mediaSession.SetFlags(MediaSessionCompat.FlagHandlesMediaButtons | MediaSessionCompat.FlagHandlesTransportControls);
 	}
 
-	public static async Task<Bitmap?> GetBitmapFromResource(string resource, CancellationToken cancellationToken = default)
+	
+	public record struct GetArtwork
 	{
-		try
+		public static string? ArtworkUrl { get; set; }
+		static async Task<Bitmap?> GetBitmapFromUrl(string url, CancellationToken cancellationToken = default)
 		{
-			using var inputStream = await FileSystem.OpenAppPackageFileAsync(resource);
-			using var memoryStream = new MemoryStream();
-			await inputStream.CopyToAsync(memoryStream, CancellationToken.None);
-			memoryStream.Position = 0;
-			var temp = await BitmapFactory.DecodeStreamAsync(memoryStream);
-			return temp;
+			var bitmapConfig = Bitmap.Config.Argb8888 ?? throw new InvalidOperationException("Bitmap config cannot be null");
+			var bitmap = Bitmap.CreateBitmap(1024, 768, bitmapConfig, true);
 
+			Canvas canvas = new();
+			canvas.SetBitmap(bitmap);
+			canvas.DrawColor(Android.Graphics.Color.White);
+			canvas.Save();
+
+			try
+			{
+				var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
+				var stream = response.IsSuccessStatusCode ? await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false) : null;
+
+				return stream switch
+				{
+					null => null,
+					_ => await BitmapFactory.DecodeStreamAsync(stream).ConfigureAwait(false),
+				};
+			}
+			catch
+			{
+				return null;
+			}
 		}
-		catch (Exception e)
+
+		static async Task<Bitmap?> GetBitmapFromFile(string filePath, CancellationToken cancellationToken = default)
 		{
-			System.Diagnostics.Trace.TraceInformation($"Error: {e.Message}");
+			try
+			{
+				if (File.Exists(filePath))
+				{
+					var stream = File.OpenRead(filePath);
+					return await BitmapFactory.DecodeStreamAsync(stream).WaitAsync(cancellationToken).ConfigureAwait(false);
+				}
+			}
+			catch (Exception e)
+			{
+				System.Diagnostics.Trace.TraceInformation($"Error: {e.Message}");
+				return null;
+			}
 			return null;
 		}
-	}
 
-	static string MetadataArtworkUrl(MediaSource? artworkUrl)
-	{
-		if (artworkUrl is UriMediaSource uriMediaSource)
+		static Bitmap CreateBlankBitmap()
 		{
-			var uri = uriMediaSource.Uri;
-			if (!Uri.TryCreate(uriMediaSource, UriKind.RelativeOrAbsolute, out var metadataArtworkUri))
+			var bitmapConfig = Bitmap.Config.Argb8888 ?? throw new InvalidOperationException("Bitmap config cannot be null");
+			var bitmap = Bitmap.CreateBitmap(1024, 768, bitmapConfig, true);
+
+			Canvas canvas = new();
+			canvas.SetBitmap(bitmap);
+			canvas.DrawColor(Android.Graphics.Color.Transparent);
+			canvas.Save();
+			return bitmap;
+		}
+		public static async Task<Bitmap?> GetBitmapFromResource(string resource, CancellationToken cancellationToken = default)
+		{
+			try
 			{
-				System.Diagnostics.Trace.TraceError($"{nameof(MediaElement)} unable to update artwork because {nameof(MediaElement.MetadataArtworkUrl)} is not a valid URI");
-				return string.Empty;
+				using var inputStream = await FileSystem.OpenAppPackageFileAsync(resource);
+				using var memoryStream = new MemoryStream();
+				await inputStream.CopyToAsync(memoryStream, CancellationToken.None);
+				memoryStream.Position = 0;
+				var temp = await BitmapFactory.DecodeStreamAsync(memoryStream);
+				return temp;
+
 			}
-			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
+			catch (Exception e)
 			{
-				return uri.AbsoluteUri;
+				System.Diagnostics.Trace.TraceInformation($"Error: {e.Message}");
+				return null;
 			}
 		}
-		else if (artworkUrl is FileMediaSource fileMediaSource)
+		public static async Task<Bitmap> Getbitmap(MediaSource? artworkUrl, CancellationToken cancellationToken = default)
 		{
-			var filePath = fileMediaSource.Path;
-			if (!string.IsNullOrWhiteSpace(filePath))
+			if (artworkUrl is UriMediaSource uriMediaSource)
 			{
-				return filePath;
+				var uri = uriMediaSource.Uri;
+				if (!Uri.TryCreate(uriMediaSource, UriKind.RelativeOrAbsolute, out var metadataArtworkUri))
+				{
+					System.Diagnostics.Trace.TraceError($"{nameof(MediaElement)} unable to update artwork because {nameof(MediaElement.MetadataArtworkUrl)} is not a valid URI");
+					return CreateBlankBitmap();
+				}
+				if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
+				{
+					ArtworkUrl = uri.AbsoluteUri;
+					return await GetBitmapFromUrl(uri.AbsoluteUri, cancellationToken) ?? CreateBlankBitmap();
+				}
 			}
-		}
-		else if (artworkUrl is ResourceMediaSource resourceMediaSource)
-		{
-			var path = resourceMediaSource.Path;
-			var item = path?.Substring(path.LastIndexOf('/') + 1);
-			if (!string.IsNullOrWhiteSpace(item))
+			else if (artworkUrl is FileMediaSource fileMediaSource)
 			{
-				return item;
+				var filePath = fileMediaSource.Path;
+				if (!string.IsNullOrWhiteSpace(filePath))
+				{
+					ArtworkUrl = filePath;
+					return await GetBitmapFromFile(filePath, cancellationToken) ?? CreateBlankBitmap();
+				}
 			}
+			else if (artworkUrl is ResourceMediaSource resourceMediaSource)
+			{
+				var path = resourceMediaSource.Path;
+				var item = path?.Substring(path.LastIndexOf('/') + 1);
+				if (!string.IsNullOrWhiteSpace(item))
+				{
+					ArtworkUrl = item;
+					return await GetBitmapFromResource(item, cancellationToken) ?? CreateBlankBitmap();
+				}
+			}
+			return CreateBlankBitmap();
 		}
-		return string.Empty;
 	}
 
 	async Task StartService(CancellationToken cancellationToken = default)
@@ -746,11 +748,8 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		PlayerView.ArtworkDisplayMode = StyledPlayerView.ArtworkDisplayModeFit;
 		Android.Content.Context? context = Platform.AppContext;
 		Android.Content.Res.Resources? resources = context.Resources;
-		var artworkUrl = MetadataArtworkUrl(MediaElement.MetadataArtworkUrl);
-		var bitmap = await GetBitmapFromUrl(artworkUrl, CancellationToken.None) ??
-			await GetBitmapFromResource(artworkUrl, CancellationToken.None) ??
-			await GetBitmapFromFile(artworkUrl, CancellationToken.None) ?? 
-			CreateBlankBitmap();
+		var bitmap = await GetArtwork.Getbitmap(MediaElement.MetadataArtworkUrl, cancellationToken);
+		var artworkUrl = GetArtwork.ArtworkUrl;
 		PlayerView.DefaultArtwork = new BitmapDrawable(resources, bitmap);
 
 		var mediaMetadata = new MediaMetadataCompat.Builder();

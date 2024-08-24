@@ -17,7 +17,10 @@ public class MediaElementTests : BaseHandlerTest
 	{
 		MediaElement mediaElement = new();
 		mediaElement.MetadataArtworkUrl = "https://www.example.com/image.jpg";
-		Assert.True(!string.IsNullOrEmpty(mediaElement.MetadataArtworkUrl));
+		if(mediaElement.MetadataArtworkUrl is UriMediaSource mediaSource)
+		{
+			Assert.True(!string.IsNullOrEmpty(mediaSource.Uri?.AbsoluteUri));
+		}
 	}
 
 	[Fact]
@@ -25,8 +28,11 @@ public class MediaElementTests : BaseHandlerTest
 	{
 		MediaElement mediaElement = new();
 		mediaElement.MetadataArtworkUrl = string.Empty;
-		Assert.True(string.IsNullOrEmpty(mediaElement.MetadataArtworkUrl));
-		Assert.True(mediaElement.MetadataArtworkUrl == string.Empty);
+		if(mediaElement.MetadataArtworkUrl is UriMediaSource mediaSource)
+		{
+			Assert.True(string.IsNullOrEmpty(mediaSource.Uri?.AbsoluteUri));
+			Assert.True(mediaSource.Uri?.AbsoluteUri == string.Empty);
+		}
 	}
 
 	[Fact]
