@@ -304,7 +304,7 @@ public partial class MediaManager : IDisposable
 			{
 				Player.Play();
 			}
-			await SetPoster().ConfigureAwait(true);
+			await SetPoster(CancellationToken.None).ConfigureAwait(false);
 		}
 		else if (PlayerItem is null)
 		{
@@ -313,16 +313,16 @@ public partial class MediaManager : IDisposable
 			MediaElement.CurrentStateChanged(MediaElementState.None);
 		}
 	}
-	async Task SetPoster()
+	async Task SetPoster(CancellationToken cancellationToken = default)
 	{
-
 		if (PlayerItem is null || metaData is null || MediaElement is null)
 		{
 			return;
 		}
-		var artwork = await GetArtwork.MetadataArtworkUrl(MediaElement.MetadataArtworkUrl);
+		var artwork = await GetArtwork.MetadataArtworkUrl(MediaElement.MetadataArtworkUrl, cancellationToken).ConfigureAwait(false);
 		if(artwork is null)
 		{
+			System.Diagnostics.Trace.TraceError($"{artwork} is null.");
 			return;
 		}
 		var videoTrack = PlayerItem.Asset.TracksWithMediaType(AVMediaTypes.Video.GetConstant()).FirstOrDefault();
@@ -335,7 +335,6 @@ public partial class MediaManager : IDisposable
 			// No video track found and no tracks found. This is likely an audio file. So we can't set a poster.
 			return;
 		}
-
 		if (PlayerViewController?.View is not null && PlayerViewController.ContentOverlayView is not null)
 		{
 			var imageView = new UIImageView(artwork)
@@ -371,7 +370,7 @@ public partial class MediaManager : IDisposable
 			{
 				using var fileStream = File.OpenRead(resource);
 				using var memoryStream = new MemoryStream();
-				await fileStream.CopyToAsync(memoryStream, cancellationToken);
+				await fileStream.CopyToAsync(memoryStream, cancellationToken).ConfigureAwait(false);
 				memoryStream.Position = 0;
 				NSData temp = NSData.FromStream(memoryStream) ?? new NSData();
 				return UIImage.LoadFromData(temp);
@@ -396,21 +395,29 @@ public partial class MediaManager : IDisposable
 		}
 		static async Task<UIImage?> GetBitmapFromResource(string resource, CancellationToken cancellationToken = default)
 		{
-			UIImage image = new();
 			try
 			{
-				using var inputStream = await FileSystem.OpenAppPackageFileAsync(resource);
+				using var inputStream = await FileSystem.OpenAppPackageFileAsync(resource).ConfigureAwait(false);
 				using var memoryStream = new MemoryStream();
-				await inputStream.CopyToAsync(memoryStream, cancellationToken);
+				if(inputStream is null)
+				{
+					System.Diagnostics.Trace.TraceError($"{inputStream} is null.");
+					return null;
+				}
+				await inputStream.CopyToAsync(memoryStream, cancellationToken).ConfigureAwait(false);
 				memoryStream.Position = 0;
-				NSData nsdata = NSData.FromStream(memoryStream) ?? new NSData();
-				var temp =  UIImage.LoadFromData(nsdata);
-				return temp;
+				NSData? nsdata = NSData.FromStream(memoryStream);
+				if (nsdata is null)
+				{
+					System.Diagnostics.Trace.TraceError($"{nsdata} is null.");
+					return null;
+				}
+				return  UIImage.LoadFromData(nsdata);
 			}
 			catch (Exception e)
 			{
 				System.Diagnostics.Trace.TraceInformation($"Error: {e.Message}");
-				return image;
+				return null;
 			}
 		}
 
@@ -418,8 +425,9 @@ public partial class MediaManager : IDisposable
 		/// Gets the artwork URL from the <see cref="MediaSource"/>.
 		/// </summary>
 		/// <param name="artworkUrl"></param>
+		/// <param name="cancellationToken"></param>
 		/// <returns></returns>
-		public static async Task<UIImage?> MetadataArtworkUrl(MediaSource? artworkUrl)
+		public static async Task<UIImage?> MetadataArtworkUrl(MediaSource? artworkUrl, CancellationToken cancellationToken = default)
 		{
 			if (artworkUrl is UriMediaSource uriMediaSource)
 			{
@@ -435,7 +443,7 @@ public partial class MediaManager : IDisposable
 
 				if (!string.IsNullOrWhiteSpace(uri))
 				{
-					return await GetBitmapFromFile(uri, CancellationToken.None);
+					return await GetBitmapFromFile(uri, cancellationToken).ConfigureAwait(false);
 				}
 			}
 			else if (artworkUrl is ResourceMediaSource resourceMediaSource)
@@ -444,7 +452,7 @@ public partial class MediaManager : IDisposable
 
 				if (!string.IsNullOrWhiteSpace(path) && Path.HasExtension(path))
 				{
-					return await GetBitmapFromResource(path);
+					return await GetBitmapFromResource(path, cancellationToken).ConfigureAwait(false);
 				}
 				else
 				{

@@ -685,9 +685,9 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 			{
 				using var inputStream = await FileSystem.OpenAppPackageFileAsync(resource);
 				using var memoryStream = new MemoryStream();
-				await inputStream.CopyToAsync(memoryStream, CancellationToken.None);
+				await inputStream.CopyToAsync(memoryStream, CancellationToken.None).ConfigureAwait(false);
 				memoryStream.Position = 0;
-				var temp = await BitmapFactory.DecodeStreamAsync(memoryStream);
+				var temp = await BitmapFactory.DecodeStreamAsync(memoryStream).ConfigureAwait(false);
 				return temp;
 
 			}
@@ -710,7 +710,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 				if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
 				{
 					ArtworkUrl = uri.AbsoluteUri;
-					return await GetBitmapFromUrl(uri.AbsoluteUri, cancellationToken) ?? CreateBlankBitmap();
+					return await GetBitmapFromUrl(uri.AbsoluteUri, cancellationToken).ConfigureAwait(false) ?? CreateBlankBitmap();
 				}
 			}
 			else if (artworkUrl is FileMediaSource fileMediaSource)
@@ -719,7 +719,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 				if (!string.IsNullOrWhiteSpace(filePath))
 				{
 					ArtworkUrl = filePath;
-					return await GetBitmapFromFile(filePath, cancellationToken) ?? CreateBlankBitmap();
+					return await GetBitmapFromFile(filePath, cancellationToken).ConfigureAwait(false) ?? CreateBlankBitmap();
 				}
 			}
 			else if (artworkUrl is ResourceMediaSource resourceMediaSource)
@@ -729,7 +729,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 				if (!string.IsNullOrWhiteSpace(item))
 				{
 					ArtworkUrl = item;
-					return await GetBitmapFromResource(item, cancellationToken) ?? CreateBlankBitmap();
+					return await GetBitmapFromResource(item, cancellationToken).ConfigureAwait(false) ?? CreateBlankBitmap();
 				}
 			}
 			return CreateBlankBitmap();

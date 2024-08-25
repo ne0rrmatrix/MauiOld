@@ -58,7 +58,6 @@ class Metadata
 	/// </summary>
 	public MPNowPlayingInfo NowPlayingInfo { get; } = new();
 
-
 	/// <summary>
 	/// Clears the metadata for the currently playing media.
 	/// </summary>
@@ -71,19 +70,20 @@ class Metadata
 	/// <param name="mediaElement"></param>
 	public async Task SetMetadata(AVPlayerItem? playerItem, IMediaElement? mediaElement)
 	{
-		if (mediaElement is null)
+		if(mediaElement is null)
 		{
-			Metadata.ClearNowPlaying();
 			return;
 		}
-		var artwork = await MediaManager.GetArtwork.MetadataArtworkUrl(mediaElement.MetadataArtworkUrl);
+		ClearNowPlaying();
+		var artwork = await MediaManager.GetArtwork.MetadataArtworkUrl(mediaElement.MetadataArtworkUrl).ConfigureAwait(false);
+
 		if (artwork is UIImage image)
 		{
 			NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: _ => image);
 		}
 		else
 		{
-			NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: _ => defaultUIImage);
+			NowPlayingInfo.Artwork = new(boundsSize: new(0, 0), requestHandler: _ => defaultUIImage);
 		}
 		NowPlayingInfo.Title = mediaElement.MetadataTitle;
 		NowPlayingInfo.Artist = mediaElement.MetadataArtist;
