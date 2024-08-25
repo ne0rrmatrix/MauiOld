@@ -17,6 +17,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	const string resetSource = "Reset Source to null";
 	const string loadMusic = "Load Music";
 	const string loadLocalArtwork = "Load Local Artwork";
+	const string downloadFile = "Download Image File";
 
 	public MediaElementPage(MediaElementViewModel viewModel, ILogger<MediaElementPage> logger) : base(viewModel)
 	{
@@ -157,7 +158,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	async void ChangeSourceClicked(Object sender, EventArgs e)
 	{
 		var result = await DisplayActionSheet("Choose a source", "Cancel", null,
-			loadOnlineMp4, loadHls, loadLocalResource, resetSource, loadMusic, loadLocalArtwork);
+			loadOnlineMp4, loadHls, loadLocalResource, resetSource, loadMusic, loadLocalArtwork, downloadFile);
 
 		switch (result)
 		{
@@ -214,7 +215,6 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case loadLocalArtwork:
-				await SetupDownload().ConfigureAwait(true);
 				MediaElement.MetadataTitle = "Local Video Title";
 				MediaElement.MetadataArtist = "Local Video Album";
 				
@@ -226,6 +226,9 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				MediaElement.Source =
 					MediaSource.FromUri(
 						"https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4");
+				return;
+			case downloadFile:
+				await SetupDownload().ConfigureAwait(true);
 				return;
 		}
 	}
