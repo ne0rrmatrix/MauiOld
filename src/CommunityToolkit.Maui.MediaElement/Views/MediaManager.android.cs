@@ -646,7 +646,6 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		mediaItem.SetMediaId(url);
 		if (subtitleList is not null)
 		{
-			System.Diagnostics.Trace.TraceInformation("Subtitles found");
 			mediaItem.SetSubtitleConfigurations(subtitleList);
 		}
 		mediaItem.SetMediaMetadata(mediaMetaData.Build());
