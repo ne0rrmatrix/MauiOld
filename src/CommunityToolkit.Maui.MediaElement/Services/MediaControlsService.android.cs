@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Runtime.InteropServices;
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
@@ -8,7 +7,6 @@ using AndroidX.Core.App;
 using AndroidX.Media3.Session;
 using AndroidX.Media3.UI;
 using CommunityToolkit.Maui.Services;
-using Microsoft.Win32.SafeHandles;
 using Resource = Microsoft.Maui.Controls.Resource;
 
 namespace CommunityToolkit.Maui.Media.Services;
@@ -34,12 +32,13 @@ class MediaControlsService : Service
 		Binder = new BoundServiceBinder(this);
 		return Binder;
 	}
-
-	public override StartCommandResult OnStartCommand([NotNull] Intent? intent, StartCommandFlags flags, int startId)
+	public override void OnCreate()
 	{
-		ArgumentNullException.ThrowIfNull(intent);
-		
+		base.OnCreate();
 		StartForegroundServices();
+	}
+	public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
+	{
 		return StartCommandResult.NotSticky;
 	}
 
@@ -49,8 +48,6 @@ class MediaControlsService : Service
 		Player?.Stop();
 		playerNotificationManager?.SetPlayer(null);
 		NotificationManager?.CancelAll();
-		NotificationManager?.Dispose();
-		playerNotificationManager?.Dispose();
 	}
 
 	public override void OnDestroy()
@@ -58,8 +55,6 @@ class MediaControlsService : Service
 		base.OnDestroy();
 		playerNotificationManager?.SetPlayer(null);
 		NotificationManager?.CancelAll();
-		NotificationManager?.Dispose();
-		playerNotificationManager?.Dispose();
 		if (OperatingSystem.IsAndroidVersionAtLeast(26) && !OperatingSystem.IsAndroidVersionAtLeast(33))
 		{
 			StopForeground(true);
@@ -72,8 +67,6 @@ class MediaControlsService : Service
 		{
 			if (disposing)
 			{
-				playerNotificationManager?.SetPlayer(null);
-				NotificationManager?.CancelAll();
 				NotificationManager?.Dispose();
 				playerNotificationManager?.Dispose();
 				if (OperatingSystem.IsAndroidVersionAtLeast(26) && !OperatingSystem.IsAndroidVersionAtLeast(33))
@@ -85,6 +78,12 @@ class MediaControlsService : Service
 			isDisposed = true;
 		}
 		base.Dispose(disposing);
+	}
+
+	public override void OnRebind(Intent? intent)
+	{
+		base.OnRebind(intent);
+		StartForegroundServices();
 	}
 
 	[MemberNotNull(nameof(NotificationManager))]
