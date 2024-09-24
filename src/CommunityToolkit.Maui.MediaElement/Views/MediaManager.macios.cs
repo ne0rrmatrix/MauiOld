@@ -215,7 +215,6 @@ public partial class MediaManager : IDisposable
 	{
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 
-		AVAsset? asset = null;
 		if (Player is null)
 		{
 			return;
@@ -225,12 +224,15 @@ public partial class MediaManager : IDisposable
 		Metadata.ClearNowPlaying();
 		PlayerViewController?.ContentOverlayView?.Subviews?.FirstOrDefault()?.RemoveFromSuperview();
 
+		NSUrl? videoURL = null;
+		var subtitleURL = new NSUrl(MediaElement.SubtitleUrl);
+
 		if (MediaElement.Source is UriMediaSource uriMediaSource)
 		{
 			var uri = uriMediaSource.Uri;
 			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
 			{
-				asset = AVAsset.FromUrl(new NSUrl(uri.AbsoluteUri));
+				videoURL = new NSUrl(uri.AbsoluteUri);
 				}
 			}
 		else if (MediaElement.Source is FileMediaSource fileMediaSource)
@@ -239,7 +241,7 @@ public partial class MediaManager : IDisposable
 
 			if (!string.IsNullOrWhiteSpace(uri))
 			{
-				asset = AVAsset.FromUrl(NSUrl.CreateFileUrl(uri));
+				videoURL = NSUrl.CreateFileUrl(uri);
 			}
 		}
 		else if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
@@ -254,7 +256,7 @@ public partial class MediaManager : IDisposable
 				var url = NSBundle.MainBundle.GetUrlForResource(filename,
 					extension, directory);
 
-				asset = AVAsset.FromUrl(url);
+				videoURL = NSUrl.CreateFileUrl(url?.Path ?? "");
 			}
 			else
 			{
@@ -262,8 +264,28 @@ public partial class MediaManager : IDisposable
 			}
 		}
 
-		PlayerItem = asset is not null
-			? new AVPlayerItem(asset)
+		var composition = new AVMutableComposition();
+		if(videoURL is not null)
+		{
+			var videoAsset = AVAsset.FromUrl(videoURL);
+			var videoTrack = videoAsset.TracksWithMediaType(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Video))[0];
+			var videoCompositionTrack = composition.AddMutableTrack(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Video), 0);
+			videoCompositionTrack?.InsertTimeRange(new CMTimeRange { Start = CMTime.Zero, Duration = videoAsset.Duration }, videoTrack, CMTime.Zero, out _);
+		}
+	
+	
+		if(!string.IsNullOrEmpty(MediaElement.SubtitleUrl))
+		{
+			var subtitleAsset = AVAsset.FromUrl(subtitleURL);
+			var subtitleTrack = subtitleAsset.TracksWithMediaType(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Text))[0];
+			var subtitleCompositionTrack = composition.AddMutableTrack(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Text), 0);
+			subtitleCompositionTrack?.InsertTimeRange(new CMTimeRange { Start = CMTime.Zero, Duration = subtitleAsset.Duration }, subtitleTrack, CMTime.Zero, out _);
+		}
+		
+		var playerItem = new AVPlayerItem(composition);
+
+		PlayerItem = videoURL is not null
+			? playerItem
 			: null;
 
 		metaData.SetMetadata(PlayerItem, MediaElement);
@@ -271,7 +293,6 @@ public partial class MediaManager : IDisposable
 
 		Player.ReplaceCurrentItemWithPlayerItem(PlayerItem);
 		AddSubtitles(MediaElement.SubtitleUrl);
-
 		CurrentItemErrorObserver = PlayerItem?.AddObserver("error",
 			valueObserverOptions, (NSObservedChange change) =>
 			{
@@ -311,22 +332,25 @@ public partial class MediaManager : IDisposable
 
 	void AddSubtitles(string subtitlesPath)
 	{
-		if(string.IsNullOrEmpty(subtitlesPath) || PlayerItem is null)
+		if (string.IsNullOrEmpty(subtitlesPath) || Player?.CurrentItem is null)
 		{
 			return;
 		}
-		NSUrl? subtitlesUrl = NSUrl.FromString(subtitlesPath);
-		ArgumentNullException.ThrowIfNull(subtitlesUrl);
-		var asset = AVAsset.FromUrl(subtitlesUrl);
-
-		var group = asset.MediaSelectionGroupForMediaCharacteristic($"{AVMediaCharacteristics.Legible}");
-		if (group is not null)
+		var asset = Player.CurrentItem.Asset;
+		if (asset is null)
 		{
-			var option = group.Options.FirstOrDefault();
-			if (option is not null)
-			{
-				PlayerItem.SelectMediaOption(option, group);
-			}
+			return;
+		}
+		var mediaSelectionGroup = asset.GetMediaSelectionGroupForMediaCharacteristic(avMediaCharacteristic: AVMediaCharacteristics.Legible);
+		if (mediaSelectionGroup == null)
+		{
+			return;
+		}
+
+		var subtitleOption = Array.Find(mediaSelectionGroup.Options, option => option.DisplayName == "English");
+		if (subtitleOption != null)
+		{
+			Player.CurrentItem.SelectMediaOption(subtitleOption, mediaSelectionGroup);
 		}
 	}
 
