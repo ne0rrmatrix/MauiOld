@@ -63,7 +63,6 @@ public class MauiMediaElement : Grid, IDisposable
 
 		fullScreenButton.Click += OnFullScreenButtonClick;
 		buttonContainer.Children.Add(fullScreenButton);
-
 		Children.Add(this.mediaPlayerElement);
 		Children.Add(buttonContainer);
 

@@ -231,8 +231,8 @@ public partial class MediaManager : IDisposable
 			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
 			{
 				asset = AVAsset.FromUrl(new NSUrl(uri.AbsoluteUri));
+				}
 			}
-		}
 		else if (MediaElement.Source is FileMediaSource fileMediaSource)
 		{
 			var uri = fileMediaSource.Path;
@@ -270,6 +270,7 @@ public partial class MediaManager : IDisposable
 		CurrentItemErrorObserver?.Dispose();
 
 		Player.ReplaceCurrentItemWithPlayerItem(PlayerItem);
+		AddSubtitles(MediaElement.SubtitleUrl);
 
 		CurrentItemErrorObserver = PlayerItem?.AddObserver("error",
 			valueObserverOptions, (NSObservedChange change) =>
@@ -307,6 +308,28 @@ public partial class MediaManager : IDisposable
 			MediaElement.CurrentStateChanged(MediaElementState.None);
 		}
 	}
+
+	void AddSubtitles(string subtitlesPath)
+	{
+		if(string.IsNullOrEmpty(subtitlesPath) || PlayerItem is null)
+		{
+			return;
+		}
+		NSUrl? subtitlesUrl = NSUrl.FromString(subtitlesPath);
+		ArgumentNullException.ThrowIfNull(subtitlesUrl);
+		var asset = AVAsset.FromUrl(subtitlesUrl);
+
+		var group = asset.MediaSelectionGroupForMediaCharacteristic($"{AVMediaCharacteristics.Legible}");
+		if (group is not null)
+		{
+			var option = group.Options.FirstOrDefault();
+			if (option is not null)
+			{
+				PlayerItem.SelectMediaOption(option, group);
+			}
+		}
+	}
+
 	void SetPoster()
 	{
 
@@ -314,6 +337,7 @@ public partial class MediaManager : IDisposable
 		{
 			return;
 		}
+		
 		var videoTrack = PlayerItem.Asset.TracksWithMediaType(AVMediaTypes.Video.GetConstant()).FirstOrDefault();
 		if (videoTrack is not null)
 		{

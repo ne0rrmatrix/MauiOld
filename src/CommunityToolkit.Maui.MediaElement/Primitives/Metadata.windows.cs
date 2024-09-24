@@ -67,6 +67,5 @@ class Metadata
 		systemMediaControls.DisplayUpdater.Type = MediaPlaybackType.Music;
 		systemMediaControls.DisplayUpdater.MusicProperties.Artist = mp.MetadataTitle;
 		systemMediaControls.DisplayUpdater.MusicProperties.Title = mp.MetadataArtist;
-		systemMediaControls.DisplayUpdater.Update();
 	}
 }

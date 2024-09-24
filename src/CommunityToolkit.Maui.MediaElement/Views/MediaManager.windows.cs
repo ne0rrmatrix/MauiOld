@@ -2,12 +2,16 @@ using System.Diagnostics;
 using CommunityToolkit.Maui.Core.Primitives;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui.Controls.PlatformConfiguration;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Foundation.Collections;
 using Windows.Media;
+using Windows.Media.Core;
 using Windows.Media.Playback;
 using Windows.Storage;
 using Windows.System.Display;
+using Windows.UI.Core;
 using Page = Microsoft.Maui.Controls.Page;
 using ParentWindow = CommunityToolkit.Maui.Extensions.PageExtensions.ParentWindow;
 using WindowsMediaElement = Windows.Media.Playback.MediaPlayer;
@@ -18,6 +22,7 @@ namespace CommunityToolkit.Maui.Core.Views;
 partial class MediaManager : IDisposable
 {
 	Metadata? metadata;
+	Dictionary<TimedTextSource, Uri> ttsMap = new Dictionary<TimedTextSource, Uri>();
 	SystemMediaTransportControls? systemMediaControls;
 
 	// States that allow changing position
@@ -270,6 +275,14 @@ partial class MediaManager : IDisposable
 
 			return;
 		}
+		TimedTextSource? ttsEn = null;
+		if (!string.IsNullOrEmpty(MediaElement.SubtitleUrl))
+		{
+			var ttsEnUri = new Uri(MediaElement.SubtitleUrl);
+			ttsEn = TimedTextSource.CreateFromUri(ttsEnUri);
+			ttsMap[ttsEn] = ttsEnUri;
+			ttsEn.Resolved += Tts_Resolved;
+		}
 
 		MediaElement.Position = TimeSpan.Zero;
 		MediaElement.Duration = TimeSpan.Zero;
@@ -280,7 +293,21 @@ partial class MediaManager : IDisposable
 			var uri = uriMediaSource.Uri?.AbsoluteUri;
 			if (!string.IsNullOrWhiteSpace(uri))
 			{
-				Player.Source = WinMediaSource.CreateFromUri(new Uri(uri));
+				var source = WinMediaSource.CreateFromUri(new Uri(uri));
+				if(!string.IsNullOrEmpty(MediaElement.SubtitleUrl))
+				{
+					if (ttsEn is not null)
+					{
+						source.ExternalTimedTextSources.Add(ttsEn);
+					}
+					var playbackItem = new MediaPlaybackItem(source);
+					playbackItem.TimedMetadataTracksChanged += (sender, args) =>
+					{
+						playbackItem.TimedMetadataTracks.SetPresentationMode(0, TimedMetadataTrackPresentationMode.PlatformPresented);
+					};
+					Player.Source = playbackItem;
+				}
+				
 			}
 		}
 		else if (MediaElement.Source is FileMediaSource fileMediaSource)
@@ -289,7 +316,20 @@ partial class MediaManager : IDisposable
 			if (!string.IsNullOrWhiteSpace(filename))
 			{
 				StorageFile storageFile = await StorageFile.GetFileFromPathAsync(filename);
-				Player.Source = WinMediaSource.CreateFromStorageFile(storageFile);
+				var source= WinMediaSource.CreateFromStorageFile(storageFile);
+				if (!string.IsNullOrEmpty(MediaElement.SubtitleUrl))
+				{
+					if (ttsEn is not null)
+					{
+						source.ExternalTimedTextSources.Add(ttsEn);
+					}
+					var playbackItem = new MediaPlaybackItem(source);
+					playbackItem.TimedMetadataTracksChanged += (sender, args) =>
+					{
+						playbackItem.TimedMetadataTracks.SetPresentationMode(0, TimedMetadataTrackPresentationMode.PlatformPresented);
+					};
+					Player.Source = playbackItem;
+				}
 			}
 		}
 		else if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
@@ -297,9 +337,34 @@ partial class MediaManager : IDisposable
 			string path = "ms-appx:///" + resourceMediaSource.Path;
 			if (!string.IsNullOrWhiteSpace(path))
 			{
-				Player.Source = WinMediaSource.CreateFromUri(new Uri(path));
+				var source = WinMediaSource.CreateFromUri(new Uri(path));
+				if (!string.IsNullOrEmpty(MediaElement.SubtitleUrl))
+				{
+					if (ttsEn is not null)
+					{
+						source.ExternalTimedTextSources.Add(ttsEn);
+					}
+					var playbackItem = new MediaPlaybackItem(source);
+					playbackItem.TimedMetadataTracksChanged += (sender, args) =>
+					{
+						playbackItem.TimedMetadataTracks.SetPresentationMode(0, TimedMetadataTrackPresentationMode.PlatformPresented);
+					};
+					Player.Source = playbackItem;
+				}
 			}
 		}
+	}
+
+	static void Tts_Resolved(TimedTextSource sender, TimedTextSourceResolveResultEventArgs args)
+	{
+
+		// Handle errors
+		if (args.Error is not null)
+		{
+			System.Diagnostics.Trace.TraceError($"Failed to resolve timed text source: {args.Error.ExtendedError}");
+			return;
+		}
+		args.Tracks[0].Label = "English";
 	}
 
 	protected virtual partial void PlatformUpdateShouldLoopPlayback()

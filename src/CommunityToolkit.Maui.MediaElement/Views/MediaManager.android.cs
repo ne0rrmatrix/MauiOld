@@ -9,6 +9,7 @@ using AndroidX.Media3.Common.Text;
 using AndroidX.Media3.Common.Util;
 using AndroidX.Media3.DataSource;
 using AndroidX.Media3.ExoPlayer;
+using AndroidX.Media3.ExoPlayer.Source;
 using AndroidX.Media3.Session;
 using AndroidX.Media3.UI;
 using CommunityToolkit.Maui.ApplicationModel.Permissions;
@@ -102,7 +103,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 	void UpdateNotifications()
 	{
-		if(connection?.Binder?.Service is null)
+		if (connection?.Binder?.Service is null)
 		{
 			System.Diagnostics.Trace.TraceInformation("Notification Service not running.");
 			return;
@@ -193,6 +194,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 			ControllerAutoShow = false,
 			LayoutParameters = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)
 		};
+
 		string randomId = Convert.ToBase64String(Guid.NewGuid().ToByteArray())[..8];
 		var mediaSessionWRandomId = new AndroidX.Media3.Session.MediaSession.Builder(Platform.AppContext, Player);
 		mediaSessionWRandomId.SetId(randomId);
@@ -201,7 +203,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		session ??= mediaSessionWRandomId.Build() ?? throw new InvalidOperationException("Session cannot be null");
 		ArgumentNullException.ThrowIfNull(session.Id);
 		checkPermissionsTask = CheckAndRequestForegroundPermission(checkPermissionSourceToken.Token);
-		
+
 		return (Player, PlayerView);
 	}
 
@@ -344,7 +346,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		}
 		Player.Pause();
 	}
-	
+
 	[MemberNotNull(nameof(Player))]
 	protected virtual async partial Task PlatformSeek(TimeSpan position, CancellationToken token)
 	{
@@ -378,7 +380,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		{
 			return;
 		}
-		
+
 		Player.SeekTo(0);
 		Player.Stop();
 		MediaElement.Position = TimeSpan.Zero;
@@ -411,10 +413,12 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		Player.PlayWhenReady = MediaElement.ShouldAutoPlay;
 
 		var item = SetPlayerData()?.Build();
-		
+
 		if (item?.MediaMetadata is not null)
 		{
-			Player.SetMediaItem(item);
+			var mediaSourceFactory = new DefaultMediaSourceFactory(Platform.AppContext);
+			var mediaSource = mediaSourceFactory.CreateMediaSource(item);
+			Player.SetMediaSource(mediaSource);
 			Player.Prepare();
 			hasSetSource = true;
 		}
@@ -498,7 +502,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		{
 			return;
 		}
-		
+
 		// If the user changes while muted, change the internal field
 		// and do not update the actual volume.
 		if (MediaElement.ShouldMute)
@@ -629,6 +633,8 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	[MemberNotNull(nameof(mediaItem))]
 	MediaItem.Builder CreateMediaItem(string url)
 	{
+		var subtitleList = GetSubtitles(MediaElement.SubtitleUrl);
+		
 		MediaMetadata.Builder mediaMetaData = new();
 		mediaMetaData.SetArtist(MediaElement.MetadataArtist);
 		mediaMetaData.SetTitle(MediaElement.MetadataTitle);
@@ -638,8 +644,30 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		mediaItem = new MediaItem.Builder();
 		mediaItem.SetUri(url);
 		mediaItem.SetMediaId(url);
+		if (subtitleList is not null)
+		{
+			System.Diagnostics.Trace.TraceInformation("Subtitles found");
+			mediaItem.SetSubtitleConfigurations(subtitleList);
+		}
 		mediaItem.SetMediaMetadata(mediaMetaData.Build());
 		return mediaItem;
+	}
+
+	static List<MediaItem.SubtitleConfiguration>? GetSubtitles(string url)
+	{
+		var uri = Android.Net.Uri.Parse(url);
+		if (uri is null || string.IsNullOrWhiteSpace(url))
+		{
+			return null;
+		}
+		var subtitleBuilder = new MediaItem.SubtitleConfiguration.Builder(uri);
+		subtitleBuilder.SetMimeType(MimeTypes.TextVtt);
+		subtitleBuilder.SetLabel("English");
+		subtitleBuilder.SetId("1");
+		subtitleBuilder.SetSelectionFlags(C.SelectionFlagDefault);
+
+		var subtitles = subtitleBuilder.Build();
+		return [subtitles];
 	}
 
 	async Task CheckAndRequestForegroundPermission(CancellationToken cancellationToken = default)
@@ -663,6 +691,16 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	public void OnAudioAttributesChanged(AudioAttributes? audioAttributes) { }
 	public void OnAudioSessionIdChanged(int audioSessionId) { }
 	public void OnAvailableCommandsChanged(PlayerCommands? availableCommands) { }
+	public void OnCuesDeprecated(global::System.Collections.Generic.IList<global::AndroidX.Media3.Common.Text.Cue>? cues)
+	{
+		System.Diagnostics.Trace.TraceInformation("Cues found");
+		if (cues is null)
+		{
+			return;
+		}
+		PlayerView?.SubtitleView?.SetCues(cues);
+	}
+
 	public void OnCues(CueGroup? cueGroup) { }
 	public void OnDeviceInfoChanged(DeviceInfo? deviceInfo) { }
 	public void OnDeviceVolumeChanged(int volume, bool muted) { }
