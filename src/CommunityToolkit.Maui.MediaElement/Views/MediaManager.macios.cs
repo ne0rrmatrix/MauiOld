@@ -8,6 +8,7 @@ using CoreMedia;
 using Foundation;
 using MediaPlayer;
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui.Platform;
 using UIKit;
 
 namespace CommunityToolkit.Maui.Core.Views;
@@ -292,6 +293,7 @@ public partial class MediaManager : IDisposable
 		CurrentItemErrorObserver?.Dispose();
 
 		Player.ReplaceCurrentItemWithPlayerItem(PlayerItem);
+		
 		AddSubtitles(MediaElement.SubtitleUrl);
 		CurrentItemErrorObserver = PlayerItem?.AddObserver("error",
 			valueObserverOptions, (NSObservedChange change) =>
@@ -309,6 +311,11 @@ public partial class MediaManager : IDisposable
 
 				Logger.LogError("{LogMessage}", message);
 			});
+		
+		if(Player.CurrentItem is not null && !string.IsNullOrEmpty(MediaElement.SubtitleFont))
+		{
+			Player.CurrentItem.TextStyleRules = [CreateTextStyleRule(UIColor.White, UIColor.Black, (int)MediaElement.SubtitleFontSize, MediaElement.SubtitleFont)];
+		}
 
 		if (PlayerItem is not null && PlayerItem.Error is null)
 		{
@@ -329,7 +336,36 @@ public partial class MediaManager : IDisposable
 			MediaElement.CurrentStateChanged(MediaElementState.None);
 		}
 	}
+	static (float red, float green, float blue, float alpha) GetColorValues(UIColor color)
+	{
+		float green = color.ToColor()?.Green ?? 1;
+		float red = color.ToColor()?.Red ?? 1;
+		float blue = color.ToColor()?.Blue ?? 1;
+		float alpha = color.ToColor()?.Alpha ?? 1;
+		return (red, green, blue, alpha);
+	}
+	static AVTextStyleRule CreateTextStyleRule(UIColor foregorund, UIColor background, float fontSize, string fontFamily)
+	{
+		var cmTextMarkupAtrributes = new CMTextMarkupAttributes();
+		if (foregorund is not null)
+		{
+			var (red, green, blue, alpha) =	GetColorValues(foregorund);
+			var foreGroundColor = new TextMarkupColor(red, green, blue, alpha);
+			cmTextMarkupAtrributes.ForegroundColor = foreGroundColor;
+		}
 
+		if (background is not null)
+		{
+			var (red, green, blue, alpha) = GetColorValues(background);
+			var backgroundColor = new TextMarkupColor(red, green, blue, alpha);
+			cmTextMarkupAtrributes.BackgroundColor = backgroundColor;
+		}
+
+		cmTextMarkupAtrributes.FontFamilyName = GetFontFamily(fontFamily, fontSize).FamilyName;
+
+		return new AVTextStyleRule(cmTextMarkupAtrributes);
+	}
+	static UIFont GetFontFamily(string fontFamily, float fontSize) => UIFont.FromName(new Core.FontExtensions.FontFamily(fontFamily).MacIOS, fontSize);
 	void AddSubtitles(string subtitlesPath)
 	{
 		if (string.IsNullOrEmpty(subtitlesPath) || Player?.CurrentItem is null)
@@ -346,7 +382,6 @@ public partial class MediaManager : IDisposable
 		{
 			return;
 		}
-
 		var subtitleOption = Array.Find(mediaSelectionGroup.Options, option => option.DisplayName == "English");
 		if (subtitleOption != null)
 		{

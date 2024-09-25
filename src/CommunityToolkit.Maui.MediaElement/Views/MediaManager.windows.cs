@@ -2,17 +2,14 @@ using System.Diagnostics;
 using CommunityToolkit.Maui.Core.Primitives;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
-using Microsoft.Maui.Controls.PlatformConfiguration;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
-using Windows.Foundation.Collections;
 using Windows.Media;
 using Windows.Media.Core;
 using Windows.Media.Playback;
 using Windows.Storage;
 using Windows.System.Display;
-using Windows.UI.Core;
-using Page = Microsoft.Maui.Controls.Page;
 using ParentWindow = CommunityToolkit.Maui.Extensions.PageExtensions.ParentWindow;
 using WindowsMediaElement = Windows.Media.Playback.MediaPlayer;
 using WinMediaSource = Windows.Media.Core.MediaSource;
@@ -294,20 +291,21 @@ partial class MediaManager : IDisposable
 			if (!string.IsNullOrWhiteSpace(uri))
 			{
 				var source = WinMediaSource.CreateFromUri(new Uri(uri));
-				if(!string.IsNullOrEmpty(MediaElement.SubtitleUrl))
+				var playbackItem = new MediaPlaybackItem(source);
+				if (!string.IsNullOrEmpty(MediaElement.SubtitleUrl))
 				{
 					if (ttsEn is not null)
 					{
 						source.ExternalTimedTextSources.Add(ttsEn);
 					}
-					var playbackItem = new MediaPlaybackItem(source);
 					playbackItem.TimedMetadataTracksChanged += (sender, args) =>
 					{
 						playbackItem.TimedMetadataTracks.SetPresentationMode(0, TimedMetadataTrackPresentationMode.PlatformPresented);
 					};
-					Player.Source = playbackItem;
+					Player.FontFamily = GetFontFamily(MediaElement.SubtitleFont);
+					Player.FontSize = MediaElement.SubtitleFontSize;
 				}
-				
+				Player.Source = playbackItem;
 			}
 		}
 		else if (MediaElement.Source is FileMediaSource fileMediaSource)
@@ -317,19 +315,21 @@ partial class MediaManager : IDisposable
 			{
 				StorageFile storageFile = await StorageFile.GetFileFromPathAsync(filename);
 				var source= WinMediaSource.CreateFromStorageFile(storageFile);
+				var playbackItem = new MediaPlaybackItem(source);
 				if (!string.IsNullOrEmpty(MediaElement.SubtitleUrl))
 				{
 					if (ttsEn is not null)
 					{
 						source.ExternalTimedTextSources.Add(ttsEn);
 					}
-					var playbackItem = new MediaPlaybackItem(source);
 					playbackItem.TimedMetadataTracksChanged += (sender, args) =>
 					{
 						playbackItem.TimedMetadataTracks.SetPresentationMode(0, TimedMetadataTrackPresentationMode.PlatformPresented);
 					};
-					Player.Source = playbackItem;
+					Player.FontFamily = GetFontFamily(MediaElement.SubtitleFont);
+					Player.FontSize = MediaElement.SubtitleFontSize;
 				}
+				Player.Source = playbackItem;
 			}
 		}
 		else if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
@@ -338,23 +338,40 @@ partial class MediaManager : IDisposable
 			if (!string.IsNullOrWhiteSpace(path))
 			{
 				var source = WinMediaSource.CreateFromUri(new Uri(path));
+				var playbackItem = new MediaPlaybackItem(source);
 				if (!string.IsNullOrEmpty(MediaElement.SubtitleUrl))
 				{
 					if (ttsEn is not null)
 					{
 						source.ExternalTimedTextSources.Add(ttsEn);
 					}
-					var playbackItem = new MediaPlaybackItem(source);
 					playbackItem.TimedMetadataTracksChanged += (sender, args) =>
 					{
 						playbackItem.TimedMetadataTracks.SetPresentationMode(0, TimedMetadataTrackPresentationMode.PlatformPresented);
 					};
-					Player.Source = playbackItem;
+					Player.FontFamily = GetFontFamily(MediaElement.SubtitleFont);
+					Player.FontSize = MediaElement.SubtitleFontSize;
 				}
+				Player.Source = playbackItem;
 			}
 		}
 	}
-
+	FontFamily? GetFontFamily(string fontName)
+	{
+		if (string.IsNullOrEmpty(fontName))
+		{
+			return null;
+		}
+		try
+		{
+			return new FontFamily(new Core.FontExtensions.FontFamily(fontName).WindowsFont);
+		}
+		catch (Exception ex)
+		{
+			Logger?.LogError(ex, "Failed to load font family");
+			return null;
+		}
+	}
 	static void Tts_Resolved(TimedTextSource sender, TimedTextSourceResolveResultEventArgs args)
 	{
 

@@ -216,6 +216,8 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				MediaElement.MetadataTitle = "Subititles Title";
 				MediaElement.MetadataArtist = "Subtitles Album";
 				MediaElement.SubtitleUrl = "https://raw.githubusercontent.com/ne0rrmatrix/SampleVideo/main/SRT/WindowsVideo.vtt";
+				MediaElement.SubtitleFont = @"PlaywriteSK-Regular.ttf#Playwrite SK";
+				MediaElement.SubtitleFontSize = 12;
 				MediaElement.Source = MediaSource.FromResource("WindowsVideo.mp4");
 				return;
 		}

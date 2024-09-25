@@ -19,6 +19,7 @@ using CommunityToolkit.Maui.Services;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
 using AudioAttributes = AndroidX.Media3.Common.AudioAttributes;
+using Color = Android.Graphics.Color;
 using DeviceInfo = AndroidX.Media3.Common.DeviceInfo;
 using MediaMetadata = AndroidX.Media3.Common.MediaMetadata;
 
@@ -29,6 +30,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	const int bufferState = 2;
 	const int readyState = 3;
 	const int endedState = 4;
+	const int textSizeAbsolute = 2;
 
 	static readonly HttpClient client = new();
 	readonly SemaphoreSlim seekToSemaphoreSlim = new(1, 1);
@@ -419,6 +421,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 			var mediaSourceFactory = new DefaultMediaSourceFactory(Platform.AppContext);
 			var mediaSource = mediaSourceFactory.CreateMediaSource(item);
 			Player.SetMediaSource(mediaSource);
+			SetPlayerSubtitleView();
 			Player.Prepare();
 			hasSetSource = true;
 		}
@@ -652,6 +655,26 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		return mediaItem;
 	}
 
+	void SetPlayerSubtitleView()
+	{
+		if (PlayerView?.SubtitleView is null)
+		{
+			return;
+		}
+		if(!string.IsNullOrEmpty(MediaElement.SubtitleFont))
+		{
+			PlayerView.SubtitleView.SetApplyEmbeddedFontSizes(false);
+			PlayerView.SubtitleView.SetApplyEmbeddedStyles(false);
+			var typeface = Typeface.CreateFromAsset(Platform.AppContext.ApplicationContext?.Assets, new Core.FontExtensions.FontFamily(MediaElement.SubtitleFont).Android) ?? Typeface.Default;
+			CaptionStyleCompat captionStyle = new(Color.White, Color.Black, Color.Transparent, CaptionStyleCompat.EdgeTypeNone, Color.White, typeface: typeface);
+			PlayerView.SubtitleView.SetStyle(captionStyle);
+		}
+		
+		PlayerView.SubtitleView.SetBottomPaddingFraction(0.1f);
+		PlayerView.SubtitleView.SetFixedTextSize(textSizeAbsolute, (float)MediaElement.SubtitleFontSize);
+	}
+
+	
 	static List<MediaItem.SubtitleConfiguration>? GetSubtitles(string url)
 	{
 		var uri = Android.Net.Uri.Parse(url);
