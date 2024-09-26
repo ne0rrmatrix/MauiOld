@@ -675,7 +675,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	}
 
 	
-	static List<MediaItem.SubtitleConfiguration>? GetSubtitles(string url)
+	List<MediaItem.SubtitleConfiguration>? GetSubtitles(string url)
 	{
 		var uri = Android.Net.Uri.Parse(url);
 		if (uri is null || string.IsNullOrWhiteSpace(url))
@@ -684,8 +684,8 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		}
 		var subtitleBuilder = new MediaItem.SubtitleConfiguration.Builder(uri);
 		subtitleBuilder.SetMimeType(MimeTypes.TextVtt);
-		subtitleBuilder.SetLabel("English");
-		subtitleBuilder.SetId("1");
+		subtitleBuilder.SetLabel(MediaElement.SubtitleLanguage);
+		subtitleBuilder.SetId(MediaElement.SubtitleLanguage);
 		subtitleBuilder.SetSelectionFlags(C.SelectionFlagDefault);
 
 		var subtitles = subtitleBuilder.Build();

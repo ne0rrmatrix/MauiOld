@@ -49,9 +49,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <AndroidResource Include="Assets\*"/>
+    <AndroidResource Include="Assets\*" />
   </ItemGroup>
-  
+
   <ItemGroup>
     <None Include="..\..\build\nuget.png" PackagePath="icon.png" Pack="true" />
     <None Include="ReadMe.txt" pack="true" PackagePath="." />
@@ -86,5 +86,10 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiPackageVersion)" />
   </ItemGroup>
-  
+
+  <ItemGroup>
+    <EmbeddedResource Include="ResourceDictionary.windows.xaml">
+      <LogicalName>ResourceDictionary.windows.xaml</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>

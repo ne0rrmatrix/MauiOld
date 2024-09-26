@@ -94,6 +94,15 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	string SubtitleUrl { get; }
 
 	/// <summary>
+	/// Gets or sets the subtitle list.
+	/// </summary>
+	Dictionary<string, string> SubtitleUrlDictionary { get; }
+
+	/// <summary>
+	/// Gets or sets the language of the subtitle file.
+	/// </summary>
+	string SubtitleLanguage { get; }
+	/// <summary>
 	/// Gets or sets the font to use for the subtitle text.
 	/// </summary>
 	string SubtitleFont { get; }

@@ -80,6 +80,15 @@ public class MediaElement : View, IMediaElement, IDisposable
 	public static readonly BindableProperty SubtitleProperty = BindableProperty.Create(nameof(SubtitleUrl), typeof(string), typeof(MediaElement), string.Empty);
 
 	/// <summary>
+	/// Backing store for the <see cref="SubtitleUrl"/> property.
+	/// </summary>
+	public static readonly BindableProperty SubtitleLanguageProperty = BindableProperty.Create(nameof(SubtitleLanguage), typeof(string), typeof(MediaElement), string.Empty);
+
+	/// <summary>
+	/// Backing store for the <see cref="SubtitleUrlDictionary"/> property.
+	/// </summary>
+	public static readonly BindableProperty SubtitleUrlDictionaryProperty = BindableProperty.Create(nameof(SubtitleUrlDictionary), typeof(Dictionary<string, string>), typeof(MediaElement), new Dictionary<string, string>());
+	/// <summary>
 	/// Backing store for the <see cref="SubtitleFont"/> property.
 	/// </summary>
 	public static readonly BindableProperty SubtitleFontProperty = BindableProperty.Create(nameof(SubtitleFont), typeof(string), typeof(MediaElement), string.Empty);
@@ -310,6 +319,23 @@ public class MediaElement : View, IMediaElement, IDisposable
 	{
 		get => (string)GetValue(SubtitleProperty);
 		set => SetValue(SubtitleProperty, value);
+	}
+
+	/// <summary>
+	/// Gets or sets the subtitle list.
+	/// </summary>
+	public Dictionary<string, string> SubtitleUrlDictionary
+	{
+		get =>(Dictionary<string, string>)GetValue(SubtitleUrlDictionaryProperty);
+		set => SetValue(SubtitleUrlDictionaryProperty, value);
+	}
+	/// <summary>
+	/// Gets or sets the language of the subtitle file.
+	/// </summary>
+	public string SubtitleLanguage
+	{
+		get => (string)GetValue(SubtitleLanguageProperty);
+		set => SetValue(SubtitleLanguageProperty, value);
 	}
 
 	/// <summary>
