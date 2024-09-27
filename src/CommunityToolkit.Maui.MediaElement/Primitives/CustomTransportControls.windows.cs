@@ -17,8 +17,8 @@ public sealed class CustomTransportControls : MediaTransportControls
 	/// <summary>
 	/// A button for Full screen controls.
 	/// </summary>
-	public Button? FullScreenButton { get; private set; }
-
+	public AppBarButton? FullScreenButton { get; private set; }
+	bool isFullScreen = false;
 	Button? CCSelectionbutton { get; set; }
 
 	/// <summary>
@@ -43,12 +43,31 @@ public sealed class CustomTransportControls : MediaTransportControls
 			CCSelectionbutton.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
 			CCSelectionbutton.IsEnabled = true;
 		}
-		var temp = GetTemplateChild("FullWindowButton") as Button;
+		var temp = GetTemplateChild("FullWindowButton") as AppBarButton;
 		if(temp is not null)
 		{
 			FullScreenButton = temp;
 			FullScreenButton.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
 			OnTemplateLoaded?.Invoke(this, EventArgs.Empty);
+			FullScreenButton.Click += FullScreenButton_Click;
+		}
+	}
+
+	void FullScreenButton_Click(object sender, RoutedEventArgs e)
+	{
+		if (FullScreenButton is null)
+		{
+			return;
+		}
+		if (isFullScreen)
+		{
+			FullScreenButton.Icon = new FontIcon { Glyph = "\uE740" };
+			isFullScreen = false;
+		}
+		else
+		{
+			FullScreenButton.Icon = new SymbolIcon(Symbol.BackToWindow);
+			isFullScreen = true;
 		}
 	}
 }
