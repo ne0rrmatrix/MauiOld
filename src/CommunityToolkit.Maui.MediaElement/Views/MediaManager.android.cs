@@ -196,7 +196,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 			ControllerAutoShow = false,
 			LayoutParameters = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)
 		};
-
+		
 		string randomId = Convert.ToBase64String(Guid.NewGuid().ToByteArray())[..8];
 		var mediaSessionWRandomId = new AndroidX.Media3.Session.MediaSession.Builder(Platform.AppContext, Player);
 		mediaSessionWRandomId.SetId(randomId);
@@ -636,8 +636,16 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	[MemberNotNull(nameof(mediaItem))]
 	MediaItem.Builder CreateMediaItem(string url)
 	{
-		var subtitleList = GetSubtitles(MediaElement.SubtitleUrl);
-		
+		List<MediaItem.SubtitleConfiguration>? subtitleList = null;
+		if(MediaElement.SubtitleUrlDictionary.Count > 0)
+		{
+			subtitleList = GetSubtitlesList(MediaElement.SubtitleUrlDictionary);
+		}
+		else if (!string.IsNullOrWhiteSpace(MediaElement.SubtitleUrl))
+		{
+			subtitleList = GetSubtitles(MediaElement.SubtitleUrl);
+		}
+
 		MediaMetadata.Builder mediaMetaData = new();
 		mediaMetaData.SetArtist(MediaElement.MetadataArtist);
 		mediaMetaData.SetTitle(MediaElement.MetadataTitle);
@@ -674,7 +682,31 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		PlayerView.SubtitleView.SetFixedTextSize(textSizeAbsolute, (float)MediaElement.SubtitleFontSize);
 	}
 
-	
+	static List<MediaItem.SubtitleConfiguration> GetSubtitlesList(Dictionary<string, string> subtitleUrlDictionary)
+	{
+		var subtitles = new List<MediaItem.SubtitleConfiguration>();
+		foreach (var item in subtitleUrlDictionary)
+		{
+			var uri = Android.Net.Uri.Parse(item.Value);
+			if (uri is null || string.IsNullOrWhiteSpace(item.Value))
+			{
+				continue;
+			}
+			var subtitleBuilder = new MediaItem.SubtitleConfiguration.Builder(uri);
+			subtitleBuilder.SetMimeType(MimeTypes.TextVtt);
+			subtitleBuilder.SetLabel(item.Key);
+			subtitleBuilder.SetId(item.Key);
+			subtitleBuilder.SetSelectionFlags(C.SelectionFlagDefault);
+
+			var subtitle = subtitleBuilder.Build();
+			if (subtitle is not null)
+			{
+				subtitles.Add(subtitle);
+			}
+		}
+		return subtitles;
+	}
+
 	List<MediaItem.SubtitleConfiguration>? GetSubtitles(string url)
 	{
 		var uri = Android.Net.Uri.Parse(url);

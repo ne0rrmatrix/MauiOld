@@ -40,6 +40,7 @@ public class MauiMediaElement : CoordinatorLayout
 	{
 		this.playerView = playerView;
 		this.playerView.SetBackgroundColor(Android.Graphics.Color.Black);
+		playerView.SetShowSubtitleButton(true);
 		playerView.FullscreenButtonClick += OnFullscreenButtonClick;
 		
 		var layout = new RelativeLayout.LayoutParams(LayoutParams.WrapContent, LayoutParams.WrapContent);
