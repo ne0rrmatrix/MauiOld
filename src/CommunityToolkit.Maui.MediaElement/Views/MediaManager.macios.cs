@@ -270,11 +270,14 @@ public partial class MediaManager : IDisposable
 		{
 			var videoAsset = AVAsset.FromUrl(videoURL);
 			var videoTrack = videoAsset.TracksWithMediaType(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Video))[0];
+			var audioTrack = videoAsset.TracksWithMediaType(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Audio))[0];
 			var videoCompositionTrack = composition.AddMutableTrack(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Video), 0);
+			var audioCompositionTrack = composition.AddMutableTrack(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Audio), 0);
 			videoCompositionTrack?.InsertTimeRange(new CMTimeRange { Start = CMTime.Zero, Duration = videoAsset.Duration }, videoTrack, CMTime.Zero, out _);
+			audioCompositionTrack?.InsertTimeRange(new CMTimeRange { Start = CMTime.Zero, Duration = videoAsset.Duration }, audioTrack, CMTime.Zero, out _);
 		}
 	
-	
+		
 		if(!string.IsNullOrEmpty(MediaElement.SubtitleUrl))
 		{
 			var subtitleAsset = AVAsset.FromUrl(subtitleURL);
@@ -282,7 +285,7 @@ public partial class MediaManager : IDisposable
 			var subtitleCompositionTrack = composition.AddMutableTrack(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Text), 0);
 			subtitleCompositionTrack?.InsertTimeRange(new CMTimeRange { Start = CMTime.Zero, Duration = subtitleAsset.Duration }, subtitleTrack, CMTime.Zero, out _);
 		}
-		
+
 		var playerItem = new AVPlayerItem(composition);
 
 		PlayerItem = videoURL is not null
@@ -293,8 +296,7 @@ public partial class MediaManager : IDisposable
 		CurrentItemErrorObserver?.Dispose();
 
 		Player.ReplaceCurrentItemWithPlayerItem(PlayerItem);
-		
-		AddSubtitles(MediaElement.SubtitleUrl);
+	
 		CurrentItemErrorObserver = PlayerItem?.AddObserver("error",
 			valueObserverOptions, (NSObservedChange change) =>
 			{
@@ -366,28 +368,6 @@ public partial class MediaManager : IDisposable
 		return new AVTextStyleRule(cmTextMarkupAtrributes);
 	}
 	static UIFont GetFontFamily(string fontFamily, float fontSize) => UIFont.FromName(new Core.FontExtensions.FontFamily(fontFamily).MacIOS, fontSize);
-	void AddSubtitles(string subtitlesPath)
-	{
-		if (string.IsNullOrEmpty(subtitlesPath) || Player?.CurrentItem is null)
-		{
-			return;
-		}
-		var asset = Player.CurrentItem.Asset;
-		if (asset is null)
-		{
-			return;
-		}
-		var mediaSelectionGroup = asset.GetMediaSelectionGroupForMediaCharacteristic(avMediaCharacteristic: AVMediaCharacteristics.Legible);
-		if (mediaSelectionGroup == null)
-		{
-			return;
-		}
-		var subtitleOption = Array.Find(mediaSelectionGroup.Options, option => option.DisplayName == "English");
-		if (subtitleOption != null)
-		{
-			Player.CurrentItem.SelectMediaOption(subtitleOption, mediaSelectionGroup);
-		}
-	}
 
 	void SetPoster()
 	{
