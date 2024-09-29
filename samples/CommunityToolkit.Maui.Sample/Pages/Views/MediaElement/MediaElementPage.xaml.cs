@@ -287,9 +287,4 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 			popupMediaElement.Handler?.DisconnectHandler();
 		};
 	}
-
-	void BasePage_Unloaded(object sender, EventArgs e)
-	{
-		MediaElement?.Handler?.DisconnectHandler();
-	}
 }
