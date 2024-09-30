@@ -234,8 +234,8 @@ public partial class MediaManager : IDisposable
 			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
 			{
 				videoURL = new NSUrl(uri.AbsoluteUri);
-				}
 			}
+		}
 		else if (MediaElement.Source is FileMediaSource fileMediaSource)
 		{
 			var uri = fileMediaSource.Path;
@@ -266,7 +266,7 @@ public partial class MediaManager : IDisposable
 		}
 
 		var composition = new AVMutableComposition();
-		if(videoURL is not null)
+		if (videoURL is not null)
 		{
 			var videoAsset = AVAsset.FromUrl(videoURL);
 			var videoTrack = videoAsset.TracksWithMediaType(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Video))[0];
@@ -276,16 +276,16 @@ public partial class MediaManager : IDisposable
 			videoCompositionTrack?.InsertTimeRange(new CMTimeRange { Start = CMTime.Zero, Duration = videoAsset.Duration }, videoTrack, CMTime.Zero, out _);
 			audioCompositionTrack?.InsertTimeRange(new CMTimeRange { Start = CMTime.Zero, Duration = videoAsset.Duration }, audioTrack, CMTime.Zero, out _);
 		}
-	
-		
-		if(!string.IsNullOrEmpty(MediaElement.SubtitleUrl))
+
+
+		if (!string.IsNullOrEmpty(MediaElement.SubtitleUrl))
 		{
 			var subtitleAsset = AVAsset.FromUrl(subtitleURL);
 			var subtitleTrack = subtitleAsset.TracksWithMediaType(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Text))[0];
 			var subtitleCompositionTrack = composition.AddMutableTrack(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Text), 0);
 			subtitleCompositionTrack?.InsertTimeRange(new CMTimeRange { Start = CMTime.Zero, Duration = subtitleAsset.Duration }, subtitleTrack, CMTime.Zero, out _);
 		}
-
+		
 		var playerItem = new AVPlayerItem(composition);
 
 		PlayerItem = videoURL is not null
@@ -296,7 +296,7 @@ public partial class MediaManager : IDisposable
 		CurrentItemErrorObserver?.Dispose();
 
 		Player.ReplaceCurrentItemWithPlayerItem(PlayerItem);
-	
+
 		CurrentItemErrorObserver = PlayerItem?.AddObserver("error",
 			valueObserverOptions, (NSObservedChange change) =>
 			{
@@ -313,8 +313,8 @@ public partial class MediaManager : IDisposable
 
 				Logger.LogError("{LogMessage}", message);
 			});
-		
-		if(Player.CurrentItem is not null && !string.IsNullOrEmpty(MediaElement.SubtitleFont))
+
+		if (Player.CurrentItem is not null && !string.IsNullOrEmpty(MediaElement.SubtitleFont))
 		{
 			Player.CurrentItem.TextStyleRules = [CreateTextStyleRule(UIColor.White, UIColor.Black, (int)MediaElement.SubtitleFontSize, MediaElement.SubtitleFont)];
 		}
@@ -351,7 +351,7 @@ public partial class MediaManager : IDisposable
 		var cmTextMarkupAtrributes = new CMTextMarkupAttributes();
 		if (foregorund is not null)
 		{
-			var (red, green, blue, alpha) =	GetColorValues(foregorund);
+			var (red, green, blue, alpha) = GetColorValues(foregorund);
 			var foreGroundColor = new TextMarkupColor(red, green, blue, alpha);
 			cmTextMarkupAtrributes.ForegroundColor = foreGroundColor;
 		}
@@ -376,7 +376,6 @@ public partial class MediaManager : IDisposable
 		{
 			return;
 		}
-		
 		var videoTrack = PlayerItem.Asset.TracksWithMediaType(AVMediaTypes.Video.GetConstant()).FirstOrDefault();
 		if (videoTrack is not null)
 		{
