@@ -1,11 +1,15 @@
 using System.Diagnostics;
 using System.Numerics;
 using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Primitives;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Media;
+using Windows.Media.Core;
 using Windows.Media.Playback;
 using Windows.Storage;
 using Windows.System.Display;
@@ -18,7 +22,11 @@ namespace CommunityToolkit.Maui.Core.Views;
 partial class MediaManager : IDisposable
 {
 	Metadata? metadata;
+	MediaPlaybackItem? playbackItem;
+	Dictionary<TimedTextSource, string> timedTextSourceDictionary = [];
+	TimedTextSource? timedTextSource = null;
 	SystemMediaTransportControls? systemMediaControls;
+	CustomTransportControls? customTransportControls;
 
 	// States that allow changing position
 	readonly IReadOnlyList<MediaElementState> allowUpdatePositionStates =
@@ -59,7 +67,8 @@ partial class MediaManager : IDisposable
 		Player.MediaPlayer.MediaEnded += OnMediaElementMediaEnded;
 		Player.MediaPlayer.VolumeChanged += OnMediaElementVolumeChanged;
 		Player.MediaPlayer.IsMutedChanged += OnMediaElementIsMutedChanged;
-
+		
+		Player.MediaPlayer.SystemMediaTransportControls.IsEnabled = false;
 		systemMediaControls = Player.MediaPlayer.SystemMediaTransportControls;
 		return Player;
 	}
@@ -260,6 +269,13 @@ partial class MediaManager : IDisposable
 		{
 			return;
 		}
+		if (playbackItem is not null)
+		{
+			playbackItem.TimedMetadataTracksChanged -= PlaybackItem_TimedMetadataTracksChanged;
+			playbackItem = null;
+		}
+		timedTextSourceDictionary = [];
+
 		Dispatcher.Dispatch(() => Player.PosterSource = new BitmapImage());
 		if (MediaElement.Source is null)
 		{
@@ -270,35 +286,154 @@ partial class MediaManager : IDisposable
 
 			return;
 		}
-
 		MediaElement.Position = TimeSpan.Zero;
 		MediaElement.Duration = TimeSpan.Zero;
 		Player.AutoPlay = MediaElement.ShouldAutoPlay;
 
-		if (MediaElement.Source is UriMediaSource uriMediaSource)
+		if (!string.IsNullOrEmpty(MediaElement.SubtitleUrl))
+		{
+			var source = await GetMediaSourceFromUrl(MediaElement.Source);
+			if (source is null)
+			{
+				Trace.TraceWarning("Failed to set media source from {0}", MediaElement.Source);
+				Player.Source = null;
+				return;
+			}
+			var item = new MediaPlaybackItem(source);
+			playbackItem = AddSubtitleToSource(item, source, MediaElement.SubtitleUrl);
+			Player.Source = playbackItem;
+			return;
+		}
+		if (MediaElement.SubtitleUrlDictionary.Count > 0)
+		{
+			var source = await GetMediaSourceFromUrl(MediaElement.Source);
+			if (source is null)
+			{
+				Trace.TraceWarning("Failed to set media source from {0}", MediaElement.Source);
+				Player.Source = null;
+				return;
+			}
+			var item = new MediaPlaybackItem(source);
+			playbackItem = AddSubtitleToSource(item, source, MediaElement.SubtitleUrlDictionary);
+			Player.Source = playbackItem;
+			return;
+		}
+		Player.Source = await GetMediaSourceFromUrl(MediaElement.Source);
+	}
+
+	static async Task<WinMediaSource?> GetMediaSourceFromUrl(Maui.Views.MediaSource url)
+	{
+		if (url is UriMediaSource uriMediaSource)
 		{
 			var uri = uriMediaSource.Uri?.AbsoluteUri;
 			if (!string.IsNullOrWhiteSpace(uri))
 			{
-				Player.Source = WinMediaSource.CreateFromUri(new Uri(uri));
+				return WinMediaSource.CreateFromUri(new Uri(uri));
 			}
 		}
-		else if (MediaElement.Source is FileMediaSource fileMediaSource)
+		else if (url is FileMediaSource fileMediaSource)
 		{
 			var filename = fileMediaSource.Path;
 			if (!string.IsNullOrWhiteSpace(filename))
 			{
 				StorageFile storageFile = await StorageFile.GetFileFromPathAsync(filename);
-				Player.Source = WinMediaSource.CreateFromStorageFile(storageFile);
+				return WinMediaSource.CreateFromStorageFile(storageFile);
 			}
 		}
-		else if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
+		else if (url is ResourceMediaSource resourceMediaSource)
 		{
+#pragma warning disable S1075 // URIs should not be hardcoded
 			string path = "ms-appx:///" + resourceMediaSource.Path;
+#pragma warning restore S1075 // URIs should not be hardcoded
 			if (!string.IsNullOrWhiteSpace(path))
 			{
-				Player.Source = WinMediaSource.CreateFromUri(new Uri(path));
+				return WinMediaSource.CreateFromUri(new Uri(path));
 			}
+		}
+		return null;
+	}
+	MediaPlaybackItem AddSubtitleToSource(MediaPlaybackItem item, WinMediaSource source, Dictionary<string, string> subtitleUrlList)
+	{
+		foreach (var subtitle in subtitleUrlList)
+		{
+			var ttsEnUri = new Uri(subtitle.Value);
+			var temp = TimedTextSource.CreateFromUri(ttsEnUri);
+			if (!string.IsNullOrEmpty(subtitle.Key))
+			{
+				timedTextSourceDictionary[temp] = subtitle.Key;
+				temp.Resolved += Tts_Resolved;
+			}
+
+			source.ExternalTimedTextSources.Add(temp);
+			item.TimedMetadataTracksChanged += PlaybackItem_TimedMetadataTracksChanged;
+			if (Player is not null)
+			{
+				Player.FontFamily = GetFontFamily(MediaElement.SubtitleFont);
+				Player.FontSize = MediaElement.SubtitleFontSize;
+			}
+		}
+		return item;
+	}
+	MediaPlaybackItem AddSubtitleToSource(MediaPlaybackItem item, WinMediaSource source, string subtitleUrl)
+	{
+		
+		if (!string.IsNullOrEmpty(subtitleUrl))
+		{
+			var ttsEnUri = new Uri(subtitleUrl);
+			timedTextSource = TimedTextSource.CreateFromUri(ttsEnUri);
+			if(!string.IsNullOrEmpty(MediaElement.SubtitleLanguage))
+			{
+				timedTextSourceDictionary[timedTextSource] = MediaElement.SubtitleLanguage;
+				timedTextSource.Resolved += Tts_Resolved;
+			}
+
+			source.ExternalTimedTextSources.Add(timedTextSource);
+			item.TimedMetadataTracksChanged += PlaybackItem_TimedMetadataTracksChanged;
+			if (Player is not null)
+			{
+				Player.FontFamily = GetFontFamily(MediaElement.SubtitleFont);
+				Player.FontSize = MediaElement.SubtitleFontSize;
+			}
+		}
+		return item;
+	}
+
+	static void PlaybackItem_TimedMetadataTracksChanged(MediaPlaybackItem sender, Windows.Foundation.Collections.IVectorChangedEventArgs args)
+	{
+		sender.TimedMetadataTracks.SetPresentationMode(0, TimedMetadataTrackPresentationMode.PlatformPresented);
+	}
+
+	FontFamily? GetFontFamily(string fontName)
+	{
+		if (string.IsNullOrEmpty(fontName))
+		{
+			return null;
+		}
+		try
+		{
+			return new FontFamily(new Core.FontExtensions.FontFamily(fontName).WindowsFont);
+		}
+		catch (Exception ex)
+		{
+			Logger?.LogError(ex, "Failed to load font family");
+			return null;
+		}
+	}
+
+	void Tts_Resolved(TimedTextSource sender, TimedTextSourceResolveResultEventArgs args)
+	{
+		var language = timedTextSourceDictionary[sender];
+		// Handle errors
+		if (args.Error is not null)
+		{
+			System.Diagnostics.Trace.TraceError($"Failed to resolve timed text source: {args.Error.ExtendedError}");
+			return;
+		}
+		System.Diagnostics.Trace.TraceInformation(language);
+		args.Tracks[0].Label = language;
+		if(timedTextSource is not null)
+		{
+			timedTextSource.Resolved -= Tts_Resolved;
 		}
 	}
 
@@ -326,6 +461,10 @@ partial class MediaManager : IDisposable
 				{
 					DisplayRequest.RequestRelease();
 					displayActiveRequested = false;
+				}
+				if(playbackItem is not null)
+				{
+					playbackItem.TimedMetadataTracksChanged -= PlaybackItem_TimedMetadataTracksChanged;
 				}
 
 				Player.MediaPlayer.MediaOpened -= OnMediaElementMediaOpened;

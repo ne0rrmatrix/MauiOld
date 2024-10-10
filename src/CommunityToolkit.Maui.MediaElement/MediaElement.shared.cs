@@ -75,6 +75,30 @@ public class MediaElement : View, IMediaElement, IDisposable
 			propertyChanging: OnSourcePropertyChanging, propertyChanged: OnSourcePropertyChanged);
 
 	/// <summary>
+	/// Backing store for the <see cref="SubtitleUrl"/> property.
+	/// </summary>
+	public static readonly BindableProperty SubtitleProperty = BindableProperty.Create(nameof(SubtitleUrl), typeof(string), typeof(MediaElement), string.Empty);
+
+	/// <summary>
+	/// Backing store for the <see cref="SubtitleUrl"/> property.
+	/// </summary>
+	public static readonly BindableProperty SubtitleLanguageProperty = BindableProperty.Create(nameof(SubtitleLanguage), typeof(string), typeof(MediaElement), string.Empty);
+
+	/// <summary>
+	/// Backing store for the <see cref="SubtitleUrlDictionary"/> property.
+	/// </summary>
+	public static readonly BindableProperty SubtitleUrlDictionaryProperty = BindableProperty.Create(nameof(SubtitleUrlDictionary), typeof(Dictionary<string, string>), typeof(MediaElement), new Dictionary<string, string>());
+	/// <summary>
+	/// Backing store for the <see cref="SubtitleFont"/> property.
+	/// </summary>
+	public static readonly BindableProperty SubtitleFontProperty = BindableProperty.Create(nameof(SubtitleFont), typeof(string), typeof(MediaElement), string.Empty);
+
+	/// <summary>
+	/// Backing store for the <see cref="SubtitleFontSize"/> property.
+	/// </summary>
+	public static readonly BindableProperty SubtitleFontSizeProperty = BindableProperty.Create(nameof(SubtitleFontSize), typeof(double), typeof(MediaElement), 16.0);
+
+	/// <summary>
 	/// Backing store for the <see cref="Speed"/> property.
 	/// </summary>
 	public static readonly BindableProperty SpeedProperty =
@@ -285,6 +309,51 @@ public class MediaElement : View, IMediaElement, IDisposable
 	{
 		get => (MediaSource)GetValue(SourceProperty);
 		set => SetValue(SourceProperty, value);
+	}
+
+	/// <summary>
+	/// Gets or sets the URL of the subtitle file to display.
+	/// This is a bindable property.
+	/// </summary>
+	public string SubtitleUrl
+	{
+		get => (string)GetValue(SubtitleProperty);
+		set => SetValue(SubtitleProperty, value);
+	}
+
+	/// <summary>
+	/// Gets or sets the subtitle list.
+	/// </summary>
+	public Dictionary<string, string> SubtitleUrlDictionary
+	{
+		get =>(Dictionary<string, string>)GetValue(SubtitleUrlDictionaryProperty);
+		set => SetValue(SubtitleUrlDictionaryProperty, value);
+	}
+	/// <summary>
+	/// Gets or sets the language of the subtitle file.
+	/// </summary>
+	public string SubtitleLanguage
+	{
+		get => (string)GetValue(SubtitleLanguageProperty);
+		set => SetValue(SubtitleLanguageProperty, value);
+	}
+
+	/// <summary>
+	/// Gets or sets the font to use for the subtitle text.
+	/// </summary>
+	public string SubtitleFont
+	{
+		get => (string)GetValue(SubtitleFontProperty);
+		set => SetValue(SubtitleFontProperty, value);
+	}
+
+	/// <summary>
+	/// Gets or sets the font size of the subtitle text.
+	/// </summary>
+	public double SubtitleFontSize
+	{
+		get => (double)GetValue(SubtitleFontSizeProperty);
+		set => SetValue(SubtitleFontSizeProperty, value);
 	}
 
 	/// <summary>

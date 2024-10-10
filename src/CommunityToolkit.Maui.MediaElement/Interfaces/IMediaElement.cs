@@ -89,6 +89,30 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	MediaSource? Source { get; set; }
 
 	/// <summary>
+	/// Gets or sets the URL of the subtitle file to display.
+	/// </summary>
+	string SubtitleUrl { get; }
+
+	/// <summary>
+	/// Gets or sets the subtitle list.
+	/// </summary>
+	Dictionary<string, string> SubtitleUrlDictionary { get; }
+
+	/// <summary>
+	/// Gets or sets the language of the subtitle file.
+	/// </summary>
+	string SubtitleLanguage { get; }
+	/// <summary>
+	/// Gets or sets the font to use for the subtitle text.
+	/// </summary>
+	string SubtitleFont { get; }
+
+	/// <summary>
+	/// Gets or sets the font size of the subtitle text.
+	/// </summary>
+	double SubtitleFontSize { get; }
+
+	/// <summary>
 	/// Gets or sets the speed with which the media should be played.
 	/// </summary>
 	/// <remarks>A value of 1 means normal speed.

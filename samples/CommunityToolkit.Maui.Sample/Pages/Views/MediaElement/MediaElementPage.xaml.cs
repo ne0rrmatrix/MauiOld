@@ -16,6 +16,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	const string loadLocalResource = "Load Local Resource";
 	const string resetSource = "Reset Source to null";
 	const string loadMusic = "Load Music";
+	const string loadSubTitles = "Load sample with Subtitles";
 
 	const string buckBunnyMp4Url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
 	const string botImageUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
@@ -161,7 +162,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	async void ChangeSourceClicked(Object sender, EventArgs e)
 	{
 		var result = await DisplayActionSheet("Choose a source", "Cancel", null,
-			loadOnlineMp4, loadHls, loadLocalResource, resetSource, loadMusic);
+			loadOnlineMp4, loadHls, loadLocalResource, resetSource, loadMusic, loadSubTitles);
 
 		switch (result)
 		{
@@ -169,6 +170,9 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				MediaElement.MetadataTitle = "Big Buck Bunny";
 				MediaElement.MetadataArtworkUrl = botImageUrl;
 				MediaElement.MetadataArtist = "Big Buck Bunny Album";
+				MediaElement.SubtitleUrl = string.Empty;
+				MediaElement.SubtitleLanguage = string.Empty;
+				MediaElement.SubtitleUrlDictionary = [];
 				MediaElement.Source =
 					MediaSource.FromUri(buckBunnyMp4Url);
 				return;
@@ -178,12 +182,21 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				MediaElement.MetadataArtworkUrl = botImageUrl;
 				MediaElement.MetadataTitle = "HLS Title";
 				MediaElement.Source = MediaSource.FromUri(hlsStreamTestUrl);
+				MediaElement.SubtitleUrl = string.Empty;
+				MediaElement.SubtitleUrlDictionary = [];
+				MediaElement.SubtitleLanguage = string.Empty;
+				MediaElement.Source
+					= MediaSource.FromUri(
+						"https://mtoczko.github.io/hls-test-streams/test-gap/playlist.m3u8");
 				return;
 
 			case resetSource:
 				MediaElement.MetadataArtworkUrl = string.Empty;
 				MediaElement.MetadataTitle = string.Empty;
 				MediaElement.MetadataArtist = string.Empty;
+				MediaElement.SubtitleUrl = string.Empty;
+				MediaElement.SubtitleLanguage = string.Empty;
+				MediaElement.SubtitleUrlDictionary = [];
 				MediaElement.Source = null;
 				return;
 
@@ -191,7 +204,9 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				MediaElement.MetadataArtworkUrl = botImageUrl;
 				MediaElement.MetadataTitle = "Local Resource Title";
 				MediaElement.MetadataArtist = "Local Resource Album";
-
+				MediaElement.SubtitleLanguage = string.Empty;
+				MediaElement.SubtitleUrl = string.Empty;
+				MediaElement.SubtitleUrlDictionary = [];
 				if (DeviceInfo.Platform == DevicePlatform.MacCatalyst
 					|| DeviceInfo.Platform == DevicePlatform.iOS)
 				{
@@ -210,8 +225,33 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 			case loadMusic:
 				MediaElement.MetadataTitle = "HAL 9000";
 				MediaElement.MetadataArtist = "HAL 9000 Album";
-				MediaElement.MetadataArtworkUrl = botImageUrl;
-				MediaElement.Source = MediaSource.FromUri(hal9000AudioUrl);
+				MediaElement.SubtitleUrlDictionary = [];
+				MediaElement.SubtitleUrl = string.Empty;
+				MediaElement.MetadataArtworkUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
+				MediaElement.Source = MediaSource.FromUri("https://github.com/prof3ssorSt3v3/media-sample-files/raw/master/hal-9000.mp3");
+				return;
+			case loadSubTitles:
+				MediaElement.MetadataArtworkUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
+				MediaElement.MetadataTitle = "Subititles Title";
+				MediaElement.MetadataArtist = "Subtitles Album";
+				if(DeviceInfo.Platform == DevicePlatform.WinUI || DeviceInfo.Platform == DevicePlatform.Android)
+				{
+					MediaElement.SubtitleUrl = string.Empty;
+					MediaElement.SubtitleUrlDictionary = new Dictionary<string, string>
+				{
+					{ "English", "https://raw.githubusercontent.com/ne0rrmatrix/SampleVideo/main/SRT/english.vtt" },
+					{ "Spanish", "https://raw.githubusercontent.com/ne0rrmatrix/SampleVideo/main/SRT/spanish.vtt" }
+				};
+				}
+				else if (DeviceInfo.Platform == DevicePlatform.MacCatalyst
+					|| DeviceInfo.Platform == DevicePlatform.iOS)
+				{
+					MediaElement.SubtitleUrlDictionary = [];
+					MediaElement.SubtitleUrl = "https://raw.githubusercontent.com/ne0rrmatrix/SampleVideo/main/SRT/english.vtt";
+				}
+				MediaElement.SubtitleFont = @"PlaywriteSK-Regular.ttf#Playwrite SK";
+				MediaElement.SubtitleFontSize = 12;
+				MediaElement.Source = MediaSource.FromResource("WindowsVideo.mp4");
 				return;
 		}
 	}
@@ -246,7 +286,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	void DisplayPopup(object sender, EventArgs e)
 	{
 		MediaElement.Pause();
-		var popupMediaElement = new MediaElement
+		var popupMediaElement = new Maui.Views.MediaElement
 		{
 			Source = MediaSource.FromResource("AppleVideo.mp4"),
 			HeightRequest = 600,

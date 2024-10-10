@@ -8,6 +8,7 @@ using CoreMedia;
 using Foundation;
 using MediaPlayer;
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui.Platform;
 using UIKit;
 
 namespace CommunityToolkit.Maui.Core.Views;
@@ -215,7 +216,6 @@ public partial class MediaManager : IDisposable
 	{
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 
-		AVAsset? asset = null;
 		if (Player is null)
 		{
 			return;
@@ -225,12 +225,15 @@ public partial class MediaManager : IDisposable
 		Metadata.ClearNowPlaying();
 		PlayerViewController?.ContentOverlayView?.Subviews?.FirstOrDefault()?.RemoveFromSuperview();
 
+		NSUrl? videoURL = null;
+		var subtitleURL = new NSUrl(MediaElement.SubtitleUrl);
+
 		if (MediaElement.Source is UriMediaSource uriMediaSource)
 		{
 			var uri = uriMediaSource.Uri;
 			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
 			{
-				asset = AVAsset.FromUrl(new NSUrl(uri.AbsoluteUri));
+				videoURL = new NSUrl(uri.AbsoluteUri);
 			}
 		}
 		else if (MediaElement.Source is FileMediaSource fileMediaSource)
@@ -239,7 +242,7 @@ public partial class MediaManager : IDisposable
 
 			if (!string.IsNullOrWhiteSpace(uri))
 			{
-				asset = AVAsset.FromUrl(NSUrl.CreateFileUrl(uri));
+				videoURL = NSUrl.CreateFileUrl(uri);
 			}
 		}
 		else if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
@@ -254,7 +257,7 @@ public partial class MediaManager : IDisposable
 				var url = NSBundle.MainBundle.GetUrlForResource(filename,
 					extension, directory);
 
-				asset = AVAsset.FromUrl(url);
+				videoURL = NSUrl.CreateFileUrl(url?.Path ?? "");
 			}
 			else
 			{
@@ -262,8 +265,31 @@ public partial class MediaManager : IDisposable
 			}
 		}
 
-		PlayerItem = asset is not null
-			? new AVPlayerItem(asset)
+		var composition = new AVMutableComposition();
+		if (videoURL is not null)
+		{
+			var videoAsset = AVAsset.FromUrl(videoURL);
+			var videoTrack = videoAsset.TracksWithMediaType(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Video))[0];
+			var audioTrack = videoAsset.TracksWithMediaType(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Audio))[0];
+			var videoCompositionTrack = composition.AddMutableTrack(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Video), 0);
+			var audioCompositionTrack = composition.AddMutableTrack(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Audio), 0);
+			videoCompositionTrack?.InsertTimeRange(new CMTimeRange { Start = CMTime.Zero, Duration = videoAsset.Duration }, videoTrack, CMTime.Zero, out _);
+			audioCompositionTrack?.InsertTimeRange(new CMTimeRange { Start = CMTime.Zero, Duration = videoAsset.Duration }, audioTrack, CMTime.Zero, out _);
+		}
+
+
+		if (!string.IsNullOrEmpty(MediaElement.SubtitleUrl))
+		{
+			var subtitleAsset = AVAsset.FromUrl(subtitleURL);
+			var subtitleTrack = subtitleAsset.TracksWithMediaType(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Text))[0];
+			var subtitleCompositionTrack = composition.AddMutableTrack(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Text), 0);
+			subtitleCompositionTrack?.InsertTimeRange(new CMTimeRange { Start = CMTime.Zero, Duration = subtitleAsset.Duration }, subtitleTrack, CMTime.Zero, out _);
+		}
+		
+		var playerItem = new AVPlayerItem(composition);
+
+		PlayerItem = videoURL is not null
+			? playerItem
 			: null;
 
 		metaData.SetMetadata(PlayerItem, MediaElement);
@@ -288,6 +314,11 @@ public partial class MediaManager : IDisposable
 				Logger.LogError("{LogMessage}", message);
 			});
 
+		if (Player.CurrentItem is not null && !string.IsNullOrEmpty(MediaElement.SubtitleFont))
+		{
+			Player.CurrentItem.TextStyleRules = [CreateTextStyleRule(UIColor.White, UIColor.Black, (int)MediaElement.SubtitleFontSize, MediaElement.SubtitleFont)];
+		}
+
 		if (PlayerItem is not null && PlayerItem.Error is null)
 		{
 			MediaElement.MediaOpened();
@@ -307,6 +338,37 @@ public partial class MediaManager : IDisposable
 			MediaElement.CurrentStateChanged(MediaElementState.None);
 		}
 	}
+	static (float red, float green, float blue, float alpha) GetColorValues(UIColor color)
+	{
+		float green = color.ToColor()?.Green ?? 1;
+		float red = color.ToColor()?.Red ?? 1;
+		float blue = color.ToColor()?.Blue ?? 1;
+		float alpha = color.ToColor()?.Alpha ?? 1;
+		return (red, green, blue, alpha);
+	}
+	static AVTextStyleRule CreateTextStyleRule(UIColor foregorund, UIColor background, float fontSize, string fontFamily)
+	{
+		var cmTextMarkupAtrributes = new CMTextMarkupAttributes();
+		if (foregorund is not null)
+		{
+			var (red, green, blue, alpha) = GetColorValues(foregorund);
+			var foreGroundColor = new TextMarkupColor(red, green, blue, alpha);
+			cmTextMarkupAtrributes.ForegroundColor = foreGroundColor;
+		}
+
+		if (background is not null)
+		{
+			var (red, green, blue, alpha) = GetColorValues(background);
+			var backgroundColor = new TextMarkupColor(red, green, blue, alpha);
+			cmTextMarkupAtrributes.BackgroundColor = backgroundColor;
+		}
+
+		cmTextMarkupAtrributes.FontFamilyName = GetFontFamily(fontFamily, fontSize).FamilyName;
+
+		return new AVTextStyleRule(cmTextMarkupAtrributes);
+	}
+	static UIFont GetFontFamily(string fontFamily, float fontSize) => UIFont.FromName(new Core.FontExtensions.FontFamily(fontFamily).MacIOS, fontSize);
+
 	void SetPoster()
 	{
 
