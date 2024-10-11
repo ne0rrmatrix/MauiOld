@@ -1,10 +1,8 @@
 using System.Diagnostics;
 using System.Numerics;
 using CommunityToolkit.Maui.Core.Primitives;
-using CommunityToolkit.Maui.Primitives;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
-using Microsoft.Maui;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -12,6 +10,7 @@ using Windows.Media;
 using Windows.Media.Core;
 using Windows.Media.Playback;
 using Windows.Storage;
+using Windows.Storage.Streams;
 using Windows.System.Display;
 using ParentWindow = CommunityToolkit.Maui.Extensions.PageExtensions.ParentWindow;
 using WindowsMediaElement = Windows.Media.Playback.MediaPlayer;
@@ -21,12 +20,10 @@ namespace CommunityToolkit.Maui.Core.Views;
 
 partial class MediaManager : IDisposable
 {
-	Metadata? metadata;
 	MediaPlaybackItem? playbackItem;
 	Dictionary<TimedTextSource, string> timedTextSourceDictionary = [];
 	TimedTextSource? timedTextSource = null;
 	SystemMediaTransportControls? systemMediaControls;
-	CustomTransportControls? customTransportControls;
 
 	// States that allow changing position
 	readonly IReadOnlyList<MediaElementState> allowUpdatePositionStates =
@@ -300,6 +297,7 @@ partial class MediaManager : IDisposable
 				return;
 			}
 			var item = new MediaPlaybackItem(source);
+			SetMediaItemDisplayProperties(item);
 			playbackItem = AddSubtitleToSource(item, source, MediaElement.SubtitleUrl);
 			Player.Source = playbackItem;
 			return;
@@ -314,11 +312,14 @@ partial class MediaManager : IDisposable
 				return;
 			}
 			var item = new MediaPlaybackItem(source);
+			SetMediaItemDisplayProperties(item);
 			playbackItem = AddSubtitleToSource(item, source, MediaElement.SubtitleUrlDictionary);
 			Player.Source = playbackItem;
 			return;
 		}
-		Player.Source = await GetMediaSourceFromUrl(MediaElement.Source);
+		var temp = new MediaPlaybackItem(await GetMediaSourceFromUrl(MediaElement.Source));
+		SetMediaItemDisplayProperties(temp);
+		Player.Source = temp;
 	}
 
 	static async Task<WinMediaSource?> GetMediaSourceFromUrl(Maui.Views.MediaSource url)
@@ -351,6 +352,18 @@ partial class MediaManager : IDisposable
 			}
 		}
 		return null;
+	}
+	void SetMediaItemDisplayProperties(MediaPlaybackItem mediaPlaybackItem)
+	{
+		MediaItemDisplayProperties displayProperties = mediaPlaybackItem.GetDisplayProperties();
+		displayProperties.Type = Windows.Media.MediaPlaybackType.Music;
+		displayProperties.MusicProperties.Title = MediaElement.MetadataTitle;
+		displayProperties.MusicProperties.Artist = MediaElement.MetadataArtist;
+		if (!string.IsNullOrEmpty(MediaElement.MetadataArtworkUrl))
+		{
+			displayProperties.Thumbnail = RandomAccessStreamReference.CreateFromUri(new Uri(MediaElement.MetadataArtworkUrl));
+		}
+		mediaPlaybackItem.ApplyDisplayProperties(displayProperties);
 	}
 	MediaPlaybackItem AddSubtitleToSource(MediaPlaybackItem item, WinMediaSource source, Dictionary<string, string> subtitleUrlList)
 	{
@@ -496,8 +509,6 @@ partial class MediaManager : IDisposable
 			return;
 		}
 
-		metadata ??= new(systemMediaControls, MediaElement, Dispatcher);
-		metadata.SetMetadata(MediaElement);
 		if (string.IsNullOrEmpty(MediaElement.MetadataArtworkUrl))
 		{
 			return;
