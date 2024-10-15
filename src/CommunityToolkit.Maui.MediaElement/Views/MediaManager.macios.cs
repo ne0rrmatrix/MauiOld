@@ -220,6 +220,11 @@ public partial class MediaManager : IDisposable
 		{
 			return;
 		}
+		if(MediaElement.Source is null && MediaElement.Sources is null)
+		{
+			Player.ReplaceCurrentItemWithPlayerItem(null);
+			MediaElement.CurrentStateChanged(MediaElementState.Stopped);
+		}
 		if(MediaElement.Source is null)
 		{
 			return;
@@ -291,7 +296,7 @@ public partial class MediaManager : IDisposable
 			return;
 		}
 		
-		if (MediaElement.Sources is null || MediaElement.Sources.Count == 0)
+		if (MediaElement.Sources is null || MediaElement.Sources is null)
 		{
 			return;
 		}
