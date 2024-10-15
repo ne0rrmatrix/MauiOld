@@ -402,7 +402,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 			return;
 		}
 
-		if (MediaElement.Source is null)
+		if (MediaElement.Source is null && MediaElement.Sources is null)
 		{
 			Player.ClearMediaItems();
 			MediaElement.Duration = TimeSpan.Zero;
@@ -411,23 +411,96 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 			return;
 		}
 
+		if (MediaElement.Source is null)
+		{
+			return;
+		}
+
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 		Player.PlayWhenReady = MediaElement.ShouldAutoPlay;
-
-		var item = SetPlayerData()?.Build();
+		CommunityToolkit.Maui.Primitives.MediaItem? source = new()
+		{
+			Source = MediaElement.Source
+		};
+		var temp = GetUrlFromMediaSource(source.Source);
+		MediaItem? item = null;
+		if (temp is not null)
+		{
+			item = CreateMediaItem(temp, source).Build();
+		}
 
 		if (item?.MediaMetadata is not null)
 		{
 			var mediaSourceFactory = new DefaultMediaSourceFactory(Platform.AppContext);
 			var mediaSource = mediaSourceFactory.CreateMediaSource(item);
 			Player.SetMediaSource(mediaSource);
-			SetPlayerSubtitleView();
 			Player.Prepare();
 			hasSetSource = true;
 		}
 
 		if (hasSetSource && Player.PlayerError is null)
 		{
+			MediaElement.MediaOpened();
+			UpdateNotifications();
+		}
+	}
+
+	protected virtual partial void PlatformUpdateSources()
+	{
+		var hasSetSource = false;
+
+		if (Player is null)
+		{
+			return;
+		}
+
+		if (connection is not null && !connection.IsConnected)
+		{
+			return;
+		}
+
+		if (MediaElement.Sources is null)
+		{
+			return;
+		}
+
+		MediaElement.CurrentStateChanged(MediaElementState.Opening);
+		Player.PlayWhenReady = MediaElement.ShouldAutoPlay;
+		var mediaSourceFactory = new DefaultMediaSourceFactory(Platform.AppContext);
+		Player.ClearMediaItems();
+		var list = new List<IMediaSource>();
+		foreach (var source in MediaElement.Sources)
+		{
+			if (source?.Source is null)
+			{
+				continue;
+			}
+			var temp = GetUrlFromMediaSource(source.Source);
+			MediaItem? item = null;
+			if (temp is not null)
+			{
+				item = CreateMediaItem(temp, source).Build();
+			}
+			if(item?.MediaMetadata is null)
+			{
+				continue;
+			}
+			var mediaSource = mediaSourceFactory.CreateMediaSource(item);
+			if (mediaSource is not null)
+			{
+				list.Add(mediaSource);
+				SetPlayerSubtitleView(source);
+				hasSetSource = true;
+			}
+		}
+
+		if (hasSetSource && Player.PlayerError is null)
+		{
+			Player.ClearMediaItems();
+			MediaElement.Duration = TimeSpan.Zero;
+			MediaElement.CurrentStateChanged(MediaElementState.None);
+			Player.SetMediaSources(list);
+			Player.Prepare();
 			MediaElement.MediaOpened();
 			UpdateNotifications();
 		}
@@ -589,20 +662,20 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		Platform.AppContext.UnbindService(connection);
 	}
 
-	MediaItem.Builder? SetPlayerData()
+	string? GetUrlFromMediaSource(MediaSource? mediaSource)
 	{
-		if (MediaElement.Source is null)
+		if (mediaSource is null)
 		{
 			return null;
 		}
-		switch (MediaElement.Source)
+		switch (mediaSource)
 		{
 			case UriMediaSource uriMediaSource:
 				{
 					var uri = uriMediaSource.Uri;
 					if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
 					{
-						return CreateMediaItem(uri.AbsoluteUri);
+						return uri.AbsoluteUri;
 					}
 					break;
 				}
@@ -611,7 +684,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 					var filePath = fileMediaSource.Path;
 					if (!string.IsNullOrWhiteSpace(filePath))
 					{
-						return CreateMediaItem(filePath);
+						return filePath;
 					}
 					break;
 				}
@@ -622,40 +695,39 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 					if (!string.IsNullOrWhiteSpace(path))
 					{
 						var assetFilePath = $"asset://{package}{System.IO.Path.PathSeparator}{path}";
-						return CreateMediaItem(assetFilePath);
+						return assetFilePath;
 					}
 					break;
 				}
 			default:
-				throw new NotSupportedException($"{MediaElement.Source.GetType().FullName} is not yet supported for {nameof(MediaElement.Source)}");
+				throw new NotSupportedException($"{mediaSource.GetType().FullName} is not yet supported for {nameof(mediaSource)}");
 		}
 
-		return mediaItem;
+		return null;
 	}
 
 	[MemberNotNull(nameof(mediaItem))]
-	MediaItem.Builder CreateMediaItem(string url)
+	MediaItem.Builder CreateMediaItem(string url, CommunityToolkit.Maui.Primitives.MediaItem item)
 	{
-		List<MediaItem.SubtitleConfiguration>? subtitleList = null;
-		if(MediaElement.SubtitleUrlDictionary.Count > 0)
-		{
-			subtitleList = GetSubtitlesList(MediaElement.SubtitleUrlDictionary);
-		}
-		else if (!string.IsNullOrWhiteSpace(MediaElement.SubtitleUrl))
-		{
-			subtitleList = GetSubtitles(MediaElement.SubtitleUrl);
-		}
-
 		MediaMetadata.Builder mediaMetaData = new();
 		mediaMetaData.SetArtist(MediaElement.MetadataArtist);
 		mediaMetaData.SetTitle(MediaElement.MetadataTitle);
 		mediaMetaData.SetArtworkUri(Android.Net.Uri.Parse(MediaElement.MetadataArtworkUrl));
 		mediaMetaData.Build();
+		List<MediaItem.SubtitleConfiguration>? subtitleList = null;
+		if(item.SubtitleUrl is not null)
+		{
+			subtitleList = GetSubtitles(item);
+		}
+		if(item.SubtitleUrlDictionary is not null && item.SubtitleUrlDictionary.Count > 0)
+		{
+			subtitleList = GetSubtitlesList(item.SubtitleUrlDictionary);
+		}
 
 		mediaItem = new MediaItem.Builder();
 		mediaItem.SetUri(url);
 		mediaItem.SetMediaId(url);
-		if (subtitleList is not null)
+		if(subtitleList is not null)
 		{
 			mediaItem.SetSubtitleConfigurations(subtitleList);
 		}
@@ -663,23 +735,23 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		return mediaItem;
 	}
 
-	void SetPlayerSubtitleView()
+	void SetPlayerSubtitleView(CommunityToolkit.Maui.Primitives.MediaItem mediaItem)
 	{
 		if (PlayerView?.SubtitleView is null)
 		{
 			return;
 		}
-		if(!string.IsNullOrEmpty(MediaElement.SubtitleFont))
+		if(!string.IsNullOrEmpty(mediaItem.SubtitleFont))
 		{
 			PlayerView.SubtitleView.SetApplyEmbeddedFontSizes(false);
 			PlayerView.SubtitleView.SetApplyEmbeddedStyles(false);
-			var typeface = Typeface.CreateFromAsset(Platform.AppContext.ApplicationContext?.Assets, new Core.FontExtensions.FontFamily(MediaElement.SubtitleFont).Android) ?? Typeface.Default;
+			var typeface = Typeface.CreateFromAsset(Platform.AppContext.ApplicationContext?.Assets, new Core.FontExtensions.FontFamily(mediaItem.SubtitleFont).Android) ?? Typeface.Default;
 			CaptionStyleCompat captionStyle = new(Color.White, Color.Black, Color.Transparent, CaptionStyleCompat.EdgeTypeNone, Color.White, typeface: typeface);
 			PlayerView.SubtitleView.SetStyle(captionStyle);
 		}
 		
 		PlayerView.SubtitleView.SetBottomPaddingFraction(0.1f);
-		PlayerView.SubtitleView.SetFixedTextSize(textSizeAbsolute, (float)MediaElement.SubtitleFontSize);
+		PlayerView.SubtitleView.SetFixedTextSize(textSizeAbsolute, (float)mediaItem.SubtitleFontSize);
 	}
 
 	static List<MediaItem.SubtitleConfiguration> GetSubtitlesList(Dictionary<string, string> subtitleUrlDictionary)
@@ -707,8 +779,13 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		return subtitles;
 	}
 
-	List<MediaItem.SubtitleConfiguration>? GetSubtitles(string url)
+	List<MediaItem.SubtitleConfiguration>? GetSubtitles(CommunityToolkit.Maui.Primitives.MediaItem mediaItem)
 	{
+		if(mediaItem.SubtitleUrl is null)
+		{
+			return null;
+		}
+		var url = GetUrlFromMediaSource(mediaItem.SubtitleUrl);
 		var uri = Android.Net.Uri.Parse(url);
 		if (uri is null || string.IsNullOrWhiteSpace(url))
 		{
@@ -716,8 +793,8 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		}
 		var subtitleBuilder = new MediaItem.SubtitleConfiguration.Builder(uri);
 		subtitleBuilder.SetMimeType(MimeTypes.TextVtt);
-		subtitleBuilder.SetLabel(MediaElement.SubtitleLanguage);
-		subtitleBuilder.SetId(MediaElement.SubtitleLanguage);
+		subtitleBuilder.SetLabel(mediaItem.SubtitleLanguage);
+		subtitleBuilder.SetId(mediaItem.SubtitleLanguage);
 		subtitleBuilder.SetSelectionFlags(C.SelectionFlagDefault);
 
 		var subtitles = subtitleBuilder.Build();

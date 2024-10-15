@@ -193,6 +193,11 @@ public partial class MediaManager : IDisposable
 		}
 	}
 
+	protected virtual partial void PlatformUpdateSources()
+	{
+		// Not implemented
+	}
+
 	protected virtual partial void PlatformUpdateSpeed()
 	{
 		if (Player is null)

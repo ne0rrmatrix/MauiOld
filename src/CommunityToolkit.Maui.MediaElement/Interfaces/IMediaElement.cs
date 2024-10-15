@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Primitives;
 using CommunityToolkit.Maui.Views;
 
 namespace CommunityToolkit.Maui.Core;
@@ -89,28 +90,9 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	MediaSource? Source { get; set; }
 
 	/// <summary>
-	/// Gets or sets the URL of the subtitle file to display.
+	/// Gets or sets the list of media sources to play.
 	/// </summary>
-	string SubtitleUrl { get; }
-
-	/// <summary>
-	/// Gets or sets the subtitle list.
-	/// </summary>
-	Dictionary<string, string> SubtitleUrlDictionary { get; }
-
-	/// <summary>
-	/// Gets or sets the language of the subtitle file.
-	/// </summary>
-	string SubtitleLanguage { get; }
-	/// <summary>
-	/// Gets or sets the font to use for the subtitle text.
-	/// </summary>
-	string SubtitleFont { get; }
-
-	/// <summary>
-	/// Gets or sets the font size of the subtitle text.
-	/// </summary>
-	double SubtitleFontSize { get; }
+	List<MediaItem?> Sources { get; set; }
 
 	/// <summary>
 	/// Gets or sets the speed with which the media should be played.

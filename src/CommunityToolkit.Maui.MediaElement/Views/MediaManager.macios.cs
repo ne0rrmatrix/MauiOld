@@ -1,6 +1,7 @@
 ﻿using AVFoundation;
 using AVKit;
 using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Primitives;
 using CommunityToolkit.Maui.Views;
 using CoreFoundation;
 using CoreGraphics;
@@ -10,6 +11,7 @@ using MediaPlayer;
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Platform;
 using UIKit;
+using System.Linq;
 
 namespace CommunityToolkit.Maui.Core.Views;
 
@@ -28,7 +30,7 @@ public partial class MediaManager : IDisposable
 		NSKeyValueObservingOptions.Initial | NSKeyValueObservingOptions.New;
 
 	/// <summary>
-	/// Observer that tracks when an error has occurred in the playback of the current item.
+	/// Observer that tracks when an error has occurred in the playback of the current source.
 	/// </summary>
 	protected IDisposable? CurrentItemErrorObserver { get; set; }
 
@@ -53,7 +55,7 @@ public partial class MediaManager : IDisposable
 	protected NSObject? PlayedToEndObserver { get; set; }
 
 	/// <summary>
-	/// The current media playback item.
+	/// The current media playback source.
 	/// </summary>
 	protected AVPlayerItem? PlayerItem { get; set; }
 
@@ -214,79 +216,28 @@ public partial class MediaManager : IDisposable
 
 	protected virtual partial void PlatformUpdateSource()
 	{
-		MediaElement.CurrentStateChanged(MediaElementState.Opening);
-
 		if (Player is null)
 		{
 			return;
 		}
+		if(MediaElement.Source is null)
+		{
+			return;
+		}
+		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 
 		metaData ??= new(Player);
 		Metadata.ClearNowPlaying();
 		PlayerViewController?.ContentOverlayView?.Subviews?.FirstOrDefault()?.RemoveFromSuperview();
 
 		NSUrl? videoURL = null;
-		var subtitleURL = new NSUrl(MediaElement.SubtitleUrl);
+		videoURL = VideoSource(MediaElement.Source);
 
-		if (MediaElement.Source is UriMediaSource uriMediaSource)
-		{
-			var uri = uriMediaSource.Uri;
-			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
-			{
-				videoURL = new NSUrl(uri.AbsoluteUri);
-			}
-		}
-		else if (MediaElement.Source is FileMediaSource fileMediaSource)
-		{
-			var uri = fileMediaSource.Path;
-
-			if (!string.IsNullOrWhiteSpace(uri))
-			{
-				videoURL = NSUrl.CreateFileUrl(uri);
-			}
-		}
-		else if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
-		{
-			var path = resourceMediaSource.Path;
-
-			if (!string.IsNullOrWhiteSpace(path) && Path.HasExtension(path))
-			{
-				string directory = Path.GetDirectoryName(path) ?? "";
-				string filename = Path.GetFileNameWithoutExtension(path);
-				string extension = Path.GetExtension(path)[1..];
-				var url = NSBundle.MainBundle.GetUrlForResource(filename,
-					extension, directory);
-
-				videoURL = NSUrl.CreateFileUrl(url?.Path ?? "");
-			}
-			else
-			{
-				Logger.LogWarning("Invalid file path for ResourceMediaSource.");
-			}
-		}
-
-		var composition = new AVMutableComposition();
+		AVPlayerItem? playerItem = null;
 		if (videoURL is not null)
 		{
-			var videoAsset = AVAsset.FromUrl(videoURL);
-			var videoTrack = videoAsset.TracksWithMediaType(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Video))[0];
-			var audioTrack = videoAsset.TracksWithMediaType(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Audio))[0];
-			var videoCompositionTrack = composition.AddMutableTrack(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Video), 0);
-			var audioCompositionTrack = composition.AddMutableTrack(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Audio), 0);
-			videoCompositionTrack?.InsertTimeRange(new CMTimeRange { Start = CMTime.Zero, Duration = videoAsset.Duration }, videoTrack, CMTime.Zero, out _);
-			audioCompositionTrack?.InsertTimeRange(new CMTimeRange { Start = CMTime.Zero, Duration = videoAsset.Duration }, audioTrack, CMTime.Zero, out _);
+			playerItem = new AVPlayerItem(AVAsset.FromUrl(videoURL));
 		}
-
-
-		if (!string.IsNullOrEmpty(MediaElement.SubtitleUrl))
-		{
-			var subtitleAsset = AVAsset.FromUrl(subtitleURL);
-			var subtitleTrack = subtitleAsset.TracksWithMediaType(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Text))[0];
-			var subtitleCompositionTrack = composition.AddMutableTrack(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Text), 0);
-			subtitleCompositionTrack?.InsertTimeRange(new CMTimeRange { Start = CMTime.Zero, Duration = subtitleAsset.Duration }, subtitleTrack, CMTime.Zero, out _);
-		}
-		
-		var playerItem = new AVPlayerItem(composition);
 
 		PlayerItem = videoURL is not null
 			? playerItem
@@ -296,7 +247,7 @@ public partial class MediaManager : IDisposable
 		CurrentItemErrorObserver?.Dispose();
 
 		Player.ReplaceCurrentItemWithPlayerItem(PlayerItem);
-
+		
 		CurrentItemErrorObserver = PlayerItem?.AddObserver("error",
 			valueObserverOptions, (NSObservedChange change) =>
 			{
@@ -313,12 +264,7 @@ public partial class MediaManager : IDisposable
 
 				Logger.LogError("{LogMessage}", message);
 			});
-
-		if (Player.CurrentItem is not null && !string.IsNullOrEmpty(MediaElement.SubtitleFont))
-		{
-			Player.CurrentItem.TextStyleRules = [CreateTextStyleRule(UIColor.White, UIColor.Black, (int)MediaElement.SubtitleFontSize, MediaElement.SubtitleFont)];
-		}
-
+		
 		if (PlayerItem is not null && PlayerItem.Error is null)
 		{
 			MediaElement.MediaOpened();
@@ -329,7 +275,6 @@ public partial class MediaManager : IDisposable
 			{
 				Player.Play();
 			}
-			SetPoster();
 		}
 		else if (PlayerItem is null)
 		{
@@ -338,6 +283,155 @@ public partial class MediaManager : IDisposable
 			MediaElement.CurrentStateChanged(MediaElementState.None);
 		}
 	}
+
+	protected virtual partial void PlatformUpdateSources()
+	{
+		if (Player is null)
+		{
+			return;
+		}
+		
+		if (MediaElement.Sources is null || MediaElement.Sources.Count == 0)
+		{
+			return;
+		}
+		MediaElement.CurrentStateChanged(MediaElementState.Opening);
+		CurrentItemErrorObserver?.Dispose();
+
+		metaData ??= new(Player);
+		Metadata.ClearNowPlaying();
+
+		PlayerViewController?.ContentOverlayView?.Subviews?.FirstOrDefault()?.RemoveFromSuperview();
+		Player.RemoveAllItems();
+		
+		foreach (var source in MediaElement.Sources)
+		{
+			NSUrl? videoURL = null;
+			
+			var subtitleUrl = source?.SubtitleUrl;
+			if (source?.Source is not null)
+			{
+				videoURL = VideoSource(source.Source);
+			}
+			
+			AVPlayerItem? playerItem = null;
+			if (videoURL is not null && subtitleUrl is null)
+			{
+				playerItem = new AVPlayerItem(AVAsset.FromUrl(videoURL));
+			}
+			if (playerItem is not null)
+			{
+				Player.InsertItem(playerItem, null);
+				continue;
+			}
+
+			var composition = new AVMutableComposition();
+			if (videoURL is not null)
+			{
+				var videoAsset = AVAsset.FromUrl(videoURL);
+				var videoTrack = videoAsset.TracksWithMediaType(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Video))[0];
+				var audioTrack = videoAsset.TracksWithMediaType(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Audio))[0];
+				var videoCompositionTrack = composition.AddMutableTrack(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Video), 0);
+				var audioCompositionTrack = composition.AddMutableTrack(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Audio), 0);
+				videoCompositionTrack?.InsertTimeRange(new CMTimeRange { Start = CMTime.Zero, Duration = videoAsset.Duration }, videoTrack, CMTime.Zero, out _);
+				audioCompositionTrack?.InsertTimeRange(new CMTimeRange { Start = CMTime.Zero, Duration = videoAsset.Duration }, audioTrack, CMTime.Zero, out _);
+			}
+			
+			var uri = VideoSource(subtitleUrl);
+			if (uri is not null)
+			{
+				var subtitleAsset = AVAsset.FromUrl(uri);
+				var subtitleTrack = subtitleAsset.TracksWithMediaType(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Text))[0];
+				var subtitleCompositionTrack = composition.AddMutableTrack(mediaType: AVMediaTypesExtensions.GetConstant(AVMediaTypes.Text), 0);
+				subtitleCompositionTrack?.InsertTimeRange(new CMTimeRange { Start = CMTime.Zero, Duration = subtitleAsset.Duration }, subtitleTrack, CMTime.Zero, out _);
+			}
+			playerItem = new AVPlayerItem(composition);
+			if(source?.SubtitleFont is not null && source?.SubtitleFontSize is not null)
+			{
+				playerItem.TextStyleRules = [CreateTextStyleRule(UIColor.White, UIColor.Black, source.SubtitleFontSize, source.SubtitleFont)];
+			}
+			Player.InsertItem(playerItem, null);
+		}
+		
+		PlayerItem = Player.Items.FirstOrDefault();
+		CurrentItemErrorObserver = PlayerItem?.AddObserver("error",
+			valueObserverOptions, (NSObservedChange change) =>
+			{
+				if (Player.CurrentItem?.Error is null)
+				{
+					return;
+				}
+
+				var message = $"{Player.CurrentItem?.Error?.LocalizedDescription} - " +
+					$"{Player.CurrentItem?.Error?.LocalizedFailureReason}";
+
+				MediaElement.MediaFailed(
+					new MediaFailedEventArgs(message));
+
+				Logger.LogError("{LogMessage}", message);
+			});
+		
+		if (PlayerItem is not null && PlayerItem.Error is null)
+		{
+			MediaElement.MediaOpened();
+			metaData.SetMetadata(Player.CurrentItem, MediaElement);
+			(MediaElement.MediaWidth, MediaElement.MediaHeight) = GetVideoDimensions(PlayerItem);
+
+			if (MediaElement.ShouldAutoPlay)
+			{
+				Player.Play();
+			}
+		}
+		
+		else if (PlayerItem is null)
+		{
+			MediaElement.MediaWidth = MediaElement.MediaHeight = 0;
+
+			MediaElement.CurrentStateChanged(MediaElementState.None);
+		}
+	}
+
+	static NSUrl? VideoSource(MediaSource? mediaSource)
+	{
+		if (mediaSource is null)
+		{
+			return null;
+		}
+		if (mediaSource is UriMediaSource uriMediaSource)
+		{
+			var uri = uriMediaSource.Uri;
+			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
+			{
+				return new NSUrl(uri.AbsoluteUri);
+			}
+		}
+		else if (mediaSource is FileMediaSource fileMediaSource)
+		{
+			var uri = fileMediaSource.Path;
+
+			if (!string.IsNullOrWhiteSpace(uri))
+			{
+				return NSUrl.CreateFileUrl(uri);
+			}
+		}
+		else if (mediaSource is ResourceMediaSource resourceMediaSource)
+		{
+			var path = resourceMediaSource.Path;
+
+			if (!string.IsNullOrWhiteSpace(path) && Path.HasExtension(path))
+			{
+				string directory = Path.GetDirectoryName(path) ?? "";
+				string filename = Path.GetFileNameWithoutExtension(path);
+				string extension = Path.GetExtension(path)[1..];
+				var url = NSBundle.MainBundle.GetUrlForResource(filename,
+					extension, directory);
+
+				return NSUrl.CreateFileUrl(url?.Path ?? "");
+			}
+		}
+		return null;
+	}
+
 	static (float red, float green, float blue, float alpha) GetColorValues(UIColor color)
 	{
 		float green = color.ToColor()?.Green ?? 1;
@@ -371,14 +465,16 @@ public partial class MediaManager : IDisposable
 
 	void SetPoster()
 	{
-
 		if (PlayerItem is null || metaData is null)
 		{
 			return;
 		}
+		Metadata.ClearNowPlaying();
+		PlayerViewController?.ContentOverlayView?.Subviews?.FirstOrDefault()?.RemoveFromSuperview();
 		var videoTrack = PlayerItem.Asset.TracksWithMediaType(AVMediaTypes.Video.GetConstant()).FirstOrDefault();
 		if (videoTrack is not null)
 		{
+			
 			return;
 		}
 		if (PlayerItem.Asset.Tracks.Length == 0)
@@ -678,7 +774,6 @@ public partial class MediaManager : IDisposable
 			AVPlayerStatus.Failed => MediaElementState.Failed,
 			_ => MediaElement.CurrentState
 		};
-
 		MediaElement.CurrentStateChanged(newState);
 	}
 
@@ -698,9 +793,18 @@ public partial class MediaManager : IDisposable
 			_ => MediaElement.CurrentState
 		};
 
-		metaData?.SetMetadata(PlayerItem, MediaElement);
-
 		MediaElement.CurrentStateChanged(newState);
+		if (MediaElement.CurrentState == MediaElementState.Playing)
+		{
+			PlayerItem = Player.CurrentItem;
+
+			if (PlayerItem is not null && PlayerItem.Error is null)
+			{
+				metaData?.SetMetadata(Player.CurrentItem, MediaElement);
+				(MediaElement.MediaWidth, MediaElement.MediaHeight) = GetVideoDimensions(PlayerItem);
+				SetPoster();
+			}
+		}
 	}
 
 	void ErrorOccurred(object? sender, NSNotificationEventArgs args)

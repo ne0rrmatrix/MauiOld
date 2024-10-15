@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Numerics;
 using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Primitives;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml.Controls;
@@ -24,6 +25,7 @@ partial class MediaManager : IDisposable
 	Dictionary<TimedTextSource, string> timedTextSourceDictionary = [];
 	TimedTextSource? timedTextSource = null;
 	SystemMediaTransportControls? systemMediaControls;
+	MediaPlaybackList? playbackItemList = new MediaPlaybackList();
 
 	// States that allow changing position
 	readonly IReadOnlyList<MediaElementState> allowUpdatePositionStates =
@@ -64,7 +66,10 @@ partial class MediaManager : IDisposable
 		Player.MediaPlayer.MediaEnded += OnMediaElementMediaEnded;
 		Player.MediaPlayer.VolumeChanged += OnMediaElementVolumeChanged;
 		Player.MediaPlayer.IsMutedChanged += OnMediaElementIsMutedChanged;
-		
+
+		playbackItemList = new MediaPlaybackList();
+		playbackItemList.CurrentItemChanged += MediaPlaybackList_CurrentItemChanged;
+		playbackItemList.ItemOpened += MediaPlaybackList_ItemOpened;
 		Player.MediaPlayer.SystemMediaTransportControls.IsEnabled = false;
 		systemMediaControls = Player.MediaPlayer.SystemMediaTransportControls;
 		return Player;
@@ -260,7 +265,7 @@ partial class MediaManager : IDisposable
 		Player.MediaPlayer.IsMuted = MediaElement.ShouldMute;
 	}
 
-	protected virtual async partial void PlatformUpdateSource()
+	protected virtual partial void PlatformUpdateSource()
 	{
 		if (Player is null)
 		{
@@ -274,62 +279,93 @@ partial class MediaManager : IDisposable
 		timedTextSourceDictionary = [];
 
 		Dispatcher.Dispatch(() => Player.PosterSource = new BitmapImage());
-		if (MediaElement.Source is null)
+		if (MediaElement.Source is null && MediaElement.Sources is null)
 		{
+			System.Diagnostics.Trace.TraceInformation("MediaElement Source is null");
 			Player.Source = null;
 			MediaElement.MediaWidth = MediaElement.MediaHeight = 0;
-
 			MediaElement.CurrentStateChanged(MediaElementState.None);
-
+			return;
+		}
+		if (MediaElement.Source is null)
+		{
 			return;
 		}
 		MediaElement.Position = TimeSpan.Zero;
 		MediaElement.Duration = TimeSpan.Zero;
 		Player.AutoPlay = MediaElement.ShouldAutoPlay;
-
-		if (!string.IsNullOrEmpty(MediaElement.SubtitleUrl))
+		
+		WinMediaSource? source = null;
+		var temp = GetUrlFromMediaSource(MediaElement.Source);
+		if(!string.IsNullOrEmpty(temp))
 		{
-			var source = await GetMediaSourceFromUrl(MediaElement.Source);
-			if (source is null)
-			{
-				Trace.TraceWarning("Failed to set media source from {0}", MediaElement.Source);
-				Player.Source = null;
-				return;
-			}
-			var item = new MediaPlaybackItem(source);
-			SetMediaItemDisplayProperties(item);
-			playbackItem = AddSubtitleToSource(item, source, MediaElement.SubtitleUrl);
-			Player.Source = playbackItem;
+			source = WinMediaSource.CreateFromUri(new Uri(temp));
+		}
+		if (source is null)
+		{
+			Player.Source = null;
 			return;
 		}
-		if (MediaElement.SubtitleUrlDictionary.Count > 0)
-		{
-			var source = await GetMediaSourceFromUrl(MediaElement.Source);
-			if (source is null)
-			{
-				Trace.TraceWarning("Failed to set media source from {0}", MediaElement.Source);
-				Player.Source = null;
-				return;
-			}
-			var item = new MediaPlaybackItem(source);
-			SetMediaItemDisplayProperties(item);
-			playbackItem = AddSubtitleToSource(item, source, MediaElement.SubtitleUrlDictionary);
-			Player.Source = playbackItem;
-			return;
-		}
-		var temp = new MediaPlaybackItem(await GetMediaSourceFromUrl(MediaElement.Source));
-		SetMediaItemDisplayProperties(temp);
-		Player.Source = temp;
+		playbackItem = new MediaPlaybackItem(source);
+		SetMediaItemDisplayProperties(playbackItem);
+		Player.Source = playbackItem;
 	}
 
-	static async Task<WinMediaSource?> GetMediaSourceFromUrl(Maui.Views.MediaSource url)
+	protected virtual partial void PlatformUpdateSources()
+	{
+		if (Player is null)
+		{
+			return;
+		}
+		if (MediaElement.Source is null && MediaElement.Sources is null)
+		{
+			System.Diagnostics.Trace.TraceInformation("MediaElement Source is null");
+			Player.Source = null;
+			MediaElement.MediaWidth = MediaElement.MediaHeight = 0;
+			MediaElement.CurrentStateChanged(MediaElementState.None);
+			return;
+		}
+		if (MediaElement.Sources is null)
+		{
+			return;
+		}
+
+		MediaElement.Position = TimeSpan.Zero;
+		MediaElement.Duration = TimeSpan.Zero;
+		Player.AutoPlay = MediaElement.ShouldAutoPlay;
+
+		if (playbackItem is not null)
+		{
+			playbackItem.TimedMetadataTracksChanged -= PlaybackItem_TimedMetadataTracksChanged;
+			playbackItem = null;
+		}
+
+		playbackItemList?.Items.Clear();
+		Dispatcher.Dispatch(() => Player.PosterSource = new BitmapImage());
+		timedTextSourceDictionary = [];
+
+		MediaElement.Position = TimeSpan.Zero;
+		MediaElement.Duration = TimeSpan.Zero;
+		Player.AutoPlay = MediaElement.ShouldAutoPlay;
+		playbackItemList = GetMediaPlaybackList();
+		if (playbackItemList is null)
+		{
+			Player.Source = null;
+			return;
+		}
+		playbackItemList.MaxPlayedItemsToKeepOpen = 3;
+
+		Player.Source = playbackItemList;
+	}
+
+	static string GetUrlFromMediaSource(Maui.Views.MediaSource url)
 	{
 		if (url is UriMediaSource uriMediaSource)
 		{
 			var uri = uriMediaSource.Uri?.AbsoluteUri;
 			if (!string.IsNullOrWhiteSpace(uri))
 			{
-				return WinMediaSource.CreateFromUri(new Uri(uri));
+				return uri;
 			}
 		}
 		else if (url is FileMediaSource fileMediaSource)
@@ -337,22 +373,60 @@ partial class MediaManager : IDisposable
 			var filename = fileMediaSource.Path;
 			if (!string.IsNullOrWhiteSpace(filename))
 			{
-				StorageFile storageFile = await StorageFile.GetFileFromPathAsync(filename);
-				return WinMediaSource.CreateFromStorageFile(storageFile);
+				return filename;
 			}
 		}
 		else if (url is ResourceMediaSource resourceMediaSource)
 		{
-#pragma warning disable S1075 // URIs should not be hardcoded
 			string path = "ms-appx:///" + resourceMediaSource.Path;
-#pragma warning restore S1075 // URIs should not be hardcoded
 			if (!string.IsNullOrWhiteSpace(path))
 			{
-				return WinMediaSource.CreateFromUri(new Uri(path));
+				return path;
 			}
 		}
-		return null;
+		return string.Empty;
 	}
+
+	MediaPlaybackList? GetMediaPlaybackList()
+	{
+		var mediaPlaybackList = new MediaPlaybackList();
+		if(MediaElement.Sources is null)
+		{
+			return null;
+		}
+		foreach (var source in MediaElement.Sources)
+		{
+			if (source?.Source is null)
+			{
+				continue;
+			}
+			var url = GetUrlFromMediaSource(source.Source);
+			if (url is null)
+			{
+				continue;
+			}
+			var item = WinMediaSource.CreateFromUri(new Uri(url));
+			var mediaPlaybackitem = new MediaPlaybackItem(item);
+			SetMediaItemDisplayProperties(mediaPlaybackitem);
+			var subtitleDictionary = source.SubtitleUrlDictionary;
+			
+			if (subtitleDictionary.Count > 0)
+			{
+				playbackItem = AddSubtitleToSource(mediaPlaybackitem, item, subtitleDictionary, source);
+			}
+			else if(source.SubtitleUrl is not null)
+			{
+				playbackItem = AddSubtitleToSource(mediaPlaybackitem, item, source);
+			}
+			else
+			{
+				playbackItem = mediaPlaybackitem;
+			}
+			mediaPlaybackList.Items.Add(playbackItem);	
+		}
+		return mediaPlaybackList;
+	}
+	
 	void SetMediaItemDisplayProperties(MediaPlaybackItem mediaPlaybackItem)
 	{
 		MediaItemDisplayProperties displayProperties = mediaPlaybackItem.GetDisplayProperties();
@@ -365,10 +439,14 @@ partial class MediaManager : IDisposable
 		}
 		mediaPlaybackItem.ApplyDisplayProperties(displayProperties);
 	}
-	MediaPlaybackItem AddSubtitleToSource(MediaPlaybackItem item, WinMediaSource source, Dictionary<string, string> subtitleUrlList)
+	MediaPlaybackItem AddSubtitleToSource(MediaPlaybackItem item, WinMediaSource source, Dictionary<string, string> subtitleUrlList, CommunityToolkit.Maui.Primitives.MediaItem mediaItem)
 	{
 		foreach (var subtitle in subtitleUrlList)
 		{
+			if(string.IsNullOrEmpty(subtitle.Value) || string.IsNullOrEmpty(subtitle.Key))
+			{
+				continue;
+			}
 			var ttsEnUri = new Uri(subtitle.Value);
 			var temp = TimedTextSource.CreateFromUri(ttsEnUri);
 			if (!string.IsNullOrEmpty(subtitle.Key))
@@ -379,34 +457,43 @@ partial class MediaManager : IDisposable
 
 			source.ExternalTimedTextSources.Add(temp);
 			item.TimedMetadataTracksChanged += PlaybackItem_TimedMetadataTracksChanged;
-			if (Player is not null)
+			var subtitleFont = mediaItem.SubtitleFont?.ToString();
+			if (Player is not null && !string.IsNullOrEmpty(subtitleFont))
 			{
-				Player.FontFamily = GetFontFamily(MediaElement.SubtitleFont);
-				Player.FontSize = MediaElement.SubtitleFontSize;
+				Player.FontFamily = GetFontFamily(subtitleFont);
+				Player.FontSize = mediaItem.SubtitleFontSize;
 			}
 		}
 		return item;
 	}
-	MediaPlaybackItem AddSubtitleToSource(MediaPlaybackItem item, WinMediaSource source, string subtitleUrl)
+	MediaPlaybackItem AddSubtitleToSource(MediaPlaybackItem item, WinMediaSource source, CommunityToolkit.Maui.Primitives.MediaItem mediaItem)
 	{
-		
-		if (!string.IsNullOrEmpty(subtitleUrl))
+		var subtitleLanguage = mediaItem.SubtitleLanguage;
+		var subtitleFont = mediaItem.SubtitleFont?.ToString();
+		string temp = string.Empty;
+		if (mediaItem.SubtitleUrl is not null)
 		{
-			var ttsEnUri = new Uri(subtitleUrl);
-			timedTextSource = TimedTextSource.CreateFromUri(ttsEnUri);
-			if(!string.IsNullOrEmpty(MediaElement.SubtitleLanguage))
-			{
-				timedTextSourceDictionary[timedTextSource] = MediaElement.SubtitleLanguage;
-				timedTextSource.Resolved += Tts_Resolved;
-			}
+			temp = GetUrlFromMediaSource(mediaItem.SubtitleUrl);
+		}
+		if (!Uri.TryCreate(temp, UriKind.RelativeOrAbsolute, out var subtitleUrl))
+		{
+			Trace.TraceError($"{nameof(MediaElement)} unable to update artwork because {nameof(mediaItem.SubtitleUrl)} is not a valid URI");
+			return item;
+		}
+		var ttsEnUri = subtitleUrl;
+		timedTextSource = TimedTextSource.CreateFromUri(ttsEnUri);
+		if (!string.IsNullOrEmpty(subtitleLanguage))
+		{
+			timedTextSourceDictionary[timedTextSource] = subtitleLanguage;
+			timedTextSource.Resolved += Tts_Resolved;
+		}
 
-			source.ExternalTimedTextSources.Add(timedTextSource);
-			item.TimedMetadataTracksChanged += PlaybackItem_TimedMetadataTracksChanged;
-			if (Player is not null)
-			{
-				Player.FontFamily = GetFontFamily(MediaElement.SubtitleFont);
-				Player.FontSize = MediaElement.SubtitleFontSize;
-			}
+		source.ExternalTimedTextSources.Add(timedTextSource);
+		item.TimedMetadataTracksChanged += PlaybackItem_TimedMetadataTracksChanged;
+		if (Player is not null && subtitleFont is not null)
+		{
+			Player.FontFamily = GetFontFamily(subtitleFont);
+			Player.FontSize = mediaItem.SubtitleFontSize;
 		}
 		return item;
 	}
@@ -480,6 +567,12 @@ partial class MediaManager : IDisposable
 					playbackItem.TimedMetadataTracksChanged -= PlaybackItem_TimedMetadataTracksChanged;
 				}
 
+				if (playbackItemList is not null)
+				{
+					playbackItemList.CurrentItemChanged -= MediaPlaybackList_CurrentItemChanged;
+					playbackItemList.ItemOpened -= MediaPlaybackList_ItemOpened;
+				}
+
 				Player.MediaPlayer.MediaOpened -= OnMediaElementMediaOpened;
 				Player.MediaPlayer.MediaFailed -= OnMediaElementMediaFailed;
 				Player.MediaPlayer.MediaEnded -= OnMediaElementMediaEnded;
@@ -502,7 +595,7 @@ partial class MediaManager : IDisposable
 		return TValue.IsZero(numericValue);
 	}
 
-	async ValueTask UpdateMetadata()
+	void UpdateMetadata()
 	{
 		if (systemMediaControls is null || Player is null)
 		{
@@ -521,7 +614,7 @@ partial class MediaManager : IDisposable
 
 		if (Dispatcher.IsDispatchRequired)
 		{
-			await Dispatcher.DispatchAsync(() => UpdatePosterSource(Player, metadataArtworkUri));
+			Dispatcher.Dispatch(() => UpdatePosterSource(Player, metadataArtworkUri));
 		}
 		else
 		{
@@ -534,7 +627,7 @@ partial class MediaManager : IDisposable
 		}
 	}
 
-	async void OnMediaElementMediaOpened(WindowsMediaElement sender, object args)
+	void UpdatePlayer()
 	{
 		if (Player is null)
 		{
@@ -552,7 +645,7 @@ partial class MediaManager : IDisposable
 
 		MediaElement.MediaOpened();
 
-		await UpdateMetadata();
+		UpdateMetadata();
 
 		static void SetDuration(in IMediaElement mediaElement, in MediaPlayerElement mediaPlayerElement)
 		{
@@ -560,6 +653,20 @@ partial class MediaManager : IDisposable
 				? TimeSpan.Zero
 				: mediaPlayerElement.MediaPlayer.NaturalDuration;
 		}
+	}
+	void MediaPlaybackList_CurrentItemChanged(MediaPlaybackList sender, CurrentMediaPlaybackItemChangedEventArgs args)
+	{
+		UpdatePlayer();
+	}
+
+	void OnMediaElementMediaOpened(WindowsMediaElement sender, object args)
+	{
+		UpdatePlayer();
+	}
+
+	void MediaPlaybackList_ItemOpened(MediaPlaybackList sender, MediaPlaybackItemOpenedEventArgs args)
+	{
+		UpdatePlayer();
 	}
 
 	void OnMediaElementMediaEnded(WindowsMediaElement sender, object args)

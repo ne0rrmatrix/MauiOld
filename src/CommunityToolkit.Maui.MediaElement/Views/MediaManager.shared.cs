@@ -3,7 +3,7 @@ global using PlatformMediaElement = System.Object;
 #elif ANDROID
 global using PlatformMediaElement = AndroidX.Media3.ExoPlayer.IExoPlayer;
 #elif IOS || MACCATALYST
-global using PlatformMediaElement = AVFoundation.AVPlayer;
+global using PlatformMediaElement = AVFoundation.AVQueuePlayer;
 #elif WINDOWS
 global using PlatformMediaElement = Microsoft.UI.Xaml.Controls.MediaPlayerElement;
 #elif TIZEN
@@ -126,6 +126,14 @@ public partial class MediaManager
 	}
 
 	/// <summary>
+	/// Update the media sources.
+	/// </summary>
+	public void UpdateSources()
+	{
+		PlatformUpdateSources();
+	}
+
+	/// <summary>
 	/// Update the media playback speed.
 	/// </summary>
 	public void UpdateSpeed()
@@ -215,6 +223,11 @@ public partial class MediaManager
 	protected virtual partial void PlatformUpdateSource();
 
 	/// <summary>
+	/// Invokes the platform functionality to update the media sources.
+	/// </summary>
+	protected virtual partial void PlatformUpdateSources();
+
+	/// <summary>
 	/// Invokes the platform functionality to update the media playback speed.
 	/// </summary>
 	protected virtual partial void PlatformUpdateSpeed();
@@ -264,6 +277,7 @@ partial class MediaManager
 	protected virtual partial void PlatformStop() { }
 	protected virtual partial void PlatformUpdateAspect() { }
 	protected virtual partial void PlatformUpdateSource() { }
+	protected virtual partial void PlatformUpdateSources() { }
 	protected virtual partial void PlatformUpdateSpeed() { }
 	protected virtual partial void PlatformUpdateShouldShowPlaybackControls() { }
 	protected virtual partial void PlatformUpdatePosition() { }

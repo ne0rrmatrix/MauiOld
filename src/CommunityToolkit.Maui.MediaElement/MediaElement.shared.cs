@@ -2,6 +2,7 @@
 using CommunityToolkit.Maui.Converters;
 using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Primitives;
 
 namespace CommunityToolkit.Maui.Views;
 
@@ -75,28 +76,11 @@ public class MediaElement : View, IMediaElement, IDisposable
 			propertyChanging: OnSourcePropertyChanging, propertyChanged: OnSourcePropertyChanged);
 
 	/// <summary>
-	/// Backing store for the <see cref="SubtitleUrl"/> property.
+	/// Backing store for the <see cref="Sources"/> property.
 	/// </summary>
-	public static readonly BindableProperty SubtitleProperty = BindableProperty.Create(nameof(SubtitleUrl), typeof(string), typeof(MediaElement), string.Empty);
-
-	/// <summary>
-	/// Backing store for the <see cref="SubtitleUrl"/> property.
-	/// </summary>
-	public static readonly BindableProperty SubtitleLanguageProperty = BindableProperty.Create(nameof(SubtitleLanguage), typeof(string), typeof(MediaElement), string.Empty);
-
-	/// <summary>
-	/// Backing store for the <see cref="SubtitleUrlDictionary"/> property.
-	/// </summary>
-	public static readonly BindableProperty SubtitleUrlDictionaryProperty = BindableProperty.Create(nameof(SubtitleUrlDictionary), typeof(Dictionary<string, string>), typeof(MediaElement), new Dictionary<string, string>());
-	/// <summary>
-	/// Backing store for the <see cref="SubtitleFont"/> property.
-	/// </summary>
-	public static readonly BindableProperty SubtitleFontProperty = BindableProperty.Create(nameof(SubtitleFont), typeof(string), typeof(MediaElement), string.Empty);
-
-	/// <summary>
-	/// Backing store for the <see cref="SubtitleFontSize"/> property.
-	/// </summary>
-	public static readonly BindableProperty SubtitleFontSizeProperty = BindableProperty.Create(nameof(SubtitleFontSize), typeof(double), typeof(MediaElement), 16.0);
+	public static readonly BindableProperty SourcesProperty =
+		BindableProperty.Create(nameof(Sources), typeof(IEnumerable<MediaItem>), typeof(MediaElement),
+			propertyChanging: OnSourcesPropertyChanging, propertyChanged: OnSourcesPropertyChanged);
 
 	/// <summary>
 	/// Backing store for the <see cref="Speed"/> property.
@@ -149,6 +133,7 @@ public class MediaElement : View, IMediaElement, IDisposable
 
 	bool isDisposed;
 	IDispatcherTimer? timer;
+	IDispatcherTimer? timers;
 	TaskCompletionSource seekCompletedTaskCompletionSource = new();
 
 	/// <inheritdoc cref="IMediaElement.MediaEnded"/>
@@ -312,48 +297,12 @@ public class MediaElement : View, IMediaElement, IDisposable
 	}
 
 	/// <summary>
-	/// Gets or sets the URL of the subtitle file to display.
-	/// This is a bindable property.
+	/// Gets or sets the list of media sources to play.
 	/// </summary>
-	public string SubtitleUrl
+	public List<MediaItem?> Sources
 	{
-		get => (string)GetValue(SubtitleProperty);
-		set => SetValue(SubtitleProperty, value);
-	}
-
-	/// <summary>
-	/// Gets or sets the subtitle list.
-	/// </summary>
-	public Dictionary<string, string> SubtitleUrlDictionary
-	{
-		get =>(Dictionary<string, string>)GetValue(SubtitleUrlDictionaryProperty);
-		set => SetValue(SubtitleUrlDictionaryProperty, value);
-	}
-	/// <summary>
-	/// Gets or sets the language of the subtitle file.
-	/// </summary>
-	public string SubtitleLanguage
-	{
-		get => (string)GetValue(SubtitleLanguageProperty);
-		set => SetValue(SubtitleLanguageProperty, value);
-	}
-
-	/// <summary>
-	/// Gets or sets the font to use for the subtitle text.
-	/// </summary>
-	public string SubtitleFont
-	{
-		get => (string)GetValue(SubtitleFontProperty);
-		set => SetValue(SubtitleFontProperty, value);
-	}
-
-	/// <summary>
-	/// Gets or sets the font size of the subtitle text.
-	/// </summary>
-	public double SubtitleFontSize
-	{
-		get => (double)GetValue(SubtitleFontSizeProperty);
-		set => SetValue(SubtitleFontSizeProperty, value);
+		get => (List<MediaItem?>)GetValue(SourcesProperty);
+		set => SetValue(SourcesProperty, value);
 	}
 
 	/// <summary>
@@ -556,6 +505,17 @@ public class MediaElement : View, IMediaElement, IDisposable
 		{
 			SetInheritedBindingContext(Source, BindingContext);
 		}
+		if(Sources is null)
+		{
+			return;
+		}
+		Sources.ForEach(source =>
+		{
+			if (source is not null)
+			{
+				SetInheritedBindingContext(source.Source, BindingContext);
+			}
+		});
 
 		base.OnBindingContextChanged();
 	}
@@ -580,9 +540,14 @@ public class MediaElement : View, IMediaElement, IDisposable
 	static void OnSourcePropertyChanged(BindableObject bindable, object oldValue, object newValue) =>
 		((MediaElement)bindable).OnSourcePropertyChanged((MediaSource?)newValue);
 
+	static void OnSourcesPropertyChanged(BindableObject bindable, object oldValue, object newValue) =>
+		((MediaElement)bindable).OnSourcesPropertyChanged((List<MediaItem?>)newValue);
+
 	static void OnSourcePropertyChanging(BindableObject bindable, object oldValue, object newValue) =>
 		((MediaElement)bindable).OnSourcePropertyChanging((MediaSource?)oldValue);
 
+	static void OnSourcesPropertyChanging(BindableObject bindable, object oldValue, object newValue) =>
+		((MediaElement)bindable).OnSourcesPropertyChanging((List<MediaItem?>)oldValue);
 	static void OnCurrentStatePropertyChanged(BindableObject bindable, object oldValue, object newValue)
 	{
 		var MediaElement = (MediaElement)bindable;
@@ -622,6 +587,18 @@ public class MediaElement : View, IMediaElement, IDisposable
 		timer.Start();
 	}
 
+	void InitializeTimers()
+	{
+		if (timer is not null)
+		{
+			return;
+		}
+
+		timers = Dispatcher.CreateTimer();
+		timers.Interval = TimeSpan.FromMilliseconds(200);
+		timers.Tick += OnTimerTick;
+		timers.Start();
+	}
 	void ClearTimer()
 	{
 		if (timer is null)
@@ -634,9 +611,26 @@ public class MediaElement : View, IMediaElement, IDisposable
 		timer = null;
 	}
 
+	void ClearTimers()
+	{
+		if (timers is null)
+		{
+			return;
+		}
+
+		timers.Tick -= OnTimerTick;
+		timers.Stop();
+		timers = null;
+	}
 	void OnSourceChanged(object? sender, EventArgs eventArgs)
 	{
 		OnPropertyChanged(SourceProperty.PropertyName);
+		InvalidateMeasure();
+	}
+
+	void OnSourcesChanged(object? sender, EventArgs e)
+	{
+		OnPropertyChanged(SourcesProperty.PropertyName);
 		InvalidateMeasure();
 	}
 
@@ -654,6 +648,26 @@ public class MediaElement : View, IMediaElement, IDisposable
 		InitializeTimer();
 	}
 
+	void OnSourcesPropertyChanged(List<MediaItem?> newValue)
+	{
+		ClearTimers();
+		if(newValue is null)
+		{
+			return;
+		}
+		newValue.ForEach(source =>
+		{
+			if (source is not null)
+			{
+				source.SourcesChanged += OnSourcesChanged;
+				SetInheritedBindingContext(source.Source, BindingContext);
+			}
+		});
+
+		InvalidateMeasure();
+		InitializeTimers();
+	}
+
 	void OnSourcePropertyChanging(MediaSource? oldValue)
 	{
 		if (oldValue is null)
@@ -664,6 +678,21 @@ public class MediaElement : View, IMediaElement, IDisposable
 		oldValue.SourceChanged -= OnSourceChanged;
 	}
 
+	void OnSourcesPropertyChanging(List<MediaItem?> oldValue)
+	{
+		if (oldValue is null)
+		{
+			return;
+		}
+		oldValue.ForEach(source =>
+		{
+			if (source is not null)
+			{
+				source.SourcesChanged -= OnSourcesChanged;
+			}
+		});
+	}
+	
 	void IMediaElement.MediaEnded()
 	{
 		OnMediaEnded();

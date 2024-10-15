@@ -16,6 +16,7 @@ public partial class MediaElementHandler : ViewHandler<MediaElement, object>
 	public static void MapShouldMute(object handler, MediaElement MediaElement) => throw new NotImplementedException();
 	public static void MapShouldShowPlaybackControls(object handler, MediaElement MediaElement) => throw new NotImplementedException();
 	public static void MapSource(object handler, MediaElement MediaElement) => throw new NotImplementedException();
+	public static void MapSources(object handler, MediaElement MediaElement) => throw new NotImplementedException();
 	public static void MapSpeed(object handler, MediaElement MediaElement) => throw new NotImplementedException();
 	public static void MapStatusUpdated(MediaElementHandler handler, MediaElement MediaElement, object? args) => throw new NotImplementedException();
 	public static void MapVolume(object handler, MediaElement MediaElement) => throw new NotImplementedException();
