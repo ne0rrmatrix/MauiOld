@@ -167,7 +167,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		{
 			case loadOnlineMp4:
 				MediaElement.MetadataTitle = "Big Buck Bunny";
-				MediaElement.MetadataArtworkUrl = botImageUrl;
+				MediaElement.MetadataArtworkSource = botImageUrl;
 				MediaElement.MetadataArtist = "Big Buck Bunny Album";
 				MediaElement.Source =
 					MediaSource.FromUri(buckBunnyMp4Url);
@@ -175,20 +175,20 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 
 			case loadHls:
 				MediaElement.MetadataArtist = "HLS Album";
-				MediaElement.MetadataArtworkUrl = botImageUrl;
+				MediaElement.MetadataArtworkSource = botImageUrl;
 				MediaElement.MetadataTitle = "HLS Title";
 				MediaElement.Source = MediaSource.FromUri(hlsStreamTestUrl);
 				return;
 
 			case resetSource:
-				MediaElement.MetadataArtworkUrl = string.Empty;
+				MediaElement.MetadataArtworkSource = string.Empty;
 				MediaElement.MetadataTitle = string.Empty;
 				MediaElement.MetadataArtist = string.Empty;
 				MediaElement.Source = null;
 				return;
 
 			case loadLocalResource:
-				MediaElement.MetadataArtworkUrl = botImageUrl;
+				MediaElement.MetadataArtworkSource = MediaSource.FromResource("bot.png");
 				MediaElement.MetadataTitle = "Local Resource Title";
 				MediaElement.MetadataArtist = "Local Resource Album";
 
@@ -210,7 +210,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 			case loadMusic:
 				MediaElement.MetadataTitle = "HAL 9000";
 				MediaElement.MetadataArtist = "HAL 9000 Album";
-				MediaElement.MetadataArtworkUrl = botImageUrl;
+				MediaElement.MetadataArtworkSource = botImageUrl;
 				MediaElement.Source = MediaSource.FromUri(hal9000AudioUrl);
 				return;
 		}

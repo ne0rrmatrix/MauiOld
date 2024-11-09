@@ -53,16 +53,30 @@ class Metadata
 	/// <summary>
 	/// Sets the metadata for the given MediaElement.
 	/// </summary>
-	public void SetMetadata(IMediaElement mp)
+	public void SetMetadata(IMediaElement mp, string artworkUrl)
 	{
 		if (systemMediaControls is null || mediaElement is null)
 		{
 			return;
 		}
-
-		if (!string.IsNullOrEmpty(mp.MetadataArtworkUrl))
+		if (!string.IsNullOrEmpty(artworkUrl))
 		{
-			systemMediaControls.DisplayUpdater.Thumbnail = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromUri(new Uri(mp.MetadataArtworkUrl ?? string.Empty));
+			systemMediaControls.DisplayUpdater.Thumbnail = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromUri(new Uri(artworkUrl));
+		}
+		systemMediaControls.DisplayUpdater.Type = MediaPlaybackType.Music;
+		systemMediaControls.DisplayUpdater.MusicProperties.Artist = mp.MetadataTitle;
+		systemMediaControls.DisplayUpdater.MusicProperties.Title = mp.MetadataArtist;
+		systemMediaControls.DisplayUpdater.Update();
+	}
+	public void SetMetadata(IMediaElement mp, Stream stream)
+	{
+		if (systemMediaControls is null || mediaElement is null)
+		{
+			return;
+		}
+		if (stream is not null)
+		{
+			systemMediaControls.DisplayUpdater.Thumbnail = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream.AsRandomAccessStream());
 		}
 		systemMediaControls.DisplayUpdater.Type = MediaPlaybackType.Music;
 		systemMediaControls.DisplayUpdater.MusicProperties.Artist = mp.MetadataTitle;

@@ -21,7 +21,7 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	/// <summary>
 	/// Gets or sets the artwork Image Url.
 	/// </summary>
-	string MetadataArtworkUrl { get; set; }
+	MediaSource? MetadataArtworkSource { get; set; }
 
 	/// <summary>
 	/// Gets the media aspect ratio.

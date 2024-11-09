@@ -20,6 +20,7 @@ using CommunityToolkit.Maui.ApplicationModel.Permissions;
 using CommunityToolkit.Maui.Core.Primitives;
 using CommunityToolkit.Maui.Media.Services;
 using CommunityToolkit.Maui.Views;
+using Java.Net;
 using Microsoft.Extensions.Logging;
 
 namespace CommunityToolkit.Maui.Core.Views;
@@ -63,7 +64,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		canvas.SetBitmap(bitmap);
 		canvas.DrawColor(Android.Graphics.Color.White);
 		canvas.Save();
-
+		
 		try
 		{
 			var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
@@ -404,42 +405,12 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 
 		Player.PlayWhenReady = MediaElement.ShouldAutoPlay;
-
-		if (MediaElement.Source is UriMediaSource uriMediaSource)
+		var uri = GetUrlFromMediaSource(MediaElement.Source);
+		if (!string.IsNullOrWhiteSpace(uri))
 		{
-			var uri = uriMediaSource.Uri;
-			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
-			{
-				Player.SetMediaItem(MediaItem.FromUri(uri.AbsoluteUri));
-				Player.Prepare();
-
-				hasSetSource = true;
-			}
-		}
-		else if (MediaElement.Source is FileMediaSource fileMediaSource)
-		{
-			var filePath = fileMediaSource.Path;
-			if (!string.IsNullOrWhiteSpace(filePath))
-			{
-				Player.SetMediaItem(MediaItem.FromUri(filePath));
-				Player.Prepare();
-
-				hasSetSource = true;
-			}
-		}
-		else if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
-		{
-			var package = PlayerView?.Context?.PackageName ?? "";
-			var path = resourceMediaSource.Path;
-			if (!string.IsNullOrWhiteSpace(path))
-			{
-				var assetFilePath = $"asset://{package}{System.IO.Path.PathSeparator}{path}";
-
-				Player.SetMediaItem(MediaItem.FromUri(assetFilePath));
-				Player.Prepare();
-
-				hasSetSource = true;
-			}
+			Player.SetMediaItem(MediaItem.FromUri(uri));
+			Player.Prepare();
+			hasSetSource = true;
 		}
 
 		if (hasSetSource && Player.PlayerError is null)
@@ -664,10 +635,27 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		PlayerView.ArtworkDisplayMode = StyledPlayerView.ArtworkDisplayModeFit;
 		Android.Content.Context? context = Platform.AppContext;
 		Android.Content.Res.Resources? resources = context.Resources;
-
-		var bitmap = await GetBitmapFromUrl(MediaElement.MetadataArtworkUrl, cancellationToken);
-		PlayerView.DefaultArtwork = new BitmapDrawable(resources, bitmap);
-
+		string? artworkUrl = null;
+		Bitmap? bitmap = null;
+		if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
+		{
+			var temp = resourceMediaSource.Path;
+			if(!string.IsNullOrEmpty(temp))
+			{
+				using Stream inputStream = await FileSystem.OpenAppPackageFileAsync(temp);
+				bitmap = await BitmapFactory.DecodeStreamAsync(inputStream);
+			}
+		}
+		else
+		{
+			artworkUrl = GetUrlFromMediaSource(MediaElement.MetadataArtworkSource);
+			bitmap = await GetBitmapFromUrl(artworkUrl, cancellationToken);
+		}
+		if(bitmap is not null)
+		{
+			PlayerView.DefaultArtwork = new BitmapDrawable(resources, bitmap);
+		}
+		
 		var mediaMetadata = new MediaMetadataCompat.Builder();
 		mediaMetadata.PutString(MediaMetadataCompat.MetadataKeyArtist, MediaElement.MetadataArtist);
 		mediaMetadata.PutString(MediaMetadataCompat.MetadataKeyTitle, MediaElement.MetadataTitle);
@@ -682,7 +670,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		{
 			intent.PutExtra("title", MediaElement.MetadataTitle);
 			intent.PutExtra("artist", MediaElement.MetadataArtist);
-			intent.PutExtra("albumArtUri", MediaElement.MetadataArtworkUrl);
+			intent.PutExtra("albumArtUri", artworkUrl);
 			intent.PutExtra("position", ((long)MediaElement.Position.TotalSeconds));
 			intent.PutExtra("currentTime", SystemClock.ElapsedRealtime());
 			intent.PutExtra("duration", ((long)MediaElement.Duration.TotalSeconds));
@@ -714,6 +702,50 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 	{
 		MediaElement.MediaWidth = videoSize?.Width ?? 0;
 		MediaElement.MediaHeight = videoSize?.Height ?? 0;
+	}
+
+	string? GetUrlFromMediaSource(MediaSource? mediaSource)
+	{
+		if (mediaSource is null)
+		{
+			return null;
+		}
+		switch (mediaSource)
+		{
+			case UriMediaSource uriMediaSource:
+				{
+					var uri = uriMediaSource.Uri;
+					if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
+					{
+						return uri.AbsoluteUri;
+					}
+					break;
+				}
+			case FileMediaSource fileMediaSource:
+				{
+					var filePath = fileMediaSource.Path;
+					if (!string.IsNullOrWhiteSpace(filePath))
+					{
+						return filePath;
+					}
+					break;
+				}
+			case ResourceMediaSource resourceMediaSource:
+				{
+					var package = PlayerView?.Context?.PackageName ?? "";
+					var path = resourceMediaSource.Path;
+					if (!string.IsNullOrWhiteSpace(path))
+					{
+						var assetFilePath = $"asset://{package}{System.IO.Path.PathSeparator}{path}";
+						return assetFilePath;
+					}
+					break;
+				}
+			default:
+				throw new NotSupportedException($"{mediaSource.GetType().FullName} is not yet supported for {nameof(mediaSource)}");
+		}
+
+		return null;
 	}
 
 	#region IPlayer.IListener implementation method stubs

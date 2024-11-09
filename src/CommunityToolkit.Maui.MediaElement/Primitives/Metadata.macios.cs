@@ -70,21 +70,29 @@ class Metadata
 	/// </summary>
 	/// <param name="playerItem"></param>
 	/// <param name="mediaElement"></param>
-	public void SetMetadata(AVPlayerItem? playerItem, IMediaElement? mediaElement)
+	/// <param name="artwork"></param>
+	public void SetMetadata(AVPlayerItem? playerItem, IMediaElement? mediaElement, string? artwork)
 	{
 		if (mediaElement is null)
 		{
 			Metadata.ClearNowPlaying();
 			return;
 		}
-
+	
 		NowPlayingInfo.Title = mediaElement.MetadataTitle;
 		NowPlayingInfo.Artist = mediaElement.MetadataArtist;
 		NowPlayingInfo.PlaybackDuration = playerItem?.Duration.Seconds ?? 0;
 		NowPlayingInfo.IsLiveStream = false;
 		NowPlayingInfo.PlaybackRate = mediaElement.Speed;
 		NowPlayingInfo.ElapsedPlaybackTime = playerItem?.CurrentTime.Seconds ?? 0;
-		NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: _ => GetImage(mediaElement.MetadataArtworkUrl));
+		if (artwork is not null)
+		{
+			NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: _ => GetImage(artwork));
+		}
+		else
+		{
+			NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: _ => defaultUIImage);
+		}
 		MPNowPlayingInfoCenter.DefaultCenter.NowPlaying = NowPlayingInfo;
 	}
 

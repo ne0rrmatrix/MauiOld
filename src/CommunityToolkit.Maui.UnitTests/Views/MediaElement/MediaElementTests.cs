@@ -13,20 +13,36 @@ public class MediaElementTests : BaseHandlerTest
 	}
 
 	[Fact]
-	public void PosterIsNotStringEmptyorNull()
+	public void PosterIsNotNull()
 	{
-		MediaElement mediaElement = new();
-		mediaElement.MetadataArtworkUrl = "https://www.example.com/image.jpg";
-		Assert.True(!string.IsNullOrEmpty(mediaElement.MetadataArtworkUrl));
+		MediaElement mediaElement = new()
+		{
+			MetadataArtworkSource = "https://www.example.com/image.jpg"
+		};
+
+		Assert.True(mediaElement.MetadataArtworkSource is not null);
 	}
 
 	[Fact]
 	public void PosterIsStringEmptyDoesNotThrow()
 	{
-		MediaElement mediaElement = new();
-		mediaElement.MetadataArtworkUrl = string.Empty;
-		Assert.True(string.IsNullOrEmpty(mediaElement.MetadataArtworkUrl));
-		Assert.True(mediaElement.MetadataArtworkUrl == string.Empty);
+		MediaElement mediaElement = new()
+		{
+			MetadataArtworkSource = string.Empty
+		};
+
+		Assert.True(mediaElement.MetadataArtworkSource is not null);
+	}
+
+	[Fact]
+	public void PosterIsNullDoesNotThrow()
+	{
+		MediaElement mediaElement = new()
+		{
+			MetadataArtworkSource = null
+		};
+
+		Assert.True(mediaElement.MetadataArtworkSource is null);
 	}
 
 	[Fact]

@@ -215,7 +215,6 @@ public partial class MediaManager : IDisposable
 	{
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 
-		AVAsset? asset = null;
 		if (Player is null)
 		{
 			return;
@@ -225,48 +224,20 @@ public partial class MediaManager : IDisposable
 		Metadata.ClearNowPlaying();
 		PlayerViewController?.ContentOverlayView?.Subviews?.FirstOrDefault()?.RemoveFromSuperview();
 
-		if (MediaElement.Source is UriMediaSource uriMediaSource)
+		NSUrl? videoURL = null; 
+		string temp = GetMediaSourceString(MediaElement.Source);
+		videoURL = new NSUrl(temp);
+		AVPlayerItem? playerItem = null;
+		if (videoURL is not null)
 		{
-			var uri = uriMediaSource.Uri;
-			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
-			{
-				asset = AVAsset.FromUrl(new NSUrl(uri.AbsoluteUri));
-			}
-		}
-		else if (MediaElement.Source is FileMediaSource fileMediaSource)
-		{
-			var uri = fileMediaSource.Path;
-
-			if (!string.IsNullOrWhiteSpace(uri))
-			{
-				asset = AVAsset.FromUrl(NSUrl.CreateFileUrl(uri));
-			}
-		}
-		else if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
-		{
-			var path = resourceMediaSource.Path;
-
-			if (!string.IsNullOrWhiteSpace(path) && Path.HasExtension(path))
-			{
-				string directory = Path.GetDirectoryName(path) ?? "";
-				string filename = Path.GetFileNameWithoutExtension(path);
-				string extension = Path.GetExtension(path)[1..];
-				var url = NSBundle.MainBundle.GetUrlForResource(filename,
-					extension, directory);
-
-				asset = AVAsset.FromUrl(url);
-			}
-			else
-			{
-				Logger.LogWarning("Invalid file path for ResourceMediaSource.");
-			}
+			playerItem = new AVPlayerItem(AVAsset.FromUrl(videoURL));
 		}
 
-		PlayerItem = asset is not null
-			? new AVPlayerItem(asset)
+		PlayerItem = videoURL is not null
+			? playerItem
 			: null;
-
-		metaData.SetMetadata(PlayerItem, MediaElement);
+		var artwork = GetMediaSourceString(MediaElement.MetadataArtworkSource);
+		metaData.SetMetadata(PlayerItem, MediaElement, artwork);
 		CurrentItemErrorObserver?.Dispose();
 
 		Player.ReplaceCurrentItemWithPlayerItem(PlayerItem);
@@ -324,10 +295,11 @@ public partial class MediaManager : IDisposable
 			// No video track found and no tracks found. This is likely an audio file. So we can't set a poster.
 			return;
 		}
-
-		if (PlayerViewController?.View is not null && PlayerViewController.ContentOverlayView is not null && !string.IsNullOrEmpty(MediaElement.MetadataArtworkUrl))
+		var temp = GetMediaSourceString(MediaElement.MetadataArtworkSource);
+		var poster = new NSUrl(temp);
+		if (PlayerViewController?.View is not null && PlayerViewController.ContentOverlayView is not null && poster is not null)
 		{
-			var image = UIImage.LoadFromData(NSData.FromUrl(new NSUrl(MediaElement.MetadataArtworkUrl))) ?? new UIImage();
+			var image = UIImage.LoadFromData(NSData.FromUrl(poster)) ?? new UIImage();
 			var imageView = new UIImageView(image)
 			{
 				ContentMode = UIViewContentMode.ScaleAspectFit,
@@ -536,6 +508,51 @@ public partial class MediaManager : IDisposable
 		}
 	}
 
+	static string GetMediaSourceString(MediaSource? mediaSource)
+	{
+		if (mediaSource is null)
+		{
+			return string.Empty;
+		}
+		if (mediaSource is UriMediaSource uriMediaSource)
+		{
+			var uri = uriMediaSource.Uri;
+			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
+			{
+				return uri.AbsoluteUri;
+			}
+		}
+		else if (mediaSource is FileMediaSource fileMediaSource)
+		{
+			var uri = fileMediaSource.Path;
+
+			if (!string.IsNullOrWhiteSpace(uri))
+			{
+				return uri;
+			}
+		}
+		else if (mediaSource is ResourceMediaSource resourceMediaSource)
+		{
+			var path = resourceMediaSource.Path;
+
+			if (!string.IsNullOrWhiteSpace(path) && Path.HasExtension(path))
+			{
+				string directory = Path.GetDirectoryName(path) ?? "";
+				string filename = Path.GetFileNameWithoutExtension(path);
+				string extension = Path.GetExtension(path)[1..];
+				var url = NSBundle.MainBundle.GetUrlForResource(filename,
+					extension, directory);
+
+				if (url.AbsoluteString is null)
+				{
+					return string.Empty;
+				}
+				return url.AbsoluteString;
+			}
+		}
+		return string.Empty;
+	}
+
 	void AddStatusObservers()
 	{
 		if (Player is null)
@@ -635,8 +652,8 @@ public partial class MediaManager : IDisposable
 			AVPlayerTimeControlStatus.WaitingToPlayAtSpecifiedRate => MediaElementState.Buffering,
 			_ => MediaElement.CurrentState
 		};
-
-		metaData?.SetMetadata(PlayerItem, MediaElement);
+		var temp = GetMediaSourceString(MediaElement.MetadataArtworkSource);
+		metaData?.SetMetadata(PlayerItem, MediaElement, temp);
 
 		MediaElement.CurrentStateChanged(newState);
 	}
