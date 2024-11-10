@@ -53,7 +53,7 @@ class Metadata
 	/// <summary>
 	/// Sets the metadata for the given MediaElement.
 	/// </summary>
-	public void SetMetadata(IMediaElement mp, string artworkUrl)
+	public void SetMetadata(IMediaElement mp, string? artworkUrl)
 	{
 		if (systemMediaControls is null || mediaElement is null)
 		{

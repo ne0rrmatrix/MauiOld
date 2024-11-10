@@ -224,7 +224,7 @@ public partial class MediaManager : IDisposable
 		Metadata.ClearNowPlaying();
 		PlayerViewController?.ContentOverlayView?.Subviews?.FirstOrDefault()?.RemoveFromSuperview();
 
-		NSUrl? videoURL = null; 
+		NSUrl? videoURL = null;
 		string temp = GetMediaSourceString(MediaElement.Source);
 		videoURL = new NSUrl(temp);
 		AVPlayerItem? playerItem = null;
@@ -525,47 +525,39 @@ public partial class MediaManager : IDisposable
 		var temp = GetMediaSourceString(mediaElement.MetadataArtworkSource);
 		return NSData.FromUrl(new NSUrl(temp));
 	}
+
 	static string GetMediaSourceString(MediaSource? mediaSource)
 	{
-		if (mediaSource is null)
+		if(mediaSource is null)
 		{
 			return string.Empty;
 		}
-		if (mediaSource is UriMediaSource uriMediaSource)
+		return mediaSource switch
 		{
-			var uri = uriMediaSource.Uri;
-			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
-			{
-				return uri.AbsoluteUri;
-			}
-		}
-		else if (mediaSource is FileMediaSource fileMediaSource)
+			UriMediaSource uriMediaSource => uriMediaSource.Uri?.AbsoluteUri ?? string.Empty,
+			FileMediaSource fileMediaSource => fileMediaSource.Path ?? string.Empty,
+			ResourceMediaSource resourceMediaSource => MediaManager.GetResourceMediaSourceUrl(resourceMediaSource),
+			_ => throw new NotSupportedException($"{mediaSource?.GetType().FullName} is not yet supported for {nameof(mediaSource)}"),
+		};
+	}
+
+	static string GetResourceMediaSourceUrl(ResourceMediaSource resourceMediaSource)
+	{
+		var path = resourceMediaSource.Path;
+
+		if (!string.IsNullOrWhiteSpace(path) && Path.HasExtension(path))
 		{
-			var uri = fileMediaSource.Path;
+			string directory = Path.GetDirectoryName(path) ?? "";
+			string filename = Path.GetFileNameWithoutExtension(path);
+			string extension = Path.GetExtension(path)[1..];
+			var url = NSBundle.MainBundle.GetUrlForResource(filename,
+				extension, directory);
 
-			if (!string.IsNullOrWhiteSpace(uri))
+			if (url.AbsoluteString is null)
 			{
-				return uri;
+				return string.Empty;
 			}
-		}
-		else if (mediaSource is ResourceMediaSource resourceMediaSource)
-		{
-			var path = resourceMediaSource.Path;
-
-			if (!string.IsNullOrWhiteSpace(path) && Path.HasExtension(path))
-			{
-				string directory = Path.GetDirectoryName(path) ?? "";
-				string filename = Path.GetFileNameWithoutExtension(path);
-				string extension = Path.GetExtension(path)[1..];
-				var url = NSBundle.MainBundle.GetUrlForResource(filename,
-					extension, directory);
-
-				if (url.AbsoluteString is null)
-				{
-					return string.Empty;
-				}
-				return url.AbsoluteString;
-			}
+			return url.AbsoluteString;
 		}
 		return string.Empty;
 	}

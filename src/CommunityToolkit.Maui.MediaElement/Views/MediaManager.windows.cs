@@ -266,7 +266,6 @@ partial class MediaManager : IDisposable
 		{
 			Player.Source = null;
 			MediaElement.MediaWidth = MediaElement.MediaHeight = 0;
-
 			MediaElement.CurrentStateChanged(MediaElementState.None);
 
 			return;
@@ -282,14 +281,18 @@ partial class MediaManager : IDisposable
 		}
 	}
 
-	static string? GetUrlFromMediaSource(Maui.Views.MediaSource mediaSource)
+	static string? GetUrlFromMediaSource(MediaSource? mediaSource)
 	{
+		if (mediaSource is null)
+		{
+			return null;
+		}
 		return mediaSource switch
 		{
 			UriMediaSource uriMediaSource => uriMediaSource.Uri?.AbsoluteUri,
 			FileMediaSource fileMediaSource => fileMediaSource.Path,
 			ResourceMediaSource resourceMediaSource => "ms-appx:///" + resourceMediaSource.Path,
-			_ => null,
+			_ => throw new NotSupportedException($"{mediaSource.GetType().FullName} is not yet supported for {nameof(mediaSource)}"),
 		};
 	}
 	protected virtual partial void PlatformUpdateShouldLoopPlayback()

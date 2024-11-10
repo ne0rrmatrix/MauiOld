@@ -349,7 +349,7 @@ public class MediaElement : View, IMediaElement, IDisposable
 	}
 
 	/// <summary>
-	/// Gets or sets the Artwork Image Url of the media.
+	/// Gets or sets the Artwork Image of the media.
 	/// This is a bindable property.
 	/// </summary>
 	[TypeConverter(typeof(MediaSourceConverter))]

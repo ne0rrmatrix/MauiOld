@@ -651,10 +651,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 			artworkUrl = GetUrlFromMediaSource(MediaElement.MetadataArtworkSource);
 			bitmap = await GetBitmapFromUrl(artworkUrl, cancellationToken);
 		}
-		if(bitmap is not null)
-		{
-			PlayerView.DefaultArtwork = new BitmapDrawable(resources, bitmap);
-		}
+		PlayerView.DefaultArtwork = new BitmapDrawable(resources, bitmap);
 		
 		var mediaMetadata = new MediaMetadataCompat.Builder();
 		mediaMetadata.PutString(MediaMetadataCompat.MetadataKeyArtist, MediaElement.MetadataArtist);
@@ -706,45 +703,23 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 
 	string? GetUrlFromMediaSource(MediaSource? mediaSource)
 	{
-		if (mediaSource is null)
+		return mediaSource switch
 		{
-			return null;
-		}
-		switch (mediaSource)
+			UriMediaSource uriMediaSource => uriMediaSource.Uri?.AbsoluteUri,
+			FileMediaSource fileMediaSource => fileMediaSource.Path,
+			ResourceMediaSource resourceMediaSource => GetResourceMediaSourceUrl(resourceMediaSource),
+			_ => throw new NotSupportedException($"{mediaSource?.GetType().FullName} is not yet supported for {nameof(mediaSource)}"),
+		};
+	}
+	string? GetResourceMediaSourceUrl(ResourceMediaSource resourceMediaSource)
+	{
+		var package = PlayerView?.Context?.PackageName ?? "";
+		var path = resourceMediaSource.Path;
+		if (!string.IsNullOrWhiteSpace(path))
 		{
-			case UriMediaSource uriMediaSource:
-				{
-					var uri = uriMediaSource.Uri;
-					if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
-					{
-						return uri.AbsoluteUri;
-					}
-					break;
-				}
-			case FileMediaSource fileMediaSource:
-				{
-					var filePath = fileMediaSource.Path;
-					if (!string.IsNullOrWhiteSpace(filePath))
-					{
-						return filePath;
-					}
-					break;
-				}
-			case ResourceMediaSource resourceMediaSource:
-				{
-					var package = PlayerView?.Context?.PackageName ?? "";
-					var path = resourceMediaSource.Path;
-					if (!string.IsNullOrWhiteSpace(path))
-					{
-						var assetFilePath = $"asset://{package}{System.IO.Path.PathSeparator}{path}";
-						return assetFilePath;
-					}
-					break;
-				}
-			default:
-				throw new NotSupportedException($"{mediaSource.GetType().FullName} is not yet supported for {nameof(mediaSource)}");
+			var assetFilePath = $"asset://{package}{System.IO.Path.PathSeparator}{path}";
+			return assetFilePath;
 		}
-
 		return null;
 	}
 
