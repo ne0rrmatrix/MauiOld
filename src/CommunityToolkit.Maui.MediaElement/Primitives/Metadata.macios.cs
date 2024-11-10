@@ -71,7 +71,7 @@ class Metadata
 	/// <param name="playerItem"></param>
 	/// <param name="mediaElement"></param>
 	/// <param name="artwork"></param>
-	public void SetMetadata(AVPlayerItem? playerItem, IMediaElement? mediaElement, string? artwork)
+	public void SetMetadata(AVPlayerItem? playerItem, IMediaElement? mediaElement, NSData artwork)
 	{
 		if (mediaElement is null)
 		{
@@ -95,16 +95,11 @@ class Metadata
 		}
 		MPNowPlayingInfoCenter.DefaultCenter.NowPlaying = NowPlayingInfo;
 	}
-
-	static UIImage GetImage(string imageUri)
+	static UIImage GetImage(NSData nsData)
 	{
 		try
 		{
-			if (imageUri.StartsWith(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
-			{
-				return UIImage.LoadFromData(NSData.FromUrl(new NSUrl(imageUri))) ?? defaultUIImage;
-			}
-			return defaultUIImage;
+			return UIImage.LoadFromData(nsData) ?? defaultUIImage;
 		}
 		catch
 		{

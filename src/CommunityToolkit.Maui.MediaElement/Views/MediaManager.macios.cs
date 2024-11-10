@@ -211,7 +211,7 @@ public partial class MediaManager : IDisposable
 		};
 	}
 
-	protected virtual partial void PlatformUpdateSource()
+	protected virtual async partial void PlatformUpdateSource()
 	{
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 
@@ -236,7 +236,7 @@ public partial class MediaManager : IDisposable
 		PlayerItem = videoURL is not null
 			? playerItem
 			: null;
-		var artwork = GetMediaSourceString(MediaElement.MetadataArtworkSource);
+		var artwork = await GetPosterUrl(MediaElement).ConfigureAwait(false);
 		metaData.SetMetadata(PlayerItem, MediaElement, artwork);
 		CurrentItemErrorObserver?.Dispose();
 
@@ -269,7 +269,7 @@ public partial class MediaManager : IDisposable
 			{
 				Player.Play();
 			}
-			SetPoster();
+			await SetPoster().ConfigureAwait(false);
 		}
 		else if (PlayerItem is null)
 		{
@@ -278,7 +278,7 @@ public partial class MediaManager : IDisposable
 			MediaElement.CurrentStateChanged(MediaElementState.None);
 		}
 	}
-	void SetPoster()
+	async Task SetPoster()
 	{
 
 		if (PlayerItem is null || metaData is null)
@@ -295,11 +295,11 @@ public partial class MediaManager : IDisposable
 			// No video track found and no tracks found. This is likely an audio file. So we can't set a poster.
 			return;
 		}
-		var temp = GetMediaSourceString(MediaElement.MetadataArtworkSource);
-		var poster = new NSUrl(temp);
-		if (PlayerViewController?.View is not null && PlayerViewController.ContentOverlayView is not null && poster is not null)
+		NSData? nsData = await GetPosterUrl(MediaElement).ConfigureAwait(false);
+
+		if (PlayerViewController?.View is not null && PlayerViewController.ContentOverlayView is not null && nsData is not null)
 		{
-			var image = UIImage.LoadFromData(NSData.FromUrl(poster)) ?? new UIImage();
+			var image = UIImage.LoadFromData(nsData) ?? new UIImage();
 			var imageView = new UIImageView(image)
 			{
 				ContentMode = UIViewContentMode.ScaleAspectFit,
@@ -508,6 +508,23 @@ public partial class MediaManager : IDisposable
 		}
 	}
 
+	static async Task<NSData> GetPosterUrl(IMediaElement mediaElement)
+	{
+		if (mediaElement.MetadataArtworkSource is ResourceMediaSource resource)
+		{
+			var item = resource.Path;
+			if (item is not null)
+			{
+				using var data = await FileSystem.OpenAppPackageFileAsync(item).ConfigureAwait(false);
+				if (data is not null)
+				{
+					return NSData.FromStream(data) ?? new NSData();
+				}
+			}
+		}
+		var temp = GetMediaSourceString(mediaElement.MetadataArtworkSource);
+		return NSData.FromUrl(new NSUrl(temp));
+	}
 	static string GetMediaSourceString(MediaSource? mediaSource)
 	{
 		if (mediaSource is null)
@@ -637,7 +654,7 @@ public partial class MediaManager : IDisposable
 		MediaElement.CurrentStateChanged(newState);
 	}
 
-	void TimeControlStatusChanged(NSObservedChange obj)
+	async void TimeControlStatusChanged(NSObservedChange obj)
 	{
 		if (Player is null || Player.Status is AVPlayerStatus.Unknown
 			|| Player.CurrentItem?.Error is not null)
@@ -652,7 +669,8 @@ public partial class MediaManager : IDisposable
 			AVPlayerTimeControlStatus.WaitingToPlayAtSpecifiedRate => MediaElementState.Buffering,
 			_ => MediaElement.CurrentState
 		};
-		var temp = GetMediaSourceString(MediaElement.MetadataArtworkSource);
+
+		var temp = await GetPosterUrl(MediaElement).ConfigureAwait(false);
 		metaData?.SetMetadata(PlayerItem, MediaElement, temp);
 
 		MediaElement.CurrentStateChanged(newState);
