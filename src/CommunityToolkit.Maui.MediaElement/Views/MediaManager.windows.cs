@@ -276,40 +276,21 @@ partial class MediaManager : IDisposable
 		MediaElement.Duration = TimeSpan.Zero;
 		Player.AutoPlay = MediaElement.ShouldAutoPlay;
 		var url = GetUrlFromMediaSource(MediaElement.Source);
-		if (url is null)
+		if (url is not null)
 		{
-			return;
+			Player.Source = WinMediaSource.CreateFromUri(new Uri(url));
 		}
-		Player.Source = WinMediaSource.CreateFromUri(new Uri(url));
 	}
 
-	static string? GetUrlFromMediaSource(Maui.Views.MediaSource url)
+	static string? GetUrlFromMediaSource(Maui.Views.MediaSource mediaSource)
 	{
-		if (url is UriMediaSource uriMediaSource)
+		return mediaSource switch
 		{
-			var uri = uriMediaSource.Uri?.AbsoluteUri;
-			if (!string.IsNullOrWhiteSpace(uri))
-			{
-				return uri;
-			}
-		}
-		else if (url is FileMediaSource fileMediaSource)
-		{
-			var filename = fileMediaSource.Path;
-			if (!string.IsNullOrWhiteSpace(filename))
-			{
-				return filename;
-			}
-		}
-		else if (url is ResourceMediaSource resourceMediaSource)
-		{
-			string path = "ms-appx:///" + resourceMediaSource.Path;
-			if (!string.IsNullOrWhiteSpace(path))
-			{
-				return path;
-			}
-		}
-		return null;
+			UriMediaSource uriMediaSource => uriMediaSource.Uri?.AbsoluteUri,
+			FileMediaSource fileMediaSource => fileMediaSource.Path,
+			ResourceMediaSource resourceMediaSource => "ms-appx:///" + resourceMediaSource.Path,
+			_ => null,
+		};
 	}
 	protected virtual partial void PlatformUpdateShouldLoopPlayback()
 	{
