@@ -48,23 +48,58 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 	/// </summary>
 	protected StyledPlayerView? PlayerView { get; set; }
 
-	/// <summary>
-	/// Retrieves bitmap for the given url
-	/// </summary>
-	/// <param name="url"></param>
-	/// <param name="cancellationToken"></param>
-	/// <returns></returns>
-	/// <exception cref="InvalidOperationException"></exception>
-	public static async Task<Bitmap?> GetBitmapFromUrl(string? url, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Generates a blank bitmap.
+    /// </summary>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
+    public static Bitmap GetBlankBitmap()
 	{
-		var bitmapConfig = Bitmap.Config.Argb8888 ?? throw new InvalidOperationException("Bitmap config cannot be null");
-		var bitmap = Bitmap.CreateBitmap(1024, 768, bitmapConfig, true);
+        var bitmapConfig = Bitmap.Config.Argb8888 ?? throw new InvalidOperationException("Bitmap config cannot be null");
+        var bitmap = Bitmap.CreateBitmap(1024, 768, bitmapConfig, true);
+        Canvas canvas = new();
+        canvas.SetBitmap(bitmap);
+        canvas.DrawColor(Android.Graphics.Color.White);
+        canvas.Save();
+        return bitmap;
+    }
+    /// <summary>
+    /// Get the bitmap from the resource
+    /// </summary>
+    /// <param name="resource"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public static async Task<Bitmap?> GetBitmapFromResource(string? resource, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(resource))
+        {
+            return null;
+        }
+        try
+        {
+            using var inputStream = await FileSystem.OpenAppPackageFileAsync(resource);
+            using var memoryStream = new MemoryStream();
+            await inputStream.CopyToAsync(memoryStream, CancellationToken.None);
+            memoryStream.Position = 0;
+            var temp = await BitmapFactory.DecodeStreamAsync(memoryStream);
+            return temp;
+        }
+        catch (Exception e)
+        {
+            System.Diagnostics.Trace.TraceInformation($"Error: {e.Message}");
+            return null;
+        }
+    }
 
-		Canvas canvas = new();
-		canvas.SetBitmap(bitmap);
-		canvas.DrawColor(Android.Graphics.Color.White);
-		canvas.Save();
-		
+    /// <summary>
+    /// Retrieves bitmap for the given url
+    /// </summary>
+    /// <param name="url"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
+    public static async Task<Bitmap?> GetBitmapFromUrl(string? url, CancellationToken cancellationToken = default)
+	{
 		try
 		{
 			var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
@@ -72,13 +107,13 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 
 			return stream switch
 			{
-				null => bitmap,
+				null => null,
 				_ => await BitmapFactory.DecodeStreamAsync(stream)
 			};
 		}
 		catch
 		{
-			return bitmap;
+			return null;
 		}
 	}
 
@@ -380,7 +415,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 		MediaElement.Position = TimeSpan.Zero;
 	}
 
-	protected virtual partial void PlatformUpdateSource()
+	protected virtual async partial void PlatformUpdateSource()
 	{
 		var hasSetSource = false;
 
@@ -398,8 +433,8 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 			Player.ClearMediaItems();
 			MediaElement.Duration = TimeSpan.Zero;
 			MediaElement.CurrentStateChanged(MediaElementState.None);
-
-			return;
+			await StartService(startServiceSourceToken.Token);
+            return;
 		}
 
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
@@ -633,25 +668,29 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 
 		ArgumentNullException.ThrowIfNull(PlayerView);
 		PlayerView.ArtworkDisplayMode = StyledPlayerView.ArtworkDisplayModeFit;
-		Android.Content.Context? context = Platform.AppContext;
-		Android.Content.Res.Resources? resources = context.Resources;
+		
 		string? artworkUrl = null;
 		Bitmap? bitmap = null;
-		if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
-		{
-			var temp = resourceMediaSource.Path;
-			if(!string.IsNullOrEmpty(temp))
-			{
-				using Stream inputStream = await FileSystem.OpenAppPackageFileAsync(temp);
-				bitmap = await BitmapFactory.DecodeStreamAsync(inputStream);
-			}
-		}
-		else
-		{
-			artworkUrl = GetUrlFromMediaSource(MediaElement.MetadataArtworkSource);
-			bitmap = await GetBitmapFromUrl(artworkUrl, cancellationToken);
-		}
-		PlayerView.DefaultArtwork = new BitmapDrawable(resources, bitmap);
+		switch (MediaElement.MetadataArtworkSource)
+        {
+            case ResourceMediaSource resourceMediaSource:
+                var temp = resourceMediaSource.Path;
+                artworkUrl = temp?[(temp.LastIndexOf('/') + 1)..];
+                bitmap = await GetBitmapFromResource(artworkUrl, cancellationToken);
+                break;
+			case null:
+                break;
+            default:
+                artworkUrl = GetUrlFromMediaSource(MediaElement.MetadataArtworkSource);
+                bitmap = await GetBitmapFromUrl(artworkUrl, cancellationToken);
+                break;
+        }
+       
+        bitmap ??= GetBlankBitmap();
+
+        Context? context = Platform.AppContext;
+        Android.Content.Res.Resources? resources = context.Resources;
+        PlayerView.DefaultArtwork = new BitmapDrawable(resources, bitmap);
 		
 		var mediaMetadata = new MediaMetadataCompat.Builder();
 		mediaMetadata.PutString(MediaMetadataCompat.MetadataKeyArtist, MediaElement.MetadataArtist);
@@ -711,7 +750,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayer.IListener
 			_ => throw new NotSupportedException($"{mediaSource?.GetType().FullName} is not yet supported for {nameof(mediaSource)}"),
 		};
 	}
-	string? GetResourceMediaSourceUrl(ResourceMediaSource resourceMediaSource)
+    string? GetResourceMediaSourceUrl(ResourceMediaSource resourceMediaSource)
 	{
 		var package = PlayerView?.Context?.PackageName ?? "";
 		var path = resourceMediaSource.Path;
