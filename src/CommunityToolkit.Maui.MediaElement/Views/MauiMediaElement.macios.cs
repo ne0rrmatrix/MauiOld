@@ -103,42 +103,87 @@ public class MauiMediaElement : UIView
 
 	static bool TryGetItemsViewOnPage(Page currentPage, [NotNullWhen(true)] out ItemsView? itemsView)
 	{
-		var itemsViewsOnPage = ((IElementController)currentPage).Descendants().OfType<ItemsView>().ToList();
-		switch (itemsViewsOnPage.Count)
+		itemsView = null;
+
+		if (currentPage == null)
 		{
-			case > 1:
-				// We are unable to determine which ItemsView contains the MediaElement when multiple ItemsView are being used in the same page
-				// TODO: Add support for MediaElement in an ItemsView on a Page containing multiple ItemsViews 
-				throw new NotSupportedException("MediaElement does not currently support pages containing multiple ItemsViews (eg multiple CarouselViews + CollectionViews)");
-			case 1:
-				itemsView = itemsViewsOnPage[0];
-				return true;
-			case <= 0:
-				itemsView = null;
-				return false;
+			return false;
 		}
+
+		var itemsViewsOnPage = ((IElementController)currentPage).LogicalChildren.OfType<ItemsView>().ToList();
+
+		if (itemsViewsOnPage.Count == 1)
+		{
+			itemsView = itemsViewsOnPage[0];
+			return true;
+		}
+
+		if (itemsViewsOnPage.Count > 1)
+		{
+			// Attempt to find the ItemsView that contains the MediaElement
+			foreach (var view in itemsViewsOnPage)
+			{
+				if (ContainsMediaElement(view, out var mediaElement))
+				{
+					itemsView = view;
+					return true;
+				}
+			}
+
+			// If we cannot determine which ItemsView contains the MediaElement, return false
+			return false;
+		}
+
+		return false;
 	}
+
+	static bool ContainsMediaElement(Element element, [NotNullWhen(true)] out MediaElement? mediaElement)
+	{
+		mediaElement = null;
+
+		if (element is MediaElement media)
+		{
+			mediaElement = media;
+			return true;
+		}
+
+		foreach (var child in ((IElementController)element).LogicalChildren)
+		{
+			if (ContainsMediaElement(child, out mediaElement))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 
 	static bool TryGetCurrentPage([NotNullWhen(true)] out Page? currentPage)
 	{
 		currentPage = null;
 
-		if (Application.Current?.Windows is null)
+		if (Application.Current?.Windows is null || Application.Current.Windows.Count == 0)
 		{
 			return false;
 		}
 
-		if (Application.Current.Windows.Count is 0)
-		{
-			throw new InvalidOperationException("Unable to find active Window");
-		}
-
 		if (Application.Current.Windows.Count > 1)
 		{
-			// We are unable to determine which Window contains the ItemsView that contains the MediaElement when multiple ItemsView are being used in the same page
-			// TODO: Add support for MediaElement in an ItemsView in a multi-window application
-			throw new NotSupportedException("MediaElement is not currently supported in multi-window applications");
+			// Attempt to find the window that contains the MediaElement
+			foreach (var currentWindow in Application.Current.Windows)
+			{
+				if (currentWindow.Page is not null && ContainsMediaElement(currentWindow.Page, out _))
+				{
+					currentPage = currentWindow.Page;
+					return true;
+				}
+			}
+
+			// If we cannot determine which Window contains the MediaElement, return false
+			return false;
 		}
+
 
 		var window = Application.Current.Windows[0];
 
@@ -149,7 +194,7 @@ public class MauiMediaElement : UIView
 			return true;
 		}
 
-		// If not using Shell, use the ModelNavigationStack to check for any pages displayed modally
+		// If not using Shell, use the ModalStack to check for any pages displayed modally
 		if (TryGetModalPage(window, out var modalPage))
 		{
 			currentPage = modalPage;
@@ -157,7 +202,7 @@ public class MauiMediaElement : UIView
 		}
 
 		// If not using Shell or a Modal Page, return the visible page in the (non-modal) NavigationStack
-		if (window.Navigation.NavigationStack[^1] is Page page)
+		if (window.Navigation?.NavigationStack?.LastOrDefault() is Page page)
 		{
 			currentPage = page;
 			return true;
@@ -167,7 +212,7 @@ public class MauiMediaElement : UIView
 
 		static bool TryGetModalPage(Window window, [NotNullWhen(true)] out Page? page)
 		{
-			page = window.Navigation.ModalStack.LastOrDefault();
+			page = window.Navigation?.ModalStack?.LastOrDefault();
 			return page is not null;
 		}
 	}
