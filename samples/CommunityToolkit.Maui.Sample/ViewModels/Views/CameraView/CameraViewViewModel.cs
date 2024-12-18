@@ -21,18 +21,22 @@ public partial class CameraViewViewModel(ICameraProvider cameraProvider) : BaseV
 
 	[ObservableProperty]
 	public partial string CameraNameText { get; set; } = string.Empty;
-    [ObservableProperty]
+    
+	[ObservableProperty]
     public partial string ZoomRangeText { get; set; } = string.Empty;
+	
 	[ObservableProperty]
     public partial string CurrentZoomText { get; set; } = string.Empty;
+	
 	[ObservableProperty]
     public partial string FlashModeText { get; set; } = string.Empty;
+	
 	[ObservableProperty]
     public partial string ResolutionText { get; set; } = string.Empty;
 
 	public IReadOnlyList<CameraInfo> Cameras => cameraProvider?.AvailableCameras ?? [];
 
-    public CancellationToken Token => CancellationToken.None;
+    public static CancellationToken Token => CancellationToken.None;
 
     public ICollection<CameraFlashMode> FlashModes { get; } = Enum.GetValues<CameraFlashMode>();
 
