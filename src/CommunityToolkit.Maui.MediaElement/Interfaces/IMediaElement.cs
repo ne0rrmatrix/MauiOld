@@ -84,6 +84,25 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	bool ShouldShowPlaybackControls { get; set; }
 
 	/// <summary>
+	/// Gets or sets the font to use for the subtitle text.
+	/// </summary>
+	string SubtitleFont { get; }
+	/// <summary>
+	/// Gets or sets the URL of the subtitle file to display.
+	/// </summary>
+	MediaSource? SubtitleUrl { get; }
+
+	/// <summary>
+	/// Gets or sets the font size of the subtitle text.
+	/// </summary>
+	double SubtitleFontSize { get; }
+
+	/// <summary>
+	/// Gets or sets the language of the subtitle text.
+	/// </summary>
+	string SubtitleLanguage { get; }
+
+	/// <summary>
 	/// Gets or sets the source of the media to play.
 	/// </summary>
 	MediaSource? Source { get; set; }

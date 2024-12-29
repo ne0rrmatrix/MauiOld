@@ -4,11 +4,15 @@ using CommunityToolkit.Maui.Core.Primitives;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Media;
+using Windows.Media.Core;
 using Windows.Media.Playback;
 using Windows.Storage;
+using Windows.Storage.Streams;
 using Windows.System.Display;
+using MediaSource = CommunityToolkit.Maui.Views.MediaSource;
 using ParentWindow = CommunityToolkit.Maui.Extensions.PageExtensions.ParentWindow;
 using WindowsMediaElement = Windows.Media.Playback.MediaPlayer;
 using WinMediaSource = Windows.Media.Core.MediaSource;
@@ -17,7 +21,9 @@ namespace CommunityToolkit.Maui.Core.Views;
 
 partial class MediaManager : IDisposable
 {
-	Metadata? metadata;
+	MediaPlaybackItem? playbackItem;
+	Dictionary<TimedTextSource, string> timedTextSourceDictionary = [];
+	TimedTextSource? timedTextSource = null;
 	SystemMediaTransportControls? systemMediaControls;
 
 	// States that allow changing position
@@ -258,54 +264,166 @@ partial class MediaManager : IDisposable
 		Player.MediaPlayer.IsMuted = MediaElement.ShouldMute;
 	}
 
-	protected virtual async partial void PlatformUpdateSource()
+	protected virtual partial void PlatformUpdateSource()
 	{
 		if (Player is null)
 		{
 			return;
 		}
+		if (playbackItem is not null)
+		{
+			playbackItem.TimedMetadataTracksChanged -= PlaybackItem_TimedMetadataTracksChanged;
+			playbackItem = null;
+		}
+		timedTextSourceDictionary = [];
+
 		Dispatcher.Dispatch(() => Player.PosterSource = new BitmapImage());
 		if (MediaElement.Source is null)
 		{
 			Player.Source = null;
 			MediaElement.MediaWidth = MediaElement.MediaHeight = 0;
-
 			MediaElement.CurrentStateChanged(MediaElementState.None);
-
 			return;
 		}
-
+		
 		MediaElement.Position = TimeSpan.Zero;
 		MediaElement.Duration = TimeSpan.Zero;
 		Player.AutoPlay = MediaElement.ShouldAutoPlay;
 
-		if (MediaElement.Source is UriMediaSource uriMediaSource)
+		WinMediaSource? source = null;
+		var temp = GetUrlFromMediaSource(MediaElement.Source);
+		if (!string.IsNullOrEmpty(temp))
+		{
+			source = WinMediaSource.CreateFromUri(new Uri(temp));
+		}
+		if (source is null)
+		{
+			Player.Source = null;
+			return;
+		}
+
+		playbackItem = new MediaPlaybackItem(source);
+		SetMediaItemDisplayProperties(playbackItem);
+		var subtitle = GetUrlFromMediaSource(MediaElement.SubtitleUrl);
+		if (!string.IsNullOrEmpty(subtitle))
+		{
+			Player.Source =  AddSubtitleToSource(source);
+			return;
+		}
+		Player.Source = playbackItem;
+	}
+
+	void SetMediaItemDisplayProperties(MediaPlaybackItem mediaPlaybackItem)
+	{
+		MediaItemDisplayProperties displayProperties = mediaPlaybackItem.GetDisplayProperties();
+		displayProperties.Type = Windows.Media.MediaPlaybackType.Music;
+		displayProperties.MusicProperties.Title = MediaElement.MetadataTitle;
+		displayProperties.MusicProperties.Artist = MediaElement.MetadataArtist;
+		if (!string.IsNullOrEmpty(MediaElement.MetadataArtworkUrl))
+		{
+			displayProperties.Thumbnail = RandomAccessStreamReference.CreateFromUri(new Uri(MediaElement.MetadataArtworkUrl));
+		}
+		mediaPlaybackItem.ApplyDisplayProperties(displayProperties);
+	}
+	MediaPlaybackItem AddSubtitleToSource(WinMediaSource source)
+	{
+		var subtitleLanguage = MediaElement.SubtitleLanguage;
+		var subtitleFont = MediaElement.SubtitleFont.ToString();
+		string temp = GetUrlFromMediaSource(MediaElement.SubtitleUrl) ?? string.Empty;
+		if (!Uri.TryCreate(temp, UriKind.RelativeOrAbsolute, out var subtitleUrl))
+		{
+			Trace.TraceError($"{nameof(MediaElement)} unable to update artwork because {nameof(MediaElement.SubtitleUrl)} is not a valid URI");
+			return new MediaPlaybackItem(source);
+		}
+		var ttsEnUri = subtitleUrl;
+		timedTextSource = TimedTextSource.CreateFromUri(ttsEnUri);
+		if (!string.IsNullOrEmpty(subtitleLanguage))
+		{
+			timedTextSourceDictionary[timedTextSource] = subtitleLanguage;
+			timedTextSource.Resolved += Tts_Resolved;
+		}
+
+		source.ExternalTimedTextSources.Add(timedTextSource);
+		//var item = new MediaPlaybackItem(source);
+		if (playbackItem is null)
+		{
+			return new MediaPlaybackItem(source);
+		}
+		playbackItem.TimedMetadataTracksChanged += PlaybackItem_TimedMetadataTracksChanged;
+		if (Player is not null && subtitleFont is not null)
+		{
+			Player.FontFamily = GetFontFamily(subtitleFont);
+			Player.FontSize = MediaElement.SubtitleFontSize;
+		}
+		return playbackItem;
+	}
+
+	static void PlaybackItem_TimedMetadataTracksChanged(MediaPlaybackItem sender, Windows.Foundation.Collections.IVectorChangedEventArgs args)
+	{
+		sender.TimedMetadataTracks.SetPresentationMode(0, TimedMetadataTrackPresentationMode.PlatformPresented);
+	}
+
+	FontFamily? GetFontFamily(string fontName)
+	{
+		if (string.IsNullOrEmpty(fontName))
+		{
+			return null;
+		}
+		try
+		{
+			return new FontFamily(new Core.FontExtensions.FontFamily(fontName).WindowsFont);
+		}
+		catch (Exception ex)
+		{
+			Logger?.LogError(ex, "Failed to load font family");
+			return null;
+		}
+	}
+
+	void Tts_Resolved(TimedTextSource sender, TimedTextSourceResolveResultEventArgs args)
+	{
+		var language = timedTextSourceDictionary[sender];
+		// Handle errors
+		if (args.Error is not null)
+		{
+			System.Diagnostics.Trace.TraceError($"Failed to resolve timed text source: {args.Error.ExtendedError}");
+			return;
+		}
+		args.Tracks[0].Label = language;
+		if (timedTextSource is not null)
+		{
+			timedTextSource.Resolved -= Tts_Resolved;
+		}
+	}
+
+	static string GetUrlFromMediaSource(MediaSource? url)
+	{
+		if (url is UriMediaSource uriMediaSource)
 		{
 			var uri = uriMediaSource.Uri?.AbsoluteUri;
 			if (!string.IsNullOrWhiteSpace(uri))
 			{
-				Player.Source = WinMediaSource.CreateFromUri(new Uri(uri));
+				return uri;
 			}
 		}
-		else if (MediaElement.Source is FileMediaSource fileMediaSource)
+		else if (url is FileMediaSource fileMediaSource)
 		{
 			var filename = fileMediaSource.Path;
 			if (!string.IsNullOrWhiteSpace(filename))
 			{
-				StorageFile storageFile = await StorageFile.GetFileFromPathAsync(filename);
-				Player.Source = WinMediaSource.CreateFromStorageFile(storageFile);
+				return filename;
 			}
 		}
-		else if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
+		else if (url is ResourceMediaSource resourceMediaSource)
 		{
 			string path = "ms-appx:///" + resourceMediaSource.Path;
 			if (!string.IsNullOrWhiteSpace(path))
 			{
-				Player.Source = WinMediaSource.CreateFromUri(new Uri(path));
+				return path;
 			}
 		}
+		return string.Empty;
 	}
-
 	protected virtual partial void PlatformUpdateShouldLoopPlayback()
 	{
 		if (Player is null)
@@ -330,6 +448,11 @@ partial class MediaManager : IDisposable
 				{
 					DisplayRequest.RequestRelease();
 					displayActiveRequested = false;
+				}
+
+				if (playbackItem is not null)
+				{
+					playbackItem.TimedMetadataTracksChanged -= PlaybackItem_TimedMetadataTracksChanged;
 				}
 
 				Player.MediaPlayer.MediaOpened -= OnMediaElementMediaOpened;
@@ -361,8 +484,6 @@ partial class MediaManager : IDisposable
 			return;
 		}
 
-		metadata ??= new(systemMediaControls, MediaElement, Dispatcher);
-		metadata.SetMetadata(MediaElement);
 		if (string.IsNullOrEmpty(MediaElement.MetadataArtworkUrl))
 		{
 			return;

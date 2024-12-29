@@ -8,6 +8,7 @@ using CoreMedia;
 using Foundation;
 using MediaPlayer;
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui.Platform;
 using UIKit;
 
 namespace CommunityToolkit.Maui.Core.Views;
@@ -213,57 +214,36 @@ public partial class MediaManager : IDisposable
 
 	protected virtual partial void PlatformUpdateSource()
 	{
-		MediaElement.CurrentStateChanged(MediaElementState.Opening);
-
-		AVAsset? asset = null;
 		if (Player is null)
 		{
 			return;
 		}
+		if (MediaElement.Source is null)
+		{
+			Player.ReplaceCurrentItemWithPlayerItem(null);
+			MediaElement.CurrentStateChanged(MediaElementState.Stopped);
+		}
+		if (MediaElement.Source is null)
+		{
+			return;
+		}
+		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 
 		metaData ??= new(Player);
 		Metadata.ClearNowPlaying();
 		PlayerViewController?.ContentOverlayView?.Subviews?.FirstOrDefault()?.RemoveFromSuperview();
 
-		if (MediaElement.Source is UriMediaSource uriMediaSource)
-		{
-			var uri = uriMediaSource.Uri;
-			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
-			{
-				asset = AVAsset.FromUrl(new NSUrl(uri.AbsoluteUri));
-			}
-		}
-		else if (MediaElement.Source is FileMediaSource fileMediaSource)
-		{
-			var uri = fileMediaSource.Path;
+		NSUrl? videoURL = null;
+		videoURL = VideoSource(MediaElement.Source);
 
-			if (!string.IsNullOrWhiteSpace(uri))
-			{
-				asset = AVAsset.FromUrl(NSUrl.CreateFileUrl(uri));
-			}
-		}
-		else if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
+		AVPlayerItem? playerItem = null;
+		if (videoURL is not null)
 		{
-			var path = resourceMediaSource.Path;
-
-			if (!string.IsNullOrWhiteSpace(path) && Path.HasExtension(path))
-			{
-				string directory = Path.GetDirectoryName(path) ?? "";
-				string filename = Path.GetFileNameWithoutExtension(path);
-				string extension = Path.GetExtension(path)[1..];
-				var url = NSBundle.MainBundle.GetUrlForResource(filename,
-					extension, directory);
-
-				asset = AVAsset.FromUrl(url);
-			}
-			else
-			{
-				Logger.LogWarning("Invalid file path for ResourceMediaSource.");
-			}
+			playerItem = new AVPlayerItem(AVAsset.FromUrl(videoURL));
 		}
 
-		PlayerItem = asset is not null
-			? new AVPlayerItem(asset)
+		PlayerItem = videoURL is not null
+			? playerItem
 			: null;
 
 		metaData.SetMetadata(PlayerItem, MediaElement);
@@ -298,7 +278,6 @@ public partial class MediaManager : IDisposable
 			{
 				Player.Play();
 			}
-			SetPoster();
 		}
 		else if (PlayerItem is null)
 		{
@@ -307,6 +286,79 @@ public partial class MediaManager : IDisposable
 			MediaElement.CurrentStateChanged(MediaElementState.None);
 		}
 	}
+
+	static NSUrl? VideoSource(MediaSource? mediaSource)
+	{
+		if (mediaSource is null)
+		{
+			return null;
+		}
+		if (mediaSource is UriMediaSource uriMediaSource)
+		{
+			var uri = uriMediaSource.Uri;
+			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
+			{
+				return new NSUrl(uri.AbsoluteUri);
+			}
+		}
+		else if (mediaSource is FileMediaSource fileMediaSource)
+		{
+			var uri = fileMediaSource.Path;
+
+			if (!string.IsNullOrWhiteSpace(uri))
+			{
+				return NSUrl.CreateFileUrl(uri);
+			}
+		}
+		else if (mediaSource is ResourceMediaSource resourceMediaSource)
+		{
+			var path = resourceMediaSource.Path;
+
+			if (!string.IsNullOrWhiteSpace(path) && Path.HasExtension(path))
+			{
+				string directory = Path.GetDirectoryName(path) ?? "";
+				string filename = Path.GetFileNameWithoutExtension(path);
+				string extension = Path.GetExtension(path)[1..];
+				var url = NSBundle.MainBundle.GetUrlForResource(filename,
+					extension, directory);
+
+				return NSUrl.CreateFileUrl(url?.Path ?? "");
+			}
+		}
+		return null;
+	}
+
+	static (float red, float green, float blue, float alpha) GetColorValues(UIColor color)
+	{
+		float green = color.ToColor()?.Green ?? 1;
+		float red = color.ToColor()?.Red ?? 1;
+		float blue = color.ToColor()?.Blue ?? 1;
+		float alpha = color.ToColor()?.Alpha ?? 1;
+		return (red, green, blue, alpha);
+	}
+	static AVTextStyleRule CreateTextStyleRule(UIColor foregorund, UIColor background, float fontSize, string fontFamily)
+	{
+		var cmTextMarkupAtrributes = new CMTextMarkupAttributes();
+		if (foregorund is not null)
+		{
+			var (red, green, blue, alpha) = GetColorValues(foregorund);
+			var foreGroundColor = new TextMarkupColor(red, green, blue, alpha);
+			cmTextMarkupAtrributes.ForegroundColor = foreGroundColor;
+		}
+
+		if (background is not null)
+		{
+			var (red, green, blue, alpha) = GetColorValues(background);
+			var backgroundColor = new TextMarkupColor(red, green, blue, alpha);
+			cmTextMarkupAtrributes.BackgroundColor = backgroundColor;
+		}
+
+		cmTextMarkupAtrributes.FontFamilyName = GetFontFamily(fontFamily, fontSize).FamilyName;
+
+		return new AVTextStyleRule(cmTextMarkupAtrributes);
+	}
+	static UIFont GetFontFamily(string fontFamily, float fontSize) => UIFont.FromName(new Core.FontExtensions.FontFamily(fontFamily).MacIOS, fontSize);
+
 	void SetPoster()
 	{
 

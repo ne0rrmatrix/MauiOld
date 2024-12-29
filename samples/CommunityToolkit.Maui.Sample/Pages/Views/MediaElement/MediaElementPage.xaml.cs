@@ -16,6 +16,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	const string loadLocalResource = "Load Local Resource";
 	const string resetSource = "Reset Source to null";
 	const string loadMusic = "Load Music";
+	const string loadSubTitles = "Load sample with Subtitles";
 
 	const string buckBunnyMp4Url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
 	const string botImageUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
@@ -161,11 +162,12 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	async void ChangeSourceClicked(Object sender, EventArgs e)
 	{
 		var result = await DisplayActionSheet("Choose a source", "Cancel", null,
-			loadOnlineMp4, loadHls, loadLocalResource, resetSource, loadMusic);
+			loadOnlineMp4, loadHls, loadLocalResource, resetSource, loadMusic, loadSubTitles);
 
 		switch (result)
 		{
 			case loadOnlineMp4:
+				MediaElement.SubtitleUrl = string.Empty;
 				MediaElement.MetadataTitle = "Big Buck Bunny";
 				MediaElement.MetadataArtworkUrl = botImageUrl;
 				MediaElement.MetadataArtist = "Big Buck Bunny Album";
@@ -174,6 +176,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case loadHls:
+				MediaElement.SubtitleUrl = string.Empty;
 				MediaElement.MetadataArtist = "HLS Album";
 				MediaElement.MetadataArtworkUrl = botImageUrl;
 				MediaElement.MetadataTitle = "HLS Title";
@@ -181,6 +184,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case resetSource:
+				MediaElement.SubtitleUrl = string.Empty;
 				MediaElement.MetadataArtworkUrl = string.Empty;
 				MediaElement.MetadataTitle = string.Empty;
 				MediaElement.MetadataArtist = string.Empty;
@@ -188,6 +192,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case loadLocalResource:
+				MediaElement.SubtitleUrl = string.Empty;
 				MediaElement.MetadataArtworkUrl = botImageUrl;
 				MediaElement.MetadataTitle = "Local Resource Title";
 				MediaElement.MetadataArtist = "Local Resource Album";
@@ -208,10 +213,21 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				return;
 
 			case loadMusic:
+				MediaElement.SubtitleUrl = string.Empty;
 				MediaElement.MetadataTitle = "HAL 9000";
 				MediaElement.MetadataArtist = "HAL 9000 Album";
 				MediaElement.MetadataArtworkUrl = botImageUrl;
 				MediaElement.Source = MediaSource.FromUri(hal9000AudioUrl);
+				return;
+			case loadSubTitles:
+				MediaElement.SubtitleFont = @"PlaywriteSK-Regular.ttf#Playwrite SK";
+				MediaElement.SubtitleFontSize = 18;
+				MediaElement.SubtitleLanguage = "en";
+				MediaElement.SubtitleUrl = "https://raw.githubusercontent.com/ne0rrmatrix/SampleVideo/main/SRT/WindowsVideo.srt";
+				MediaElement.MetadataTitle = "Subtitles";
+				MediaElement.MetadataArtist = "Subtitles Album";
+				MediaElement.MetadataArtworkUrl = botImageUrl;
+				MediaElement.Source = MediaSource.FromResource("WindowsVideo.mp4");
 				return;
 		}
 	}
