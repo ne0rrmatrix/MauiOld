@@ -1,4 +1,5 @@
-﻿using AVFoundation;
+﻿using System.Diagnostics.CodeAnalysis;
+using AVFoundation;
 using AVKit;
 using CommunityToolkit.Maui.Core.Primitives;
 using CommunityToolkit.Maui.Views;
@@ -8,13 +9,34 @@ using CoreMedia;
 using Foundation;
 using MediaPlayer;
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui.Controls.Platform;
+using Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.AppCompat;
+using Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;
+using Microsoft.Maui.Controls.PlatformConfiguration.macOSSpecific;
 using UIKit;
 
 namespace CommunityToolkit.Maui.Core.Views;
 
 public partial class MediaManager : IDisposable
 {
+	string pagetitle = string.Empty;
+	bool hasNavigationBar = false;
+	bool hasTabBar = false;
+
+	UIButton? playPauseButton;
+	UIButton? fastForwardButton;
+	UIButton? rewindButton;
+	UISlider? timelineSlider;
+	UIButton? aspectRatioButton;
+	UIButton? fullScreenButton;
+	UIViewController? viewController;
+	UIViewController? fullScreenViewController;
+	UIView? originalView = null;
+	CGRect? originalFrame;
+	MPVolumeView? volumeView;
+	bool isFullscreen;
 	Metadata? metaData;
+	UIView? controlPanel;
 
 	// Media would still start playing when Speed was set although ShouldAutoPlay=False
 	// This field was added to overcome that.
@@ -119,6 +141,7 @@ public partial class MediaManager : IDisposable
 		AddStatusObservers();
 		AddPlayedToEndObserver();
 		AddErrorObservers();
+		controlPanel = CreateControlPanel();
 
 		return (Player, PlayerViewController);
 	}
@@ -132,6 +155,269 @@ public partial class MediaManager : IDisposable
 		GC.SuppressFinalize(this);
 	}
 	
+	 UIView CreateControlPanel()
+	{
+		ArgumentNullException.ThrowIfNull(PlayerViewController?.View);
+		controlPanel = new UIView
+		{
+			Frame = new CGRect(0, PlayerViewController.View.Bounds.Height - 100, PlayerViewController.View.Bounds.Width, 100),
+			BackgroundColor = UIColor.Black.ColorWithAlpha(0.5f),
+			AutoresizingMask = UIViewAutoresizing.FlexibleWidth | UIViewAutoresizing.FlexibleTopMargin
+		};
+		playPauseButton = CreateButton(UIImage.GetSystemImage("play.fill") ?? throw new InvalidOperationException(), UIImage.GetSystemImage("pause.fill"), PlayPauseButtonClicked);
+		fastForwardButton = CreateButton(UIImage.GetSystemImage("goforward.10") ?? throw new InvalidOperationException(), null, FastForwardButtonClicked);
+		rewindButton = CreateButton(UIImage.GetSystemImage("gobackward.10") ?? throw new InvalidOperationException(), null, RewindButtonClicked);
+		aspectRatioButton = CreateButton(UIImage.GetSystemImage("aspectratio.fill") ?? throw new InvalidOperationException(), null, AspectRatioButtonClicked);
+		fullScreenButton = CreateButton(UIImage.GetSystemImage("arrow.up.left.and.arrow.down.right") ?? throw new InvalidOperationException(), UIImage.GetSystemImage("arrow.down.right.and.arrow.up.left"), FullScreenButtonClicked);
+		UIButton volumeButton = CreateButton(UIImage.GetSystemImage("speaker.fill") ?? throw new InvalidOperationException(), null,  ShowVolumeSlider);
+		
+		volumeView = new MPVolumeView();
+		var sliderRotation = CGAffineTransform.MakeIdentity();
+		sliderRotation = CGAffineTransform.Rotate(sliderRotation, -(nfloat)(Math.PI / 2));
+		volumeView.Transform = sliderRotation;
+		volumeView.ShowsVolumeSlider = false;
+		// Add the MPVolumeView to the view
+		MainThread.InvokeOnMainThreadAsync(() => PlayerViewController?.View?.AddSubview(volumeView));
+		// Arrange buttons in a horizontal line centered above the volume slider
+		nfloat buttonWidth = 40;
+		nfloat buttonHeight = 40;
+		nfloat buttonSpacing = 10;
+		nfloat totalButtonWidth = (buttonWidth * 5) + (buttonSpacing * 4);
+		nfloat startX = (controlPanel.Bounds.Width - totalButtonWidth) / 2;
+		nfloat buttonY = 10;
+
+		playPauseButton.Frame = new CGRect(startX, buttonY, buttonWidth, buttonHeight);
+		rewindButton.Frame = new CGRect(startX + (buttonWidth + buttonSpacing) * 1, buttonY, buttonWidth, buttonHeight);
+		fastForwardButton.Frame = new CGRect(startX + (buttonWidth + buttonSpacing) * 2, buttonY, buttonWidth, buttonHeight);
+		aspectRatioButton.Frame = new CGRect(startX + (buttonWidth + buttonSpacing) * 3, buttonY, buttonWidth, buttonHeight);
+		fullScreenButton.Frame = new CGRect(startX + (buttonWidth + buttonSpacing) * 4, buttonY, buttonWidth, buttonHeight);
+		volumeButton.Frame = new CGRect(startX + (buttonWidth + buttonSpacing) * 5, buttonY, buttonWidth, buttonHeight);
+		volumeView.Frame = new CGRect(startX + (buttonWidth + buttonSpacing) * 5, buttonY, buttonWidth, buttonHeight);
+
+		timelineSlider = new UISlider
+		{
+			Frame = new CGRect(20, controlPanel.Bounds.Height - 40, controlPanel.Bounds.Width - 60, 20), // Adjusted Y coordinate and margins
+			AutoresizingMask = UIViewAutoresizing.FlexibleWidth,
+			MinValue = 0,
+			MaxValue = 1,
+			Value = 0 // Initial value
+		};
+		timelineSlider.ValueChanged += TimelineSlider_ValueChanged;
+
+		controlPanel.AddSubviews(rewindButton, playPauseButton, fastForwardButton, volumeButton, volumeView, aspectRatioButton, fullScreenButton, timelineSlider);
+		PlayerViewController.View.AddSubview(controlPanel);
+
+		// Start a timer to update the timeline slider periodically
+		NSTimer.CreateRepeatingScheduledTimer(TimeSpan.FromSeconds(1), (timer) => UpdateTimelineSlider());
+
+		return controlPanel;
+	}
+
+	void TimelineSlider_ValueChanged(object? sender, EventArgs e)
+	{
+		ArgumentNullException.ThrowIfNull(sender);
+
+		if (sender is UISlider slider && MediaElement.Duration > TimeSpan.Zero)
+		{
+			var newValue = slider.Value * MediaElement.Duration.TotalSeconds;
+			MediaElement.SeekTo(TimeSpan.FromSeconds(newValue), CancellationToken.None).ContinueWith(_ =>
+			{
+				MediaElement.Play();
+			}, TaskScheduler.FromCurrentSynchronizationContext());
+		}
+	}
+
+	void UpdateTimelineSlider()
+	{
+		if (timelineSlider != null && MediaElement.Duration > TimeSpan.Zero)
+		{
+			timelineSlider.Value = (float)(MediaElement.Position.TotalSeconds / MediaElement.Duration.TotalSeconds);
+		}
+	}
+
+	void ShowVolumeSlider(object? sender, EventArgs e)
+	{
+		ArgumentNullException.ThrowIfNull(volumeView);
+		  // Create and configure the MPVolumeView
+		if(volumeView.ShowsVolumeSlider == true){
+			volumeView.ShowsVolumeSlider = false;
+		}
+		else
+		{
+			volumeView.ShowsVolumeSlider = true;
+		}
+	}
+
+
+	static UIButton CreateButton(UIImage icon, UIImage? selectedIcon, EventHandler action)
+	{
+		UIButton button = new(UIButtonType.System)
+		{
+			Frame = new CGRect(0, 40, 44, 44),
+			TintColor = UIColor.White,
+			BackgroundColor = UIColor.Black.ColorWithAlpha(0.5f), // Make the button translucent
+			Layer = 
+			{
+				CornerRadius = 22,
+				BorderWidth = 1,
+				BorderColor = UIColor.White.CGColor,
+				ShadowColor = UIColor.Black.CGColor,
+				ShadowOffset = new CGSize(0, 2),
+				ShadowOpacity = 0.5f,
+				ShadowRadius = 2
+			}
+		};
+		button.SetImage(icon, UIControlState.Normal);
+		if (selectedIcon != null)
+		{
+			button.SetImage(selectedIcon, UIControlState.Selected);
+		}
+		button.TouchUpInside += action;
+		return button;
+	}
+
+	void PlayPauseButtonClicked(object? sender, EventArgs e)
+	{
+		if (sender is null)
+		{
+			return;
+		}
+		UIButton button = (UIButton)sender;
+		if (Player?.Rate > 0)
+		{
+			Player?.Pause();
+			button.Selected = false;
+			button.SetImage(UIImage.GetSystemImage("play.fill"), UIControlState.Normal); // Show play icon
+		}
+		else
+		{
+			Player?.Play();
+			button.SetImage(UIImage.GetSystemImage("pause.fill"), UIControlState.Normal); // Show pause icon
+		}
+	}
+
+
+
+	void FastForwardButtonClicked(object? sender, EventArgs e)
+	{
+		if(sender is null)
+		{
+			return;
+		}
+		if (Player?.CurrentTime is not null)
+		{
+			var newTime = TimeSpan.FromSeconds(Player.CurrentTime.Seconds + 10);
+			PlatformSeek(newTime, CancellationToken.None);
+		}
+	}
+
+	void RewindButtonClicked(object? sender, EventArgs e)
+	{
+		if (Player?.CurrentTime is not null)
+		{
+			var newTime = TimeSpan.FromSeconds(Math.Max(0, Player.CurrentTime.Seconds - 10));
+			PlatformSeek(newTime, CancellationToken.None);
+		}
+	}
+
+	void AspectRatioButtonClicked(object? sender, EventArgs e)
+	{
+		if (PlayerViewController is null)
+		{
+			return;
+		}
+		PlatformUpdateAspect();
+	}
+
+	void FullScreenButtonClicked(object? sender, EventArgs e)
+	{
+		if(sender is null)
+		{
+			return;
+		}
+		EnterFullScreen();
+	}
+	void EnterFullScreen()
+	{
+		if(PlayerViewController is null)
+		{
+			return;
+		}
+		viewController = ViewControllerExtensions.GetViewController(PlayerViewController, (MediaElement)MediaElement);
+		if (viewController is null)
+		{
+			return;
+		}
+		var page = Microsoft.Maui.Controls.Application.Current?.Windows[0].Page ?? throw new InvalidOperationException();
+		if (isFullscreen && PlayerViewController.View is not null && viewController.View is not null && originalFrame is not null)
+		{
+			 isFullscreen = false;
+			 Shell.Current.CurrentPage.Title = pagetitle;
+
+			controlPanel?.RemoveFromSuperview();
+			PlayerViewController.View.RemoveFromSuperview();
+			PlayerViewController.RemoveFromParentViewController();
+
+			ArgumentNullException.ThrowIfNull(originalView);
+			Shell.SetNavBarIsVisible(Shell.Current.CurrentPage, hasNavigationBar);
+			Shell.SetTabBarIsVisible(Shell.Current.CurrentPage, hasTabBar);
+		
+			UIApplication.SharedApplication.SetStatusBarHidden(false, UIKit.UIStatusBarAnimation.None);
+			Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific.Page.SetUseSafeArea(page, false);
+
+			viewController.View.AddSubview(originalView);
+			
+			UIEdgeInsets insets = viewController.View.SafeAreaInsets;
+			PlayerViewController.AdditionalSafeAreaInsets =
+				new UIEdgeInsets(insets.Top * -1, insets.Left, insets.Bottom * -1, insets.Right);
+			PlayerViewController.View.Frame = (CGRect)originalFrame;
+			PlayerViewController.ShowsPlaybackControls = false;
+			ArgumentNullException.ThrowIfNull(controlPanel);
+			PlayerViewController.View.AddSubview(controlPanel);
+
+			controlPanel.Frame = new CGRect(0, PlayerViewController.View.Bounds.Height - 100, PlayerViewController.View.Bounds.Width, 100);
+			originalView = null;
+		}
+		else
+		{
+			ArgumentNullException.ThrowIfNull(PlayerViewController.View);
+			originalView = PlayerViewController.View;
+			originalFrame = PlayerViewController.View.Frame;
+			pagetitle = Shell.Current.CurrentPage.Title;
+			Shell.Current.CurrentPage.Title = string.Empty;
+			isFullscreen = true;
+			PlayerViewController.ShowsPlaybackControls = false;
+
+			hasNavigationBar = Shell.GetNavBarIsVisible(Shell.Current.CurrentPage);
+			hasTabBar = Shell.GetTabBarIsVisible(Shell.Current.CurrentPage);
+			
+			controlPanel?.RemoveFromSuperview();
+			PlayerViewController.View.RemoveFromSuperview();
+			PlayerViewController.RemoveFromParentViewController();
+			
+			fullScreenViewController = [];
+			ArgumentNullException.ThrowIfNull(fullScreenViewController.View);
+			fullScreenViewController.View.Frame = UIScreen.MainScreen.Bounds;
+			fullScreenViewController.View.AddSubview(PlayerViewController.View);
+			
+			PlayerViewController.View.Frame = fullScreenViewController.View.Bounds;
+			ArgumentNullException.ThrowIfNull(controlPanel);
+			PlayerViewController.View.AddSubview(controlPanel);
+			
+			viewController?.AddChildViewController(fullScreenViewController);
+			viewController?.View?.AddSubview(fullScreenViewController.View);
+			
+			fullScreenViewController.DidMoveToParentViewController(viewController);
+			controlPanel.Frame = new CGRect(0, PlayerViewController.View.Bounds.Height - 200, PlayerViewController.View.Bounds.Width, 100);
+			
+			UIApplication.SharedApplication.SetStatusBarHidden(true, UIKit.UIStatusBarAnimation.Fade);
+			Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific.Page.SetUseSafeArea(page, true);
+			Shell.SetTabBarIsVisible(Shell.Current.CurrentPage, false);
+			Microsoft.Maui.Controls.NavigationPage.SetHasNavigationBar(Shell.Current.CurrentPage,false);
+			Shell.SetNavBarIsVisible(Shell.Current.CurrentPage, false);
+		}
+	}
+
 	protected virtual partial void PlatformPlay()
 	{
 		if (Player?.CurrentTime == PlayerItem?.Duration)
@@ -297,6 +583,7 @@ public partial class MediaManager : IDisposable
 			if (MediaElement.ShouldAutoPlay)
 			{
 				Player.Play();
+				playPauseButton?.SetImage(UIImage.GetSystemImage("pause.fill"), UIControlState.Normal);
 			}
 			SetPoster();
 		}
