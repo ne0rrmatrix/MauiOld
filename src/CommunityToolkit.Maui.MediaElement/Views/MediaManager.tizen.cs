@@ -36,6 +36,7 @@ public partial class MediaManager : IDisposable
 	public void Dispose()
 	{
 		Dispose(true);
+		GC.SuppressFinalize(this);
 	}
 
 	/// <summary>
@@ -133,11 +134,11 @@ public partial class MediaManager : IDisposable
 		};
 	}
 
-	protected virtual partial void PlatformUpdateSource()
+	protected virtual partial ValueTask PlatformUpdateSource()
 	{
 		if (Player is null)
 		{
-			return;
+			return ValueTask.CompletedTask;
 		}
 
 		if (Player.State is not PlayerState.Idle)
@@ -153,7 +154,8 @@ public partial class MediaManager : IDisposable
 			MediaElement.MediaWidth = MediaElement.MediaHeight = 0;
 
 			MediaElement.CurrentStateChanged(MediaElementState.None);
-			return;
+			
+			return ValueTask.CompletedTask;
 		}
 
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
@@ -191,6 +193,8 @@ public partial class MediaManager : IDisposable
 			PreparePlayer();
 			MediaElement.MediaOpened();
 		}
+
+		return ValueTask.CompletedTask;
 	}
 
 	protected virtual partial void PlatformUpdateSpeed()
@@ -394,7 +398,7 @@ public partial class MediaManager : IDisposable
 			return res;
 		}
 
-		foreach (AppFW.ResourceManager.Category category in Enum.GetValues(typeof(AppFW.ResourceManager.Category)))
+		foreach (AppFW.ResourceManager.Category category in Enum.GetValues<AppFW.ResourceManager.Category>())
 		{
 			var path = AppFW.ResourceManager.TryGetPath(category, res);
 

@@ -1,4 +1,5 @@
-﻿using System.Runtime.Versioning;
+﻿using System.Diagnostics;
+using System.Runtime.Versioning;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Platform;
 
@@ -7,50 +8,74 @@ namespace CommunityToolkit.Maui.Core.Platform;
 [UnsupportedOSPlatform("MacCatalyst")]
 static partial class StatusBar
 {
+	/// <summary>
+	/// Method to update the status bar size.
+	/// </summary>
+	public static void SetBarSize(bool isUsingSafeArea)
+	{
+		var communityToolkitStatusBarTag = new IntPtr(38482);
+		foreach (var window in UIApplication.SharedApplication.Windows)
+		{
+			var statusBarFrame = window.WindowScene?.StatusBarManager?.StatusBarFrame;
+			if (statusBarFrame is null)
+			{
+				continue;
+			}
+
+			var statusBar = window.ViewWithTag(communityToolkitStatusBarTag) ?? new UIView(statusBarFrame.Value);
+			statusBar.Tag = communityToolkitStatusBarTag;
+			statusBar.Frame = GetStatusBarFrame(window, isUsingSafeArea);
+
+			var statusBarSubViews = window.Subviews.Where(x => x.Tag == communityToolkitStatusBarTag).ToList();
+			foreach (var statusBarSubView in statusBarSubViews)
+			{
+				statusBarSubView.RemoveFromSuperview();
+			}
+
+			window.AddSubview(statusBar);
+
+			TryUpdateStatusBarAppearance(window);
+		}
+	}
+
 	static void PlatformSetColor(Color color)
 	{
 		var uiColor = color.ToPlatform();
 
-		if (OperatingSystem.IsIOSVersionAtLeast(13))
+		var statusBarTag = new IntPtr(38482);
+		foreach (var window in UIApplication.SharedApplication.Windows)
 		{
-			var statusBarTag = new IntPtr(38482);
-			foreach (var window in UIApplication.SharedApplication.Windows)
+			var statusBar = window.ViewWithTag(statusBarTag);
+			var statusBarFrame = window.WindowScene?.StatusBarManager?.StatusBarFrame;
+			if (statusBarFrame is null)
 			{
-				var statusBar = window.ViewWithTag(statusBarTag);
-				var statusBarFrame = window.WindowScene?.StatusBarManager?.StatusBarFrame;
-				if (statusBarFrame is null)
-				{
-					continue;
-				}
-
-				// ReSharper disable once NullCoalescingConditionIsAlwaysNotNullAccordingToAPIContract
-				// window.ViewWithTag(tag) can return null
-				statusBar ??= new UIView(statusBarFrame.Value);
-				statusBar.Tag = statusBarTag;
-				statusBar.BackgroundColor = uiColor;
-				statusBar.TintColor = uiColor;
-				statusBar.Frame = UIApplication.SharedApplication.StatusBarFrame;
-				var statusBarSubViews = window.Subviews.Where(x => x.Tag == statusBarTag).ToList();
-				foreach (var statusBarSubView in statusBarSubViews)
-				{
-					statusBarSubView.RemoveFromSuperview();
-				}
-
-				window.AddSubview(statusBar);
-
-				UpdateStatusBarAppearance(window);
-			}
-		}
-		else
-		{
-			if (UIApplication.SharedApplication.ValueForKey(new NSString("statusBar")) is UIView statusBar
-				&& statusBar.RespondsToSelector(new ObjCRuntime.Selector("setBackgroundColor:")))
-			{
-				statusBar.BackgroundColor = uiColor;
+				continue;
 			}
 
-			UpdateStatusBarAppearance();
+			statusBar ??= new UIView(statusBarFrame.Value);
+			statusBar.Tag = statusBarTag;
+			statusBar.BackgroundColor = uiColor;
+			statusBar.TintColor = uiColor;
+
+			var statusBarSubViews = window.Subviews.Where(x => x.Tag == statusBarTag).ToList();
+			foreach (var statusBarSubView in statusBarSubViews)
+			{
+				statusBarSubView.RemoveFromSuperview();
+			}
+
+			window.AddSubview(statusBar);
+
+			TryUpdateStatusBarAppearance(window);
 		}
+	}
+
+	static CGRect GetStatusBarFrame(in UIWindow window, in bool isUsingSafeArea)
+	{
+		var statusBarFrame = UIApplication.SharedApplication.StatusBarFrame;
+
+		return isUsingSafeArea
+			? new CGRect(statusBarFrame.X, statusBarFrame.Y, statusBarFrame.Width, window.SafeAreaInsets.Top)
+			: statusBarFrame;
 	}
 
 	static void PlatformSetStyle(StatusBarStyle statusBarStyle)
@@ -65,70 +90,30 @@ static partial class StatusBar
 
 		UIApplication.SharedApplication.SetStatusBarStyle(uiStyle, false);
 
-		UpdateStatusBarAppearance();
+		TryUpdateStatusBarAppearance();
 	}
 
-	/// <summary>
-	/// Method to update the status bar size.
-	/// </summary>
-	public static void UpdateBarSize()
+	static bool TryUpdateStatusBarAppearance()
 	{
-		if (OperatingSystem.IsIOSVersionAtLeast(13))
+		var didUpdateAllStatusBars = true;
+
+		foreach (var window in UIApplication.SharedApplication.Windows)
 		{
-			var statusBarTag = new IntPtr(38482);
-			foreach (var window in UIApplication.SharedApplication.Windows)
-			{
-				var statusBar = window.ViewWithTag(statusBarTag);
-				var statusBarFrame = window.WindowScene?.StatusBarManager?.StatusBarFrame;
-				if (statusBarFrame is null)
-				{
-					continue;
-				}
-
-				statusBar ??= new UIView(statusBarFrame.Value);
-				statusBar.Tag = statusBarTag;
-				statusBar.Frame = UIApplication.SharedApplication.StatusBarFrame;
-				var statusBarSubViews = window.Subviews.Where(x => x.Tag == statusBarTag).ToList();
-				foreach (var statusBarSubView in statusBarSubViews)
-				{
-					statusBarSubView.RemoveFromSuperview();
-				}
-
-				window.AddSubview(statusBar);
-
-				UpdateStatusBarAppearance(window);
-			}
+			didUpdateAllStatusBars &= TryUpdateStatusBarAppearance(window);
 		}
-		else
-		{
-			if (UIApplication.SharedApplication.ValueForKey(new NSString("statusBar")) is UIView statusBar)
-			{
-				statusBar.Frame = UIApplication.SharedApplication.StatusBarFrame;
-			}
 
-			UpdateStatusBarAppearance();
-		}
+		return didUpdateAllStatusBars;
 	}
 
-	static void UpdateStatusBarAppearance()
+	static bool TryUpdateStatusBarAppearance(UIWindow? window)
 	{
-		if (OperatingSystem.IsIOSVersionAtLeast(13))
-		{
-			foreach (var window in UIApplication.SharedApplication.Windows)
-			{
-				UpdateStatusBarAppearance(window);
-			}
-		}
-		else
-		{
-			var window = UIApplication.SharedApplication.KeyWindow;
-			UpdateStatusBarAppearance(window);
-		}
-	}
+		var vc = window?.RootViewController ?? WindowStateManager.Default.GetCurrentUIViewController();
 
-	static void UpdateStatusBarAppearance(UIWindow? window)
-	{
-		var vc = window?.RootViewController ?? WindowStateManager.Default.GetCurrentUIViewController() ?? throw new InvalidOperationException($"{nameof(window.RootViewController)} cannot be null");
+		if (vc is null)
+		{
+			Trace.WriteLine("Unable to update Status Bar Appearance because Current UIViewController is null");
+			return false;
+		}
 
 		while (vc.PresentedViewController is not null)
 		{
@@ -136,5 +121,7 @@ static partial class StatusBar
 		}
 
 		vc.SetNeedsStatusBarAppearanceUpdate();
+
+		return true;
 	}
 }

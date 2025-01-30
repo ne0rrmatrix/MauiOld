@@ -9,7 +9,7 @@ namespace CommunityToolkit.Maui.Core.Handlers;
 #if TIZEN
 public class CameraViewHandler : ViewHandler<ICameraView, NativePlatformCameraPreviewView>
 #else
-public class CameraViewHandler : ViewHandler<ICameraView, NativePlatformCameraPreviewView>, IDisposable
+public partial class CameraViewHandler : ViewHandler<ICameraView, NativePlatformCameraPreviewView>, IDisposable
 #endif
 {
 	/// <summary>
@@ -67,14 +67,14 @@ public class CameraViewHandler : ViewHandler<ICameraView, NativePlatformCameraPr
 	}
 
 	/// <summary>
-	/// Creates a platform specific view that will be rendered on that platform.
+	/// Creates a platform-specific view that will be rendered on that platform.
 	/// </summary>
 	protected override NativePlatformCameraPreviewView CreatePlatformView()
 	{
 		ArgumentNullException.ThrowIfNull(MauiContext);
 		cameraManager = new(MauiContext, VirtualView, cameraProvider, () => Init(VirtualView));
 
-		return cameraManager.CreatePlatformView();
+		return (NativePlatformCameraPreviewView)cameraManager.CreatePlatformView();
 
 		// When camera is loaded(switched), map the current flash mode to the platform view,
 		// reset the zoom factor to 1

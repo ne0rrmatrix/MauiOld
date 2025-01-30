@@ -6,9 +6,12 @@
     xmlns:mct="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     xmlns:pages="clr-namespace:CommunityToolkit.Maui.Sample.Pages"
     xmlns:vm="clr-namespace:CommunityToolkit.Maui.Sample.ViewModels.Behaviors"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    ios:Page.UseSafeArea="True"
     Title="StatusBarBehavior"
     x:DataType="vm:StatusBarBehaviorViewModel"
-    x:TypeArguments="vm:StatusBarBehaviorViewModel">
+    x:TypeArguments="vm:StatusBarBehaviorViewModel"
+    x:Name="Page">
 
     <ContentPage.Resources>
         <ControlTemplate x:Key="RadioButtonTemplate">
@@ -73,20 +76,21 @@
 
     <Page.Behaviors>
         <mct:StatusBarBehavior
+            BindingContext="{Binding Path=BindingContext, Source={x:Reference Page}, x:DataType=ContentPage}"
             StatusBarColor="{Binding StatusBarColor}"
             StatusBarStyle="{Binding StatusBarStyle}" />
     </Page.Behaviors>
 
     <ScrollView Padding="{StaticResource ContentPadding}">
 
-        <VerticalStackLayout Padding="15,0" Spacing="30">
+        <VerticalStackLayout Padding="15,0" Spacing="30" IgnoreSafeArea="False">
 
             <Label Text="Slide to change StatusBar color" />
 
             <Label Text="Red" />
             <Slider
                 Margin="20,0"
-                Maximum="255"
+                Maximum="1"
                 MaximumTrackColor="Red"
                 Minimum="0"
                 MinimumTrackColor="Red"
@@ -96,7 +100,7 @@
             <Label Text="Green" />
             <Slider
                 Margin="20,0"
-                Maximum="255"
+                Maximum="1"
                 MaximumTrackColor="Green"
                 Minimum="0"
                 MinimumTrackColor="Green"
@@ -106,7 +110,7 @@
             <Label Text="Blue" />
             <Slider
                 Margin="20,0"
-                Maximum="255"
+                Maximum="1"
                 MaximumTrackColor="Blue"
                 Minimum="0"
                 MinimumTrackColor="Blue"
@@ -151,6 +155,11 @@
                 </RadioButton>
 
             </HorizontalStackLayout>
+            
+            <Button
+                x:Name="ModalPageButton"
+                HorizontalOptions="Center"
+                VerticalOptions="Center"/>
         </VerticalStackLayout>
     </ScrollView>
 </pages:BasePage>

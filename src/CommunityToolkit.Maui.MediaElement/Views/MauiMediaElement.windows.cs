@@ -1,37 +1,31 @@
+using System.Reflection;
 using CommunityToolkit.Maui.Extensions;
+using CommunityToolkit.Maui.Primitives;
 using CommunityToolkit.Maui.Views;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Markup;
+using Microsoft.UI.Xaml.Media.Imaging;
 using WinRT.Interop;
 using Application = Microsoft.Maui.Controls.Application;
-using Button = Microsoft.UI.Xaml.Controls.Button;
-using Colors = Microsoft.UI.Colors;
 using Grid = Microsoft.UI.Xaml.Controls.Grid;
 using Page = Microsoft.Maui.Controls.Page;
-using SolidColorBrush = Microsoft.UI.Xaml.Media.SolidColorBrush;
-using Thickness = Microsoft.UI.Xaml.Thickness;
 
 namespace CommunityToolkit.Maui.Core.Views;
 
 /// <summary>
 /// The user-interface element that represents the <see cref="MediaElement"/> on Windows.
 /// </summary>
-public class MauiMediaElement : Grid, IDisposable
+public partial class MauiMediaElement : Grid, IDisposable
 {
 	static readonly AppWindow appWindow = GetAppWindowForCurrentWindow();
 	readonly Popup popup = new();
 	readonly Grid fullScreenGrid = new();
-	readonly Grid buttonContainer;
-	readonly Button fullScreenButton;
 	readonly MediaPlayerElement mediaPlayerElement;
-	// Cannot be static readonly because we need to be able to add icon to multiple instances of the button
-	readonly FontIcon fullScreenIcon = new() { Glyph = "\uE740", FontFamily = new FontFamily("Segoe Fluent Icons") };
-	readonly FontIcon exitFullScreenIcon = new() { Glyph = "\uE73F", FontFamily = new FontFamily("Segoe Fluent Icons") };
+	readonly CustomTransportControls? customTransportControls;
 	bool doesNavigationBarExistBeforeFullScreen;
 	bool isDisposed;
 
@@ -41,34 +35,73 @@ public class MauiMediaElement : Grid, IDisposable
 	/// <param name="mediaPlayerElement"></param>
 	public MauiMediaElement(MediaPlayerElement mediaPlayerElement)
 	{
+		LoadResourceDictionary();
 		this.mediaPlayerElement = mediaPlayerElement;
-
-		fullScreenButton = new Button
+		customTransportControls = SetTransportControls();
+		Children.Add(this.mediaPlayerElement);
+	}
+	void LoadResourceDictionary()
+	{
+		var assembly = Assembly.GetExecutingAssembly();
+		using Stream? stream = assembly.GetManifestResourceStream("ResourceDictionary.windows.xaml");
+		if (stream is null)
 		{
-			Content = fullScreenIcon,
-			Background = new SolidColorBrush(Colors.Transparent),
-			Width = 45,
-			Height = 45,
-		};
-		fullScreenButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, "Full Screen Button");
-
-		buttonContainer = new Grid
+			return;
+		}
+		using StreamReader reader = new(stream);
+		var xaml = reader.ReadToEnd();
+		var resourceDictionary = (Microsoft.UI.Xaml.ResourceDictionary)XamlReader.Load(xaml);
+		if (resourceDictionary is null)
 		{
-			HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Right,
-			VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Top,
-			Visibility = mediaPlayerElement.TransportControls.Visibility,
-			Width = 45,
-			Height = 45,
+			return;
+		}
+		this.Resources.MergedDictionaries.Add(resourceDictionary);
+	}
+	void ApplyCustomStyle()
+	{
+		if (this.Resources.TryGetValue("customTransportcontrols", out object styleObj) &&
+			styleObj is Microsoft.UI.Xaml.Style customStyle && mediaPlayerElement is not null && mediaPlayerElement.TransportControls is not null)
+		{
+			mediaPlayerElement.TransportControls.Style = customStyle;
+		}
+	}
+
+	CustomTransportControls SetTransportControls()
+	{
+		mediaPlayerElement.TransportControls.IsEnabled = false;
+		var temp = new CustomTransportControls()
+		{
+			IsZoomButtonVisible = true,
+			IsZoomEnabled = true,
+			IsVolumeButtonVisible = true,
+			IsVolumeEnabled = true,
+			IsSeekBarVisible = true,
+			IsSeekEnabled = true,
+			IsEnabled = true,
+			IsRepeatButtonVisible = true,
+			IsRepeatEnabled = true,
+			IsNextTrackButtonVisible = true,
+			IsPreviousTrackButtonVisible = true,
+			IsFastForwardButtonVisible = true,
+			IsFastForwardEnabled = true,
+			IsFastRewindButtonVisible = true,
+			IsFastRewindEnabled = true,
+			IsPlaybackRateButtonVisible = true,
+			IsPlaybackRateEnabled = true,
+			IsCompact = false,
+			Height = 45
+		temp.OnTemplateLoaded += (s, e) =>
+		{
+			if (temp.FullScreenButton is null)
+			{
+				return;
+			}
+			temp.FullScreenButton.Click += OnFullScreenButtonClick;
 			Margin = new Thickness(0, 20, 30, 0)
 		};
-
-		fullScreenButton.Click += OnFullScreenButtonClick;
-		buttonContainer.Children.Add(fullScreenButton);
-
-		Children.Add(this.mediaPlayerElement);
-		Children.Add(buttonContainer);
-
-		mediaPlayerElement.PointerMoved += OnMediaPlayerElementPointerMoved;
+		mediaPlayerElement.TransportControls = temp;
+		ApplyCustomStyle();
+		return temp;
 	}
 
 	/// <summary>
@@ -89,7 +122,7 @@ public class MauiMediaElement : Grid, IDisposable
 	/// Gets the presented page.
 	/// </summary>
 	protected static Page CurrentPage =>
-		PageExtensions.GetCurrentPage(Application.Current?.MainPage ?? throw new InvalidOperationException($"{nameof(Application.Current.MainPage)} cannot be null."));
+		PageExtensions.GetCurrentPage(Application.Current?.Windows[0].Page ?? throw new InvalidOperationException($"{nameof(Page)} cannot be null."));
 
 	/// <summary>
 	/// Releases the managed and unmanaged resources used by the <see cref="MauiMediaElement"/>.
@@ -100,9 +133,10 @@ public class MauiMediaElement : Grid, IDisposable
 		{
 			return;
 		}
-
-		fullScreenButton.Click -= OnFullScreenButtonClick;
-		mediaPlayerElement.PointerMoved -= OnMediaPlayerElementPointerMoved;
+		if (customTransportControls?.FullScreenButton is not null)
+		{
+			customTransportControls.FullScreenButton.Click -= OnFullScreenButtonClick;
+		}
 
 		if (disposing)
 		{
@@ -129,29 +163,9 @@ public class MauiMediaElement : Grid, IDisposable
 		return AppWindow.GetFromWindowId(id);
 	}
 
-	async void OnMediaPlayerElementPointerMoved(object sender, PointerRoutedEventArgs e)
-	{
-		e.Handled = true;
-		buttonContainer.Visibility = mediaPlayerElement.TransportControls.Visibility;
-
-		if (mediaPlayerElement.TransportControls.Visibility == Microsoft.UI.Xaml.Visibility.Collapsed)
-		{
-			buttonContainer.Visibility = mediaPlayerElement.TransportControls.Visibility;
-			return;
-		}
-
-		mediaPlayerElement.PointerMoved -= OnMediaPlayerElementPointerMoved;
-		buttonContainer.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
-		await Task.Delay(TimeSpan.FromSeconds(5));
-
-		buttonContainer.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
-		mediaPlayerElement.PointerMoved += OnMediaPlayerElementPointerMoved;
-	}
-
 	void OnFullScreenButtonClick(object sender, RoutedEventArgs e)
 	{
 		var currentPage = CurrentPage;
-
 		if (appWindow.Presenter.Kind is AppWindowPresenterKind.FullScreen)
 		{
 			appWindow.SetPresenter(AppWindowPresenterKind.Default);
@@ -163,9 +177,7 @@ public class MauiMediaElement : Grid, IDisposable
 				popup.Child = null;
 				fullScreenGrid.Children.Clear();
 			}
-			fullScreenButton.Content = fullScreenIcon;
 			Children.Add(mediaPlayerElement);
-			Children.Add(buttonContainer);
 
 			var parent = mediaPlayerElement.Parent as FrameworkElement;
 			mediaPlayerElement.Width = parent?.Width ?? mediaPlayerElement.Width;
@@ -182,9 +194,7 @@ public class MauiMediaElement : Grid, IDisposable
 			mediaPlayerElement.Height = displayInfo.Height / displayInfo.Density;
 
 			Children.Clear();
-			fullScreenButton.Content = exitFullScreenIcon;
 			fullScreenGrid.Children.Add(mediaPlayerElement);
-			fullScreenGrid.Children.Add(buttonContainer);
 
 			popup.XamlRoot = mediaPlayerElement.XamlRoot;
 			popup.HorizontalOffset = 0;

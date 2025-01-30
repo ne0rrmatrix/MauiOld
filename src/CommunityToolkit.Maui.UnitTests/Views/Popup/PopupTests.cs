@@ -13,7 +13,7 @@ public class PopupTests : BaseHandlerTest
 
 	public PopupTests()
 	{
-		Assert.IsAssignableFrom<IPopup>(new MockPopup());
+		Assert.IsType<IPopup>(new MockPopup(), exactMatch: false);
 	}
 
 	[Fact]
@@ -47,7 +47,7 @@ public class PopupTests : BaseHandlerTest
 		// Make sure that our page will have a Handler
 		CreateViewHandler<MockPageHandler>(page);
 
-		app.MainPage = page;
+		app.Windows[0].Page = page;
 
 		var popupHandler = CreateElementHandler<MockPopupHandler>(popup);
 
@@ -78,7 +78,7 @@ public class PopupTests : BaseHandlerTest
 		// Make sure that our page will have a Handler
 		CreateViewHandler<MockPageHandler>(page);
 
-		app.MainPage = page;
+		app.Windows[0].Page = page;
 
 		var popupHandler = CreateElementHandler<MockPopupHandler>(popup);
 
@@ -109,7 +109,7 @@ public class PopupTests : BaseHandlerTest
 		// Make sure that our page will have a Handler
 		CreateViewHandler<MockPageHandler>(page);
 
-		app.MainPage = page;
+		app.Windows[0].Page = page;
 
 		var popupHandler = CreateElementHandler<MockPopupHandler>(popup);
 
@@ -140,7 +140,7 @@ public class PopupTests : BaseHandlerTest
 		// Make sure that our page will have a Handler
 		CreateViewHandler<MockPageHandler>(page);
 
-		app.MainPage = page;
+		app.Windows[0].Page = page;
 
 		var popupHandler = CreateElementHandler<MockPopupHandler>(popup);
 
@@ -169,7 +169,7 @@ public class PopupTests : BaseHandlerTest
 		// Make sure that our page will have a Handler
 		CreateViewHandler<MockPageHandler>(page);
 
-		app.MainPage = page;
+		app.Windows[0].Page = page;
 
 		var popupHandler = CreateElementHandler<MockPopupHandler>(popup);
 
@@ -211,7 +211,7 @@ public class PopupTests : BaseHandlerTest
 		// Make sure that our page will have a Handler
 		CreateViewHandler<MockPageHandler>(page);
 
-		app.MainPage = page;
+		app.Windows[0].Page = page;
 
 		CreateElementHandler<MockPopupHandler>(popup);
 
@@ -245,7 +245,7 @@ public class PopupTests : BaseHandlerTest
 		// Make sure that our page will have a Handler
 		CreateViewHandler<MockPageHandler>(page);
 
-		app.MainPage = page;
+		app.Windows[0].Page = page;
 
 		// Make sure that our popup will have a Handler
 		CreateElementHandler<MockPopupHandler>(popup);
@@ -286,7 +286,7 @@ public class PopupTests : BaseHandlerTest
 		// Make sure that our page will have a Handler
 		CreateViewHandler<MockPageHandler>(page);
 
-		app.MainPage = page;
+		app.Windows[0].Page = page;
 
 		// Make sure that our popup will have a Handler
 		CreateElementHandler<MockPopupHandler>(popup);
@@ -339,7 +339,7 @@ public class PopupTests : BaseHandlerTest
 		// Make sure that our page will have a Handler
 		CreateViewHandler<MockPageHandler>(page);
 
-		app.MainPage = page;
+		app.Windows[0].Page = page;
 
 		// Make sure that our popup will have a Handler
 		CreateElementHandler<MockPopupHandler>(popup);
@@ -355,14 +355,14 @@ public class PopupTests : BaseHandlerTest
 		Assert.Single(page.LogicalChildrenInternal);
 	}
 
-	class MockPopup : Popup
+	sealed class MockPopup : Popup
 	{
 		public MockPopup()
 		{
 			ResultWhenUserTapsOutsideOfPopup = resultWhenUserTapsOutsideOfPopup;
 		}
 
-		protected override async Task OnClosed(object? result, bool wasDismissedByTappingOutsideOfPopup, CancellationToken token)
+		protected override async Task OnClosed(object? result, bool wasDismissedByTappingOutsideOfPopup, CancellationToken token = default)
 		{
 			await Task.Delay(100, token);
 
@@ -372,28 +372,26 @@ public class PopupTests : BaseHandlerTest
 		}
 	}
 
-	class PopupViewModel : INotifyPropertyChanged
+	sealed class PopupViewModel : INotifyPropertyChanged
 	{
-		Color? color = new();
-
 		public event PropertyChangedEventHandler? PropertyChanged;
 
 		public Color? Color
 		{
-			get => color;
+			get;
 			set
 			{
-				if (!Equals(value, color))
+				if (!Equals(value, field))
 				{
-					color = value;
+					field = value;
 					PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Color)));
 				}
 			}
-		}
+		} = new();
 	}
 
 	interface IFooService
 	{
-		public int MyProperty { get; set; }
+		int MyProperty { get; set; }
 	}
 }

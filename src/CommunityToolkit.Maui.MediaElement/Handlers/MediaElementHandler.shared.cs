@@ -13,6 +13,7 @@ public partial class MediaElementHandler
 	/// <summary>
 	/// The <see cref="MediaManager"/> that is managing the <see cref="IMediaElement"/> instance.
 	/// </summary>
+	
 	protected MediaManager? mediaManager;
 #endif
 
@@ -226,7 +227,10 @@ public partial class MediaElementHandler
 		{
 			mediaManager?.Dispose();
 			mediaManager = null;
+			PlatformDispose();
 		}
 	}
+
+	partial void PlatformDispose();
 #endif
 }
