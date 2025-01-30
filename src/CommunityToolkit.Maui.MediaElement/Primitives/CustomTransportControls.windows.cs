@@ -21,6 +21,7 @@ sealed partial class CustomTransportControls : MediaTransportControls
 		if(temp is not null)
 		{
 			FullScreenButton = temp;
+			FullScreenButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, "Full Screen Button");
 			FullScreenButton.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
 			OnTemplateLoaded?.Invoke(this, EventArgs.Empty);
 			FullScreenButton.Click += FullScreenButton_Click;

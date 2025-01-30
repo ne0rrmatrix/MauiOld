@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using NUnit.Framework.Internal;
 using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Appium.Windows;
 

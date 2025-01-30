@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿using System.Diagnostics;
+using NUnit.Framework;
 using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Support.UI;
 
@@ -8,7 +9,7 @@ public class MediaElementTests : BaseTest
 	public void SourceMenu()
 	{
 		// Use explicit wait
-		var wait = new WebDriverWait(App, TimeSpan.FromSeconds(60));
+		var wait = new WebDriverWait(App, TimeSpan.FromSeconds(10));
 		var chooseSource = wait.Until(d => d.FindElement(ByWindowsAutomation.AccessibilityId("ChooseSource")));
 		chooseSource.Click();
 	}
@@ -20,9 +21,9 @@ public class MediaElementTests : BaseTest
 		{
 			return;
 		}
-
+		
 		// Use explicit wait
-		var wait = new WebDriverWait(App, TimeSpan.FromSeconds(60));
+		var wait = new WebDriverWait(App, TimeSpan.FromSeconds(10));
 
 		var views = wait.Until(d => d.FindElement(ByWindowsAutomation.Name("Views")));
 		views.Click();
@@ -66,7 +67,7 @@ public class MediaElementTests : BaseTest
 		}
 
 		ArgumentNullException.ThrowIfNull(App);
-		var wait = new WebDriverWait(App, TimeSpan.FromSeconds(60));
+		var wait = new WebDriverWait(App, TimeSpan.FromSeconds(10));
 		var windowSize = App.Manage().Window.Size;
 		App.ExecuteScript("windows: hover", new Dictionary<string, object>() 
 		{

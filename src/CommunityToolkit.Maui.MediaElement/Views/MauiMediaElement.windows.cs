@@ -8,7 +8,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Markup;
-using Microsoft.UI.Xaml.Media.Imaging;
 using WinRT.Interop;
 using Application = Microsoft.Maui.Controls.Application;
 using Grid = Microsoft.UI.Xaml.Controls.Grid;
@@ -40,6 +39,7 @@ public partial class MauiMediaElement : Grid, IDisposable
 		customTransportControls = SetTransportControls();
 		Children.Add(this.mediaPlayerElement);
 	}
+
 	void LoadResourceDictionary()
 	{
 		var assembly = Assembly.GetExecutingAssembly();
@@ -89,7 +89,7 @@ public partial class MauiMediaElement : Grid, IDisposable
 			IsPlaybackRateButtonVisible = true,
 			IsPlaybackRateEnabled = true,
 			IsCompact = false,
-			Height = 45
+		};
 		temp.OnTemplateLoaded += (s, e) =>
 		{
 			if (temp.FullScreenButton is null)
@@ -97,7 +97,6 @@ public partial class MauiMediaElement : Grid, IDisposable
 				return;
 			}
 			temp.FullScreenButton.Click += OnFullScreenButtonClick;
-			Margin = new Thickness(0, 20, 30, 0)
 		};
 		mediaPlayerElement.TransportControls = temp;
 		ApplyCustomStyle();

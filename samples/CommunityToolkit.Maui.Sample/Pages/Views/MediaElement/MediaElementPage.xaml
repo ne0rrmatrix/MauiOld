@@ -84,7 +84,7 @@
                 DragCompleted="Slider_DragCompleted"/>
 
             <Grid Grid.Row="4" HorizontalOptions="Fill">
-                <Label HorizontalOptions="Start" x:DataType="toolkit:MediaElement" Text="{Binding Position, Source={x:Reference MediaElement}, Converter={StaticResource SecondsToStringConverter}}" />
+                <Label HorizontalOptions="Start" x:DataType="toolkit:MediaElement" AutomationId="Position" Text="{Binding Position, Source={x:Reference MediaElement}, Converter={StaticResource SecondsToStringConverter}}" />
                 <Label HorizontalOptions="End" HorizontalTextAlignment="End" x:DataType="toolkit:MediaElement" Text="{Binding Duration, Source={x:Reference MediaElement}, Converter={StaticResource SecondsToStringConverter}}" />
             </Grid>
 
