@@ -197,6 +197,11 @@ public partial class MediaManager : IDisposable
 		return ValueTask.CompletedTask;
 	}
 
+	protected virtual partial ValueTask PlatformUpdatePlaylist()
+	{
+		throw new NotImplementedException();
+	}
+
 	protected virtual partial void PlatformUpdateSpeed()
 	{
 		if (Player is null)

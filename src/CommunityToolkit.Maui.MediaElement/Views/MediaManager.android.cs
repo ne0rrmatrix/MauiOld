@@ -328,7 +328,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 			StartService();
 		}
 
-		if (MediaElement.Source is null)
+		if (MediaElement.Source is null && MediaElement.MediaPlaylist is null)
 		{
 			Player.ClearMediaItems();
 			MediaElement.Duration = TimeSpan.Zero;
@@ -336,12 +336,16 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 			return;
 		}
+		if(MediaElement.Source is null)
+		{
+			return;
+		}
 
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 		Player.PlayWhenReady = MediaElement.ShouldAutoPlay;
 		cancellationTokenSource ??= new();
 		// ConfigureAwait(true) is required to prevent crash on startup
-		var result = await SetPlayerData(cancellationTokenSource.Token).ConfigureAwait(true);
+		var result = await SetPlayerData(MediaElement.Source, cancellationTokenSource.Token).ConfigureAwait(true);
 		var item = result?.Build();
 
 		if (item?.MediaMetadata is not null)
@@ -353,6 +357,62 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 		if (hasSetSource && Player.PlayerError is null)
 		{
+			MediaElement.MediaOpened();
+			UpdateNotifications();
+		}
+	}
+
+	protected virtual async partial ValueTask PlatformUpdatePlaylist()
+	{
+		var hasSetSource = false;
+
+		if (Player is null)
+		{
+			return;
+		}
+
+		if (connection is null)
+		{
+			StartService();
+		}
+
+		if (MediaElement.Source is null && MediaElement.MediaPlaylist is null)
+		{
+			Player.ClearMediaItems();
+			MediaElement.Duration = TimeSpan.Zero;
+			MediaElement.CurrentStateChanged(MediaElementState.None);
+
+			return;
+		}
+		if (MediaElement.MediaPlaylist is null)
+		{
+			return;
+		}
+
+		foreach (var source in MediaElement.MediaPlaylist.MediaItem.Select(x => x.Source))
+		{
+			if (source is null)
+			{
+				continue;
+			}
+			MediaElement.CurrentStateChanged(MediaElementState.Opening);
+			Player.PlayWhenReady = MediaElement.ShouldAutoPlay;
+			cancellationTokenSource ??= new();
+
+			// ConfigureAwait(true) is required to prevent crash on startup
+			var result = await SetPlayerData(source, cancellationTokenSource.Token).ConfigureAwait(true);
+			var item = result?.Build();
+
+			if (item?.MediaMetadata is not null)
+			{
+				Player.AddMediaItem(item);
+				
+			}
+			hasSetSource = true;
+		}
+		if (hasSetSource && Player.PlayerError is null)
+		{
+			Player.Prepare();
 			MediaElement.MediaOpened();
 			UpdateNotifications();
 		}
@@ -553,14 +613,14 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 	void HandleMediaControlsServiceTaskRemoved(object? sender, EventArgs e) => Player?.Stop();
 
-	async Task<MediaItem.Builder?> SetPlayerData(CancellationToken cancellationToken = default)
+	async Task<MediaItem.Builder?> SetPlayerData(MediaSource source ,CancellationToken cancellationToken = default)
 	{
-		if (MediaElement.Source is null)
+		if (source is null)
 		{
 			return null;
 		}
 
-		switch (MediaElement.Source)
+		switch (source)
 		{
 			case UriMediaSource uriMediaSource:
 				{
@@ -595,7 +655,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 					break;
 				}
 			default:
-				throw new NotSupportedException($"{MediaElement.Source.GetType().FullName} is not yet supported for {nameof(MediaElement.Source)}");
+				throw new NotSupportedException($"{source.GetType().FullName} is not yet supported for {nameof(MediaElement.Source)}");
 		}
 
 		return mediaItem;

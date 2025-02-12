@@ -32,6 +32,11 @@ public partial class MediaManager : IDisposable
 	protected IDisposable? CurrentItemErrorObserver { get; set; }
 
 	/// <summary>
+	/// Observer that tracks MediaItem changes.
+	/// </summary>
+	protected IDisposable? CurrentItemsObserver { get; set; }
+
+	/// <summary>
 	/// Observer that tracks when an error has occurred with media playback.
 	/// </summary>
 	protected NSObject? ErrorObserver { get; set; }
@@ -298,7 +303,7 @@ public partial class MediaManager : IDisposable
 			{
 				Player.Play();
 			}
-			SetPoster();
+			SetPoster(asset);
 		}
 		else if (PlayerItem is null)
 		{
@@ -310,13 +315,123 @@ public partial class MediaManager : IDisposable
 		return ValueTask.CompletedTask;
 	}
 
-	void SetPoster()
+	protected virtual partial ValueTask PlatformUpdatePlaylist()
 	{
-		if (PlayerItem is null || metaData is null)
+		MediaElement.CurrentStateChanged(MediaElementState.Opening);
+
+		AVAsset? asset = null;
+		if (Player is null)
+		{
+			return ValueTask.CompletedTask;
+		}
+		if(MediaElement.MediaPlaylist is null)
+		{
+			return ValueTask.CompletedTask;
+		}
+		Player.RemoveAllItems();
+
+		metaData ??= new(Player);
+		Metadata.ClearNowPlaying();
+		PlayerViewController?.ContentOverlayView?.Subviews.FirstOrDefault()?.RemoveFromSuperview();
+		if(MediaElement.MediaPlaylist is null)
+		{
+			return ValueTask.CompletedTask;
+		}
+
+		foreach (var item in MediaElement.MediaPlaylist.MediaItem.Select(x => x.Source))
+		{
+			if (MediaElement.Source is UriMediaSource uriMediaSource)
+			{
+				var uri = uriMediaSource.Uri;
+				if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
+				{
+					asset = AVAsset.FromUrl(new NSUrl(uri.AbsoluteUri));
+
+					Player.InsertItem(new AVPlayerItem(asset), null);
+					
+				}
+			}
+			else if (MediaElement.Source is FileMediaSource fileMediaSource)
+			{
+				var uri = fileMediaSource.Path;
+
+				if (!string.IsNullOrWhiteSpace(uri))
+				{
+					asset = AVAsset.FromUrl(NSUrl.CreateFileUrl(uri));
+					Player.InsertItem(new AVPlayerItem(asset), null);
+				}
+			}
+			else if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
+			{
+				var path = resourceMediaSource.Path;
+
+				if (!string.IsNullOrWhiteSpace(path) && Path.HasExtension(path))
+				{
+					string directory = Path.GetDirectoryName(path) ?? "";
+					string filename = Path.GetFileNameWithoutExtension(path);
+					string extension = Path.GetExtension(path)[1..];
+					var url = NSBundle.MainBundle.GetUrlForResource(filename,
+						extension, directory);
+
+					asset = AVAsset.FromUrl(url);
+					Player.InsertItem(new AVPlayerItem(asset), null);
+				}
+				else
+				{
+					Logger.LogWarning("Invalid file path for ResourceMediaSource.");
+				}
+			}
+		}
+		PlayerItem = Player.CurrentItem;
+
+		metaData.SetMetadata(PlayerItem, MediaElement);
+		CurrentItemErrorObserver?.Dispose();
+
+		CurrentItemErrorObserver = PlayerItem?.AddObserver("error",
+			valueObserverOptions, (NSObservedChange change) =>
+			{
+				if (PlayerItem.Error is null)
+				{
+					return;
+				}
+
+				var message = $"{PlayerItem.Error?.LocalizedDescription} - " +
+					$"{Player.CurrentItem?.Error?.LocalizedFailureReason}";
+
+				MediaElement.MediaFailed(
+					new MediaFailedEventArgs(message));
+
+				Logger.LogError("{LogMessage}", message);
+			});
+
+		if (PlayerItem is not null && PlayerItem.Error is null)
+		{
+			MediaElement.MediaOpened();
+
+			(MediaElement.MediaWidth, MediaElement.MediaHeight) = GetVideoDimensions(PlayerItem);
+
+			if (MediaElement.ShouldAutoPlay)
+			{
+				Player.Play();
+			}
+		}
+		else if (PlayerItem is null)
+		{
+			MediaElement.MediaWidth = MediaElement.MediaHeight = 0;
+
+			MediaElement.CurrentStateChanged(MediaElementState.None);
+		}
+
+		return ValueTask.CompletedTask;
+	}
+
+	void SetPoster(AVAsset? asset)
+	{
+		if (PlayerItem is null || metaData is null || asset is null)
 		{
 			return;
 		}
-		var videoTrack = PlayerItem.Asset.TracksWithMediaType(AVMediaTypes.Video.GetConstant()).FirstOrDefault();
+		var videoTrack = PlayerItem.Asset.TracksWithMediaType(AVMediaTypes.Video.GetConstant()).FirstOrDefault(x => x.Asset == asset);
 		if (videoTrack is not null)
 		{
 			return;
@@ -479,6 +594,9 @@ public partial class MediaManager : IDisposable
 				RateObserver?.Dispose();
 				RateObserver = null;
 
+				CurrentItemsObserver?.Dispose();
+				CurrentItemsObserver = null;
+
 				CurrentItemErrorObserver?.Dispose();
 				CurrentItemErrorObserver = null;
 
@@ -552,10 +670,10 @@ public partial class MediaManager : IDisposable
 		MutedObserver = Player.AddObserver("muted", valueObserverOptions, MutedChanged);
 		VolumeObserver = Player.AddObserver("volume", valueObserverOptions, VolumeChanged);
 		StatusObserver = Player.AddObserver("status", valueObserverOptions, StatusChanged);
+		CurrentItemsObserver = Player.AddObserver("currentItem", valueObserverOptions, CurrentItemChanged);
 		TimeControlStatusObserver = Player.AddObserver("timeControlStatus", valueObserverOptions, TimeControlStatusChanged);
 		RateObserver = AVPlayer.Notifications.ObserveRateDidChange(RateChanged);
 	}
-
 
 	void VolumeChanged(NSObservedChange e)
 	{
@@ -610,7 +728,18 @@ public partial class MediaManager : IDisposable
 		PlayedToEndObserver?.Dispose();
 	}
 
-
+	void CurrentItemChanged(NSObservedChange change)
+	{
+		if (Player is null)
+		{
+			return;
+		}
+		if(Player.CurrentItem?.Asset is null)
+		{
+			return;
+		}
+		SetPoster(Player.CurrentItem.Asset);
+	}
 	void StatusChanged(NSObservedChange obj)
 	{
 		if (Player is null)

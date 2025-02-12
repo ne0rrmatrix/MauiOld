@@ -2,6 +2,7 @@
 using CommunityToolkit.Maui.Converters;
 using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Primitives;
 
 namespace CommunityToolkit.Maui.Views;
 
@@ -73,6 +74,12 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 	public static readonly BindableProperty SourceProperty =
 		BindableProperty.Create(nameof(Source), typeof(MediaSource), typeof(MediaElement),
 			propertyChanging: OnSourcePropertyChanging, propertyChanged: OnSourcePropertyChanged);
+
+	/// <summary>
+	/// Backing store for the <see cref="MediaPlaylist"/> property.
+	/// </summary>
+	public static readonly BindableProperty MediaPlaylistProperty =
+		BindableProperty.Create(nameof(MediaPlaylist), typeof(MediaPlaylist), typeof(MediaElement), propertyChanging: OnPlaylistPropertyChanging, propertyChanged: OnPlaylistPropertyChanged);
 
 	/// <summary>
 	/// Backing store for the <see cref="Speed"/> property.
@@ -288,6 +295,15 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 	}
 
 	/// <summary>
+	/// Gets or sets the playlist of media to play.
+	/// </summary>
+	public MediaPlaylist? MediaPlaylist
+	{
+		get => (MediaPlaylist)GetValue(MediaPlaylistProperty);
+		set => SetValue(MediaPlaylistProperty, value);
+	}
+
+	/// <summary>
 	/// Gets or sets the volume of the audio for the media.
 	/// </summary>
 	/// <remarks>
@@ -500,7 +516,13 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 		{
 			SetInheritedBindingContext(Source, BindingContext);
 		}
-
+		if(MediaPlaylist is not null)
+		{
+			foreach (var source in MediaPlaylist.MediaItem)
+			{
+				SetInheritedBindingContext(source.Source, BindingContext);
+			}
+		}
 		base.OnBindingContextChanged();
 	}
 
@@ -524,8 +546,13 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 	static void OnSourcePropertyChanged(BindableObject bindable, object oldValue, object newValue) =>
 		((MediaElement)bindable).OnSourcePropertyChanged((MediaSource?)newValue);
 
+	static void OnPlaylistPropertyChanged(BindableObject bindable, object oldValue, object newValue) =>
+		((MediaElement)bindable).OnPlaylistPropertyChanged((MediaPlaylist?)newValue);
 	static void OnSourcePropertyChanging(BindableObject bindable, object oldValue, object newValue) =>
 		((MediaElement)bindable).OnSourcePropertyChanging((MediaSource?)oldValue);
+
+	static void OnPlaylistPropertyChanging(BindableObject bindable, object oldValue, object newValue) =>
+		((MediaElement)bindable).OnPlaylistPropertyChanging((MediaPlaylist?)oldValue);
 
 	static void OnCurrentStatePropertyChanged(BindableObject bindable, object oldValue, object newValue)
 	{
@@ -584,6 +611,11 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 		InvalidateMeasure();
 	}
 
+	void OnPlaylistChanged(object? sender, EventArgs eventArgs)
+	{
+		OnPropertyChanged(MediaPlaylistProperty.PropertyName);
+		InvalidateMeasure();
+	}
 	void OnSourcePropertyChanged(MediaSource? newValue)
 	{
 		ClearTimer();
@@ -597,6 +629,24 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 		InvalidateMeasure();
 		InitializeTimer();
 	}
+	void OnPlaylistPropertyChanged(MediaPlaylist? newValue)
+	{
+		ClearTimer();
+		if (newValue is not null)
+		{
+			foreach (var source in newValue.MediaItem.Select(x => x.Source))
+			{
+				if(source is null)
+				{
+					continue;
+				}
+				source.SourceChanged += OnSourceChanged;
+				SetInheritedBindingContext(source, BindingContext);
+			}
+		}
+		InvalidateMeasure();
+		InitializeTimer();
+	}
 
 	void OnSourcePropertyChanging(MediaSource? oldValue)
 	{
@@ -606,6 +656,22 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 		}
 
 		oldValue.SourceChanged -= OnSourceChanged;
+	}
+
+	void OnPlaylistPropertyChanging(MediaPlaylist? oldValue)
+	{
+		if (oldValue is null)
+		{
+			return;
+		}
+		foreach (var source in oldValue.MediaItem.Select(x => x.Source))
+		{
+			if (source is null)
+			{
+				continue;
+			}
+			source.SourceChanged -= OnPlaylistChanged;
+		}
 	}
 
 	void IMediaElement.MediaEnded()

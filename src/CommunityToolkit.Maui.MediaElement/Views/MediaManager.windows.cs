@@ -268,13 +268,17 @@ partial class MediaManager : IDisposable
 
 		await Dispatcher.DispatchAsync(() => Player.PosterSource = new BitmapImage());
 
-		if (MediaElement.Source is null)
+		if (MediaElement.Source is null && MediaElement.MediaPlaylist is null)
 		{
 			Player.Source = null;
 			MediaElement.MediaWidth = MediaElement.MediaHeight = 0;
 
 			MediaElement.CurrentStateChanged(MediaElementState.None);
 
+			return;
+		}
+		if (MediaElement.Source is null)
+		{
 			return;
 		}
 
@@ -307,6 +311,65 @@ partial class MediaManager : IDisposable
 				Player.Source = WinMediaSource.CreateFromUri(new Uri(path));
 			}
 		}
+	}
+
+	protected virtual async partial ValueTask PlatformUpdatePlaylist()
+	{
+		System.Diagnostics.Debug.WriteLine("PlatformUpdatePlaylist");
+		if (Player is null)
+		{
+			return;
+		}
+		
+		await Dispatcher.DispatchAsync(() => Player.PosterSource = new BitmapImage());
+
+		if (MediaElement.MediaPlaylist is null && MediaElement.Source is null)
+		{
+			System.Diagnostics.Debug.WriteLine("MediaElement.Sources is null");
+			Player.Source = null;
+			MediaElement.MediaWidth = MediaElement.MediaHeight = 0;
+
+			MediaElement.CurrentStateChanged(MediaElementState.None);
+
+			return;
+		}
+		if (MediaElement.MediaPlaylist is null)
+		{
+			return;
+		}
+		MediaElement.Position = TimeSpan.Zero;
+		MediaElement.Duration = TimeSpan.Zero;
+		Player.AutoPlay = MediaElement.ShouldAutoPlay;
+		MediaPlaybackList playbackList = new();
+		foreach (var source in MediaElement.MediaPlaylist.MediaItem.Select(x => x.Source))
+		{
+			if (source is UriMediaSource uriMediaSource)
+			{
+				var uri = uriMediaSource.Uri?.AbsoluteUri;
+				if (!string.IsNullOrWhiteSpace(uri))
+				{
+					playbackList.Items.Add(new MediaPlaybackItem(WinMediaSource.CreateFromUri(new Uri(uri))));
+				}
+			}
+			else if (source is FileMediaSource fileMediaSource)
+			{
+				var filename = fileMediaSource.Path;
+				if (!string.IsNullOrWhiteSpace(filename))
+				{
+					StorageFile storageFile = await StorageFile.GetFileFromPathAsync(filename);
+					playbackList.Items.Add(new MediaPlaybackItem(WinMediaSource.CreateFromStorageFile(storageFile)));
+				}
+			}
+			else if (source is ResourceMediaSource resourceMediaSource)
+			{
+				string path = "ms-appx:///" + resourceMediaSource.Path;
+				if (!string.IsNullOrWhiteSpace(path))
+				{
+					playbackList.Items.Add(new MediaPlaybackItem(WinMediaSource.CreateFromUri(new Uri(path))));
+				}
+			}
+		}
+		Player.Source = playbackList;
 	}
 
 	protected virtual partial void PlatformUpdateShouldLoopPlayback()

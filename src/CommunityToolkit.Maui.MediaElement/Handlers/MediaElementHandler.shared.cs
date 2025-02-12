@@ -25,6 +25,7 @@ public partial class MediaElementHandler
 		[nameof(IMediaElement.Aspect)] = MapAspect,
 		[nameof(IMediaElement.ShouldShowPlaybackControls)] = MapShouldShowPlaybackControls,
 		[nameof(IMediaElement.Source)] = MapSource,
+		[nameof(IMediaElement.MediaPlaylist)] = MapPlaylist,
 		[nameof(IMediaElement.Speed)] = MapSpeed,
 		[nameof(IMediaElement.Volume)] = MapVolume,
 		[nameof(IMediaElement.ShouldKeepScreenOn)] = MapShouldKeepScreenOn,
@@ -97,6 +98,16 @@ public partial class MediaElementHandler
 	public static void MapSource(MediaElementHandler handler, MediaElement mediaElement)
 	{
 		handler.mediaManager?.UpdateSource();
+	}
+
+	/// <summary>
+	/// Maps the <see cref="IMediaElement.MediaPlaylist"/> property between the abstract
+	/// </summary>
+	/// <param name="handler"></param>
+	/// <param name="mediaElement"></param>
+	public static void MapPlaylist(MediaElementHandler handler, MediaElement mediaElement)
+	{
+		handler.mediaManager?.UpdatePlaylist();
 	}
 
 	/// <summary>

@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Primitives;
 using CommunityToolkit.Maui.Views;
 
 namespace CommunityToolkit.Maui.Core;
@@ -82,6 +83,11 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	/// Gets or sets whether the player should show the platform playback controls.
 	/// </summary>
 	bool ShouldShowPlaybackControls { get; set; }
+
+	/// <summary>
+	/// Gets or sets the playlist of media to play.
+	/// </summary>
+	MediaPlaylist? MediaPlaylist { get; set; }
 
 	/// <summary>
 	/// Gets or sets the source of the media to play.

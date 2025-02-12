@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Primitives;
 using CommunityToolkit.Maui.Sample.ViewModels.Views;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
@@ -16,6 +17,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	const string loadLocalResource = "Load Local Resource";
 	const string resetSource = "Reset Source to null";
 	const string loadMusic = "Load Music";
+	const string loadPlaylist = "Load Multiple Sources";
 
 	const string buckBunnyMp4Url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
 	const string botImageUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
@@ -161,7 +163,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	async void ChangeSourceClicked(Object sender, EventArgs e)
 	{
 		var result = await DisplayActionSheet("Choose a source", "Cancel", null,
-			loadOnlineMp4, loadHls, loadLocalResource, resetSource, loadMusic);
+			loadOnlineMp4, loadHls, loadLocalResource, resetSource, loadMusic, loadPlaylist);
 
 		switch (result)
 		{
@@ -212,6 +214,15 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				MediaElement.MetadataArtist = "HAL 9000 Album";
 				MediaElement.MetadataArtworkUrl = botImageUrl;
 				MediaElement.Source = MediaSource.FromUri(hal9000AudioUrl);
+				return;
+
+			case loadPlaylist:
+				MediaElement.Source = null;
+			MediaPlaylist playlists = new();
+				playlists.AddMediaItem(new MediaItem(MediaSource.FromUri(buckBunnyMp4Url), "Big Buck Bunny", "Big Buck Bunny Album", botImageUrl));
+				playlists.AddMediaItem(new MediaItem(MediaSource.FromResource("AppleVideo.mp4"), "Apple Video", "Apple Video Album", botImageUrl));
+				playlists.AddMediaItem(new MediaItem(MediaSource.FromUri(hal9000AudioUrl), "HAL 9000", "HAL 9000 Album", botImageUrl));
+				MediaElement.MediaPlaylist = playlists;
 				return;
 		}
 	}
