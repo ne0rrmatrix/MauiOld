@@ -3,7 +3,6 @@ using Android.Content;
 using Android.Views;
 using Android.Widget;
 using AndroidX.Media3.Common;
-using AndroidX.Media3.Common.Text;
 using AndroidX.Media3.Common.Util;
 using AndroidX.Media3.ExoPlayer;
 using AndroidX.Media3.Session;
@@ -13,8 +12,6 @@ using CommunityToolkit.Maui.Media.Services;
 using CommunityToolkit.Maui.Services;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
-using AudioAttributes = AndroidX.Media3.Common.AudioAttributes;
-using DeviceInfo = AndroidX.Media3.Common.DeviceInfo;
 using MediaMetadata = AndroidX.Media3.Common.MediaMetadata;
 
 namespace CommunityToolkit.Maui.Core.Views;
@@ -34,7 +31,6 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	TaskCompletionSource? seekToTaskCompletionSource;
 	CancellationTokenSource? cancellationTokenSource;
 	MediaSession? session;
-	MediaItem.Builder? mediaItem;
 	BoundServiceConnection? connection;
 
 	/// <summary>
@@ -59,7 +55,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 		MediaElement.Speed = playbackParameters.Speed;
 	}
-
+	
 	public void UpdateNotifications()
 	{
 		if (connection?.Binder?.Service is null)
@@ -67,11 +63,20 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 			System.Diagnostics.Trace.TraceInformation("Notification Service not running.");
 			return;
 		}
-
+		System.Diagnostics.Trace.TraceInformation("Notification Updating.");
 		if (session is not null && Player is not null)
 		{
 			connection.Binder.Service.UpdateNotifications(session, Player);
 		}
+	}
+
+	public void OnMediaMetadataChanged(MediaMetadata? mediaMetadata)
+	{
+		if (mediaMetadata is null)
+		{
+			return;
+		}
+		UpdateNotifications();
 	}
 
 	/// <summary>
@@ -314,13 +319,13 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		MediaElement.Position = TimeSpan.Zero;
 	}
 
-	protected virtual async partial ValueTask PlatformUpdateSource()
+	protected virtual partial ValueTask PlatformUpdateSource()
 	{
 		var hasSetSource = false;
 
 		if (Player is null)
 		{
-			return;
+			return ValueTask.CompletedTask;
 		}
 
 		if (connection is null)
@@ -334,18 +339,19 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 			MediaElement.Duration = TimeSpan.Zero;
 			MediaElement.CurrentStateChanged(MediaElementState.None);
 
-			return;
+			return ValueTask.CompletedTask;
 		}
 		if(MediaElement.Source is null)
 		{
-			return;
+			return ValueTask.CompletedTask;
 		}
 
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 		Player.PlayWhenReady = MediaElement.ShouldAutoPlay;
 		cancellationTokenSource ??= new();
-		// ConfigureAwait(true) is required to prevent crash on startup
-		var result = await SetPlayerData(MediaElement.Source, cancellationTokenSource.Token).ConfigureAwait(true);
+
+		CommunityToolkit.Maui.Primitives.MediaItem mediaItem = new(MediaElement.Source, MediaElement.MetadataTitle, MediaElement.MetadataArtist, MediaElement.MetadataArtworkUrl);
+		var result = SetPlayerData(mediaItem, cancellationTokenSource.Token);
 		var item = result?.Build();
 
 		if (item?.MediaMetadata is not null)
@@ -358,17 +364,17 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		if (hasSetSource && Player.PlayerError is null)
 		{
 			MediaElement.MediaOpened();
-			UpdateNotifications();
 		}
+		return ValueTask.CompletedTask;
 	}
 
-	protected virtual async partial ValueTask PlatformUpdatePlaylist()
+	protected virtual partial ValueTask PlatformUpdatePlaylist()
 	{
 		var hasSetSource = false;
 
 		if (Player is null)
 		{
-			return;
+			return ValueTask.CompletedTask;
 		}
 
 		if (connection is null)
@@ -382,16 +388,16 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 			MediaElement.Duration = TimeSpan.Zero;
 			MediaElement.CurrentStateChanged(MediaElementState.None);
 
-			return;
+			return ValueTask.CompletedTask;
 		}
 		if (MediaElement.MediaPlaylist is null)
 		{
-			return;
+			return ValueTask.CompletedTask;
 		}
-
-		foreach (var source in MediaElement.MediaPlaylist.MediaItem.Select(x => x.Source))
+		Player.ClearMediaItems();
+		foreach (var mediaItem in MediaElement.MediaPlaylist.MediaItem)
 		{
-			if (source is null)
+			if (mediaItem is null)
 			{
 				continue;
 			}
@@ -400,7 +406,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 			cancellationTokenSource ??= new();
 
 			// ConfigureAwait(true) is required to prevent crash on startup
-			var result = await SetPlayerData(source, cancellationTokenSource.Token).ConfigureAwait(true);
+			var result = SetPlayerData(mediaItem, cancellationTokenSource.Token);
 			var item = result?.Build();
 
 			if (item?.MediaMetadata is not null)
@@ -414,8 +420,8 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		{
 			Player.Prepare();
 			MediaElement.MediaOpened();
-			UpdateNotifications();
 		}
+		return ValueTask.CompletedTask;
 	}
 
 	protected virtual partial void PlatformUpdateAspect()
@@ -567,30 +573,6 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		}
 	}
 
-	static async Task<byte[]> GetBytesFromMetadataArtworkUrl(string? url, CancellationToken cancellationToken = default)
-	{
-		byte[] artworkData = [];
-		try
-		{
-			var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
-			var stream = response.IsSuccessStatusCode ? await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false) : null;
-
-			if (stream is null)
-			{
-				return artworkData;
-			}
-
-			using var memoryStream = new MemoryStream();
-			await stream.CopyToAsync(memoryStream, cancellationToken).ConfigureAwait(false);
-			var bytes = memoryStream.ToArray();
-			return bytes;
-		}
-		catch
-		{
-			return artworkData;
-		}
-	}
-
 	[MemberNotNull(nameof(connection))]
 	void StartService()
 	{
@@ -613,23 +595,22 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 	void HandleMediaControlsServiceTaskRemoved(object? sender, EventArgs e) => Player?.Stop();
 
-	async Task<MediaItem.Builder?> SetPlayerData(MediaSource source ,CancellationToken cancellationToken = default)
+	MediaItem.Builder? SetPlayerData(CommunityToolkit.Maui.Primitives.MediaItem mediaItem ,CancellationToken cancellationToken = default)
 	{
-		if (source is null)
+		if (mediaItem.Source is null)
 		{
 			return null;
 		}
 
-		switch (source)
+		switch (mediaItem.Source)
 		{
 			case UriMediaSource uriMediaSource:
 				{
 					var uri = uriMediaSource.Uri;
 					if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
 					{
-						return await CreateMediaItem(uri.AbsoluteUri, cancellationToken).ConfigureAwait(false);
+						return CreateMediaItem(mediaItem, uri.AbsoluteUri, cancellationToken);
 					}
-
 					break;
 				}
 			case FileMediaSource fileMediaSource:
@@ -637,7 +618,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 					var filePath = fileMediaSource.Path;
 					if (!string.IsNullOrWhiteSpace(filePath))
 					{
-						return await CreateMediaItem(filePath, cancellationToken).ConfigureAwait(false);
+						return CreateMediaItem(mediaItem, filePath, cancellationToken);
 					}
 
 					break;
@@ -649,31 +630,28 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 					if (!string.IsNullOrWhiteSpace(path))
 					{
 						var assetFilePath = $"asset://{package}{Path.PathSeparator}{path}";
-						return await CreateMediaItem(assetFilePath, cancellationToken).ConfigureAwait(false);
+						return CreateMediaItem(mediaItem, assetFilePath, cancellationToken);
 					}
 
 					break;
 				}
 			default:
-				throw new NotSupportedException($"{source.GetType().FullName} is not yet supported for {nameof(MediaElement.Source)}");
+				throw new NotSupportedException($"{mediaItem.Source.GetType().FullName} is not yet supported for {nameof(MediaElement.Source)}");
 		}
-
-		return mediaItem;
+		return null;
 	}
 
-	async Task<MediaItem.Builder> CreateMediaItem(string url, CancellationToken cancellationToken = default)
+	static MediaItem.Builder CreateMediaItem(CommunityToolkit.Maui.Primitives.MediaItem item, string url, CancellationToken cancellationToken = default)
 	{
 		MediaMetadata.Builder mediaMetaData = new();
-		mediaMetaData.SetArtist(MediaElement.MetadataArtist);
-		mediaMetaData.SetTitle(MediaElement.MetadataTitle);
-		var data = await GetBytesFromMetadataArtworkUrl(MediaElement.MetadataArtworkUrl, cancellationToken).ConfigureAwait(true);
-		mediaMetaData.SetArtworkData(data, (Java.Lang.Integer)MediaMetadata.PictureTypeFrontCover);
-
-		mediaItem = new MediaItem.Builder();
+		mediaMetaData.SetArtist(item.MediaArtist);
+		mediaMetaData.SetTitle(item.MediaTitle);
+		mediaMetaData.SetArtworkUri(Android.Net.Uri.Parse(item.MediaArtworkUrl));
+		var mediaItem = new MediaItem.Builder();
 		mediaItem.SetUri(url);
 		mediaItem.SetMediaId(url);
 		mediaItem.SetMediaMetadata(mediaMetaData.Build());
-
+		
 		return mediaItem;
 	}
 

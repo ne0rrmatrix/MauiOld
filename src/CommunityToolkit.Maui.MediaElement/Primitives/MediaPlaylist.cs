@@ -6,6 +6,16 @@
 public partial class MediaPlaylist
 {
 	/// <summary>
+	/// Gets the current Index of Playlist.
+	/// </summary>
+	public int CurrentIndex { get; set; }
+
+	/// <summary>
+	/// Gets the list of media items.
+	/// </summary>
+	public MediaItem CurrentItem => MediaItem[CurrentIndex];
+
+	/// <summary>
 	/// Gets the list of media sources.
 	/// </summary>
 	public List<MediaItem> MediaItem => mediaItem;

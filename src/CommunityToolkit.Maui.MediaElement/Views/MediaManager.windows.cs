@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Numerics;
 using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Primitives;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml.Controls;
@@ -62,8 +63,29 @@ partial class MediaManager : IDisposable
 
 		Player.MediaPlayer.SystemMediaTransportControls.IsEnabled = false;
 		systemMediaControls = Player.MediaPlayer.SystemMediaTransportControls;
+		systemMediaControls.ButtonPressed += OnSystemMediaControlsButtonPressed;
 
 		return Player;
+	}
+
+	async void OnSystemMediaControlsButtonPressed(SystemMediaTransportControls sender, SystemMediaTransportControlsButtonPressedEventArgs args)
+	{
+		if(MediaElement.MediaPlaylist is null)
+		{
+			return;
+		}
+		if (args.Button == SystemMediaTransportControlsButton.Next && MediaElement.MediaPlaylist.CurrentIndex < MediaElement.MediaPlaylist.MediaItem.Count)
+		{
+			MediaElement.MediaPlaylist.CurrentIndex += 1;
+			var mediaItem = MediaElement.MediaPlaylist?.MediaItem[MediaElement.MediaPlaylist.CurrentIndex] ?? throw new InvalidOperationException("MediaItem is null");
+			await UpdateMetaData(mediaItem);
+		}
+		if(args.Button == SystemMediaTransportControlsButton.Previous && MediaElement.MediaPlaylist.CurrentIndex > 0)
+		{
+			MediaElement.MediaPlaylist.CurrentIndex -= 1;
+			var mediaItem = MediaElement.MediaPlaylist?.MediaItem[MediaElement.MediaPlaylist.CurrentIndex] ?? throw new InvalidOperationException("MediaItem is null");
+			await UpdateMetaData(mediaItem);
+		}
 	}
 
 	/// <summary>
@@ -315,12 +337,11 @@ partial class MediaManager : IDisposable
 
 	protected virtual async partial ValueTask PlatformUpdatePlaylist()
 	{
-		System.Diagnostics.Debug.WriteLine("PlatformUpdatePlaylist");
 		if (Player is null)
 		{
 			return;
 		}
-		
+		var playbackList = new MediaPlaybackList();
 		await Dispatcher.DispatchAsync(() => Player.PosterSource = new BitmapImage());
 
 		if (MediaElement.MediaPlaylist is null && MediaElement.Source is null)
@@ -340,10 +361,9 @@ partial class MediaManager : IDisposable
 		MediaElement.Position = TimeSpan.Zero;
 		MediaElement.Duration = TimeSpan.Zero;
 		Player.AutoPlay = MediaElement.ShouldAutoPlay;
-		MediaPlaybackList playbackList = new();
-		foreach (var source in MediaElement.MediaPlaylist.MediaItem.Select(x => x.Source))
+		foreach (var mediaItem in MediaElement.MediaPlaylist.MediaItem)
 		{
-			if (source is UriMediaSource uriMediaSource)
+			if (mediaItem.Source is UriMediaSource uriMediaSource)
 			{
 				var uri = uriMediaSource.Uri?.AbsoluteUri;
 				if (!string.IsNullOrWhiteSpace(uri))
@@ -351,7 +371,7 @@ partial class MediaManager : IDisposable
 					playbackList.Items.Add(new MediaPlaybackItem(WinMediaSource.CreateFromUri(new Uri(uri))));
 				}
 			}
-			else if (source is FileMediaSource fileMediaSource)
+			else if (mediaItem.Source is FileMediaSource fileMediaSource)
 			{
 				var filename = fileMediaSource.Path;
 				if (!string.IsNullOrWhiteSpace(filename))
@@ -360,7 +380,7 @@ partial class MediaManager : IDisposable
 					playbackList.Items.Add(new MediaPlaybackItem(WinMediaSource.CreateFromStorageFile(storageFile)));
 				}
 			}
-			else if (source is ResourceMediaSource resourceMediaSource)
+			else if (mediaItem.Source is ResourceMediaSource resourceMediaSource)
 			{
 				string path = "ms-appx:///" + resourceMediaSource.Path;
 				if (!string.IsNullOrWhiteSpace(path))
@@ -403,13 +423,17 @@ partial class MediaManager : IDisposable
 				Player.MediaPlayer.MediaEnded -= OnMediaElementMediaEnded;
 				Player.MediaPlayer.VolumeChanged -= OnMediaElementVolumeChanged;
 				Player.MediaPlayer.IsMutedChanged -= OnMediaElementIsMutedChanged;
-
+				
 				if (Player.MediaPlayer.PlaybackSession is not null)
 				{
 					Player.MediaPlayer.PlaybackSession.NaturalVideoSizeChanged -= OnNaturalVideoSizeChanged;
 					Player.MediaPlayer.PlaybackSession.PlaybackRateChanged -= OnPlaybackSessionPlaybackRateChanged;
 					Player.MediaPlayer.PlaybackSession.PlaybackStateChanged -= OnPlaybackSessionPlaybackStateChanged;
 					Player.MediaPlayer.PlaybackSession.SeekCompleted -= OnPlaybackSessionSeekCompleted;
+				}
+				if (systemMediaControls is not null)
+				{
+					systemMediaControls.ButtonPressed -= OnSystemMediaControlsButtonPressed;
 				}
 			}
 		}
@@ -419,8 +443,7 @@ partial class MediaManager : IDisposable
 	{
 		return TValue.IsZero(numericValue);
 	}
-
-	async ValueTask UpdateMetadata()
+	async ValueTask UpdateMetaData(MediaItem mediaItem)
 	{
 		if (systemMediaControls is null || Player is null)
 		{
@@ -428,14 +451,14 @@ partial class MediaManager : IDisposable
 		}
 
 		metadata ??= new(systemMediaControls, MediaElement, Dispatcher);
-		metadata.SetMetadata(MediaElement);
-		if (string.IsNullOrEmpty(MediaElement.MetadataArtworkUrl))
+		Dispatcher.Dispatch(() => metadata.SetMetadata(mediaItem));
+		if (string.IsNullOrEmpty(mediaItem.MediaArtworkUrl))
 		{
 			return;
 		}
-		if (!Uri.TryCreate(MediaElement.MetadataArtworkUrl, UriKind.RelativeOrAbsolute, out var metadataArtworkUri))
+		if (!Uri.TryCreate(mediaItem.MediaArtworkUrl, UriKind.RelativeOrAbsolute, out var metadataArtworkUri))
 		{
-			Trace.TraceError($"{nameof(MediaElement)} unable to update artwork because {nameof(MediaElement.MetadataArtworkUrl)} is not a valid URI");
+			Trace.TraceError($"{nameof(MediaItem)} unable to update artwork because {nameof(mediaItem.MediaArtworkUrl)} is not a valid URI");
 			return;
 		}
 
@@ -471,8 +494,19 @@ partial class MediaManager : IDisposable
 		}
 
 		MediaElement.MediaOpened();
-
-		await UpdateMetadata();
+		if (MediaElement.MediaPlaylist is not null)
+		{
+			var mediaItem = MediaElement.MediaPlaylist?.MediaItem[MediaElement.MediaPlaylist.CurrentIndex];
+			if (mediaItem is not null)
+			{
+				await UpdateMetaData(mediaItem);
+			}
+		}
+		else
+		{
+			var mediaItem = new MediaItem(MediaElement.Source, MediaElement.MetadataTitle, MediaElement.MetadataArtist, MediaElement.MetadataArtworkUrl);
+			await UpdateMetaData(mediaItem);
+		}
 
 		static void SetDuration(in IMediaElement mediaElement, in MediaPlayerElement mediaPlayerElement)
 		{

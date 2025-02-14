@@ -1,4 +1,5 @@
-﻿using Windows.Media;
+﻿using CommunityToolkit.Maui.Primitives;
+using Windows.Media;
 
 namespace CommunityToolkit.Maui.Core.Primitives;
 
@@ -18,7 +19,13 @@ sealed class Metadata
 		systemMediaControls.ButtonPressed += OnSystemMediaControlsButtonPressed;
 	}
 
-
+	~Metadata()
+	{
+		if (systemMediaControls is not null)
+		{
+			systemMediaControls.ButtonPressed -= OnSystemMediaControlsButtonPressed;
+		}
+	}
 	void OnSystemMediaControlsButtonPressed(SystemMediaTransportControls sender, SystemMediaTransportControlsButtonPressedEventArgs args)
 	{
 		if (mediaElement is null)
@@ -53,20 +60,19 @@ sealed class Metadata
 	/// <summary>
 	/// Sets the metadata for the given MediaElement.
 	/// </summary>
-	public void SetMetadata(IMediaElement mp)
+	public void SetMetadata(MediaItem mediaItem)
 	{
 		if (systemMediaControls is null || mediaElement is null)
 		{
 			return;
 		}
-
-		if (!string.IsNullOrEmpty(mp.MetadataArtworkUrl))
+		if (!string.IsNullOrEmpty(mediaItem.MediaArtworkUrl))
 		{
-			systemMediaControls.DisplayUpdater.Thumbnail = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromUri(new Uri(mp.MetadataArtworkUrl ?? string.Empty));
+			systemMediaControls.DisplayUpdater.Thumbnail = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromUri(new Uri(mediaItem.MediaArtworkUrl ?? string.Empty));
 		}
 		systemMediaControls.DisplayUpdater.Type = MediaPlaybackType.Music;
-		systemMediaControls.DisplayUpdater.MusicProperties.Artist = mp.MetadataTitle;
-		systemMediaControls.DisplayUpdater.MusicProperties.Title = mp.MetadataArtist;
+		systemMediaControls.DisplayUpdater.MusicProperties.Artist = mediaItem.MediaArtist;
+		systemMediaControls.DisplayUpdater.MusicProperties.Title = mediaItem.MediaTitle;
 		systemMediaControls.DisplayUpdater.Update();
 	}
 }

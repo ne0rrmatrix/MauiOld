@@ -8,6 +8,7 @@ namespace CommunityToolkit.Maui.Core.Primitives;
 
 sealed class Metadata
 {
+	List<AVPlayerItem> items = [];
 	static readonly UIImage defaultUIImage = new();
 	static readonly MPNowPlayingInfo nowPlayingInfoDefault = new()
 	{
@@ -22,35 +23,32 @@ sealed class Metadata
 	};
 
 	readonly PlatformMediaElement player;
+	readonly IMediaElement mediaElement;
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="Metadata"/> class.
 	/// </summary>
 	/// <param name="player"></param>
-	public Metadata(PlatformMediaElement player)
+	/// <param name="mediaElement"></param>
+	public Metadata(PlatformMediaElement player, IMediaElement mediaElement)
 	{
 		this.player = player;
+		this.mediaElement = mediaElement;
 		MPNowPlayingInfoCenter.DefaultCenter.NowPlaying = nowPlayingInfoDefault;
 
 		var commandCenter = MPRemoteCommandCenter.Shared;
 
 		commandCenter.TogglePlayPauseCommand.Enabled = true;
 		commandCenter.TogglePlayPauseCommand.AddTarget(ToggleCommand);
-
-		commandCenter.PlayCommand.Enabled = true;
-		commandCenter.PlayCommand.AddTarget(PlayCommand);
-
-		commandCenter.PauseCommand.Enabled = true;
-		commandCenter.PauseCommand.AddTarget(PauseCommand);
-
+	
 		commandCenter.ChangePlaybackPositionCommand.Enabled = true;
 		commandCenter.ChangePlaybackPositionCommand.AddTarget(SeekCommand);
 
-		commandCenter.SeekBackwardCommand.Enabled = true;
-		commandCenter.SeekBackwardCommand.AddTarget(SeekBackwardCommand);
+		commandCenter.NextTrackCommand.Enabled = true;
+		commandCenter.NextTrackCommand.AddTarget(NextCommand);
 
-		commandCenter.SeekForwardCommand.Enabled = false;
-		commandCenter.SeekForwardCommand.AddTarget(SeekForwardCommand);
+		commandCenter.PreviousTrackCommand.Enabled = true;
+		commandCenter.PreviousTrackCommand.AddTarget(PreviousCommand);
 	}
 
 	/// <summary>
@@ -68,27 +66,49 @@ sealed class Metadata
 	/// Sets the data for the currently playing media from the media element.
 	/// </summary>
 	/// <param name="playerItem"></param>
-	/// <param name="mediaElement"></param>
-	public void SetMetadata(AVPlayerItem? playerItem, IMediaElement? mediaElement)
+	/// <param name="playerItems"></param>
+	public void SetMetadata(List<AVPlayerItem> playerItems, AVPlayerItem? playerItem)
 	{
-		if (mediaElement is null)
+		if (playerItem is null)
 		{
 			Metadata.ClearNowPlaying();
 			return;
 		}
-
-		NowPlayingInfo.Title = mediaElement.MetadataTitle;
-		NowPlayingInfo.Artist = mediaElement.MetadataArtist;
+		items = playerItems;
+		// Extract metadata from AVPlayerItem
+		if (playerItem?.ExternalMetadata != null)
+		{
+			foreach (var metadataItem in playerItem.ExternalMetadata)
+			{
+				if (metadataItem.Key as NSString ==  AVMetadata.CommonKeyTitle)
+				{
+					NowPlayingInfo.Title = metadataItem.StringValue;
+				}
+				else if (metadataItem.Key as NSString == AVMetadata.CommonKeyArtist)
+				{
+					NowPlayingInfo.Artist = metadataItem.StringValue;
+				}
+				else if (metadataItem.Key as NSString == AVMetadata.CommonKeyArtwork)
+				{
+					NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: _ => GetImage(metadataItem.StringValue));
+				}
+			}
+			MPNowPlayingInfoCenter.DefaultCenter.NowPlaying = NowPlayingInfo;
+		}
+		
 		NowPlayingInfo.PlaybackDuration = playerItem?.Duration.Seconds ?? 0;
 		NowPlayingInfo.IsLiveStream = false;
 		NowPlayingInfo.PlaybackRate = mediaElement.Speed;
 		NowPlayingInfo.ElapsedPlaybackTime = playerItem?.CurrentTime.Seconds ?? 0;
-		NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: _ => GetImage(mediaElement.MetadataArtworkUrl));
 		MPNowPlayingInfoCenter.DefaultCenter.NowPlaying = NowPlayingInfo;
 	}
 
-	static UIImage GetImage(string imageUri)
+	static UIImage GetImage(string? imageUri)
 	{
+		if (imageUri is null)
+		{
+			return defaultUIImage;
+		}
 		try
 		{
 			if (imageUri.StartsWith(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
@@ -103,6 +123,44 @@ sealed class Metadata
 		}
 	}
 
+	MPRemoteCommandHandlerStatus NextCommand(MPRemoteCommandEvent commandEvent)
+	{
+		if(commandEvent is null)
+		{
+			return MPRemoteCommandHandlerStatus.CommandFailed;
+		}
+		player.AdvanceToNextItem();
+		return MPRemoteCommandHandlerStatus.Success;
+	}
+
+	MPRemoteCommandHandlerStatus PreviousCommand(MPRemoteCommandEvent commandEvent)
+	{
+		if (commandEvent is null || player.CurrentItem is null)
+		{
+			return MPRemoteCommandHandlerStatus.CommandFailed;
+		}
+
+		if(items.IndexOf(player.CurrentItem) is int currentIndex)
+		{
+			if (currentIndex <= 0)
+			{
+				return MPRemoteCommandHandlerStatus.CommandFailed;
+			}
+			player.RemoveAllItems();
+			items.ForEach(item => player.InsertItem(item, null));
+			foreach (var item in items)
+			{
+				if (item == items[currentIndex - 1])
+				{
+					break;
+				}
+				player.AdvanceToNextItem();
+			}
+			player.Play();
+		}
+		return MPRemoteCommandHandlerStatus.Success;
+	}
+
 	MPRemoteCommandHandlerStatus SeekCommand(MPRemoteCommandEvent? commandEvent)
 	{
 		if (commandEvent is not MPChangePlaybackPositionCommandEvent eventArgs)
@@ -112,52 +170,6 @@ sealed class Metadata
 
 		var seekTime = CMTime.FromSeconds(eventArgs.PositionTime, 1);
 		player.Seek(seekTime);
-		return MPRemoteCommandHandlerStatus.Success;
-	}
-
-	MPRemoteCommandHandlerStatus SeekBackwardCommand(MPRemoteCommandEvent? commandEvent)
-	{
-		if (commandEvent is null)
-		{
-			return MPRemoteCommandHandlerStatus.CommandFailed;
-		}
-
-		var seekTime = player.CurrentTime - CMTime.FromSeconds(10, 1);
-		player.Seek(seekTime);
-		return MPRemoteCommandHandlerStatus.Success;
-	}
-
-	MPRemoteCommandHandlerStatus SeekForwardCommand(MPRemoteCommandEvent? commandEvent)
-	{
-		if (commandEvent is null)
-		{
-			return MPRemoteCommandHandlerStatus.CommandFailed;
-		}
-
-		var seekTime = player.CurrentTime + CMTime.FromSeconds(10, 1);
-		player.Seek(seekTime);
-		return MPRemoteCommandHandlerStatus.Success;
-	}
-
-	MPRemoteCommandHandlerStatus PlayCommand(MPRemoteCommandEvent? commandEvent)
-	{
-		if (commandEvent is null)
-		{
-			return MPRemoteCommandHandlerStatus.CommandFailed;
-		}
-
-		player.Play();
-		return MPRemoteCommandHandlerStatus.Success;
-	}
-
-	MPRemoteCommandHandlerStatus PauseCommand(MPRemoteCommandEvent? commandEvent)
-	{
-		if (commandEvent is null)
-		{
-			return MPRemoteCommandHandlerStatus.CommandFailed;
-		}
-
-		player.Pause();
 		return MPRemoteCommandHandlerStatus.Success;
 	}
 
