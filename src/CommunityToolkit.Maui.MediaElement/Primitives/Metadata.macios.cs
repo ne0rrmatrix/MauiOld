@@ -161,7 +161,7 @@ sealed class Metadata
 		return MPRemoteCommandHandlerStatus.Success;
 	}
 
-	MPRemoteCommandHandlerStatus SeekCommand(MPRemoteCommandEvent? commandEvent)
+	MPRemoteCommandHandlerStatus SeekCommand(MPRemoteCommandEvent commandEvent)
 	{
 		if (commandEvent is not MPChangePlaybackPositionCommandEvent eventArgs)
 		{
@@ -173,12 +173,8 @@ sealed class Metadata
 		return MPRemoteCommandHandlerStatus.Success;
 	}
 
-	MPRemoteCommandHandlerStatus ToggleCommand(MPRemoteCommandEvent? commandEvent)
+	MPRemoteCommandHandlerStatus ToggleCommand(MPRemoteCommandEvent commandEvent)
 	{
-		if (commandEvent is not null)
-		{
-			return MPRemoteCommandHandlerStatus.CommandFailed;
-		}
 
 		if (player.Rate is 0)
 		{

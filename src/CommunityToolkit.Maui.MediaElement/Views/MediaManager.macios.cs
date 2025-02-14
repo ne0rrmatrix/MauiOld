@@ -230,6 +230,10 @@ public partial class MediaManager : IDisposable
 
 		metaData ??= new(Player, MediaElement);
 		Metadata.ClearNowPlaying();
+		playerItems.Clear();
+		Player.RemoveAllItems();
+		PlayerItem = null;
+
 		PlayerViewController?.ContentOverlayView?.Subviews.FirstOrDefault()?.RemoveFromSuperview();
 		var mediaItem = new MediaItem(MediaElement.Source, MediaElement.MetadataTitle, MediaElement.MetadataArtist, MediaElement.MetadataArtworkUrl);
 		asset = GetAVAsset(mediaItem);
@@ -303,7 +307,7 @@ public partial class MediaManager : IDisposable
 		}
 		Player.RemoveAllItems();
 		playerItems.Clear();
-
+		PlayerItem = null;
 
 		metaData ??= new(Player, MediaElement);
 		Metadata.ClearNowPlaying();
