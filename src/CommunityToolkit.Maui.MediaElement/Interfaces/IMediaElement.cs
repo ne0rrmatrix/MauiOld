@@ -135,6 +135,11 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	void MediaOpened();
 
 	/// <summary>
+	/// Skip to the next item in the playlist.
+	/// </summary>
+	void Next();
+
+	/// <summary>
 	/// Pauses the currently playing media.
 	/// </summary>
 	void Pause();
@@ -143,6 +148,11 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	/// Starts playing the loaded media.
 	/// </summary>
 	void Play();
+
+	/// <summary>
+	/// Skip to the previous item in the playlist.
+	/// </summary>
+	void Previous();
 
 	/// <summary>
 	/// Seek to a specific position in the currently playing media.

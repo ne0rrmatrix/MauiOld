@@ -154,6 +154,43 @@ public partial class MediaManager : IDisposable
 		Player?.Pause();
 	}
 
+	protected virtual partial ValueTask PlatformNext()
+	{
+		if (Player is null)
+		{
+			return ValueTask.CompletedTask;
+		}
+		Player.AdvanceToNextItem();
+		return ValueTask.CompletedTask;
+	}
+
+	protected virtual partial ValueTask PlatformPrevious()
+	{
+		if (Player is null || playerItems is null || Player.CurrentItem is null)
+		{
+			return ValueTask.CompletedTask;
+		}
+		if (playerItems.IndexOf(Player.CurrentItem) is int currentIndex)
+		{
+			if (currentIndex <= 0)
+			{
+				return ValueTask.CompletedTask;
+			}
+			Player.RemoveAllItems();
+			playerItems.ForEach(item => Player.InsertItem(item, null));
+			foreach (var item in playerItems)
+			{
+				if (item == playerItems[currentIndex - 1])
+				{
+					break;
+				}
+				Player.AdvanceToNextItem();
+			}
+			Player.Play();
+		}
+		return ValueTask.CompletedTask;
+	}
+
 	protected virtual async partial Task PlatformSeek(TimeSpan position, CancellationToken token)
 	{
 		token.ThrowIfCancellationRequested();

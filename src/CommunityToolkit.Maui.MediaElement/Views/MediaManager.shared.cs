@@ -84,6 +84,15 @@ public partial class MediaManager
 	}
 
 	/// <summary>
+	/// Invokes the next operation on the platform element.
+	/// </summary>
+	public ValueTask Next() => PlatformNext();
+	/// <summary>
+	/// Invokes the previous operation on the platform element.
+	/// </summary>
+	public ValueTask Previous() => PlatformPrevious();
+
+	/// <summary>
 	/// Invokes the pause operation on the platform element.
 	/// </summary>
 	public void Pause()
@@ -208,6 +217,16 @@ public partial class MediaManager
 	protected virtual partial void PlatformStop();
 
 	/// <summary>
+	/// Invokes the platform functionality to play the next media item.
+	/// </summary>
+	protected virtual partial ValueTask PlatformNext();
+
+	/// <summary>
+	/// Invokes the platform functionality to play the previous media item.
+	/// </summary>
+	protected virtual partial ValueTask PlatformPrevious();
+
+	/// <summary>
 	/// Invokes the platform functionality to update the media aspect.
 	/// </summary>
 	protected virtual partial void PlatformUpdateAspect();
@@ -271,6 +290,8 @@ partial class MediaManager
 	protected virtual partial void PlatformPlay() { }
 	protected virtual partial void PlatformPause() { }
 	protected virtual partial void PlatformStop() { }
+	protected virtual partial ValueTask PlatformNext() => ValueTask.CompletedTask;
+	protected virtual partial ValueTask PlatformPrevious() => ValueTask.CompletedTask;
 	protected virtual partial void PlatformUpdateAspect() { }
 	protected virtual partial ValueTask PlatformUpdateSource() => ValueTask.CompletedTask;
 	protected virtual partial ValueTask PlatformUpdatePlaylist() => ValueTask.CompletedTask;

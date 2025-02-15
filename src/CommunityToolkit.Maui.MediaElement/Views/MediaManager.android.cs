@@ -318,6 +318,26 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		MediaElement.Position = TimeSpan.Zero;
 	}
 
+	protected virtual partial ValueTask PlatformNext()
+	{
+		if (Player is null)
+		{
+			return ValueTask.CompletedTask;
+		}
+		Player.SeekToNext();
+		return ValueTask.CompletedTask;
+	}
+
+	protected virtual partial ValueTask PlatformPrevious()
+	{
+		if (Player is null)
+		{
+			return ValueTask.CompletedTask;
+		}
+		Player.SeekToPrevious();
+		return ValueTask.CompletedTask;
+	}
+
 	protected virtual async partial ValueTask PlatformUpdateSource()
 	{
 		var hasSetSource = false;
@@ -659,7 +679,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	{
 		MediaMetadata.Builder mediaMetaData = new();
 		mediaMetaData.SetArtist(item.MediaArtist);
-		mediaMetaData.SetTitle(item.MediaTitle);
+		mediaMetaData.SetTitle(item.MediaTitle);		
 		var data = await GetBytesFromMetadataArtworkUrl(item.MediaArtworkUrl, cancellationToken);
 		mediaMetaData.SetArtworkData(data, (Java.Lang.Integer)MediaMetadata.PictureTypeFrontCover);
 		var mediaItem = new MediaItem.Builder();
@@ -669,7 +689,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		
 		return mediaItem;
 	}
-
+	
 	static class PlaybackState
 	{
 		public const int StateBuffering = 6;

@@ -188,6 +188,18 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 		remove => eventManager.RemoveEventHandler(value);
 	}
 
+	internal event EventHandler NextRequested
+	{
+		add => eventManager.AddEventHandler(value);
+		remove => eventManager.RemoveEventHandler(value);
+	}
+
+	internal event EventHandler PreviousRequested
+	{
+		add => eventManager.AddEventHandler(value);
+		remove => eventManager.RemoveEventHandler(value);
+	}
+
 	internal event EventHandler PauseRequested
 	{
 		add => eventManager.AddEventHandler(value);
@@ -461,6 +473,18 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 	{
 		OnPlayRequested();
 		Handler?.Invoke(nameof(PlayRequested));
+	}
+
+	/// <inheritdoc cref="IMediaElement.Previous"/>
+	public void Previous()
+	{
+		Handler?.Invoke(nameof(PreviousRequested));
+	}
+
+	/// <inheritdoc cref="IMediaElement.Previous"/>
+	public void Next()
+	{
+		Handler?.Invoke(nameof(NextRequested));
 	}
 
 	/// <inheritdoc cref="IMediaElement.SeekTo(TimeSpan, CancellationToken)"/>

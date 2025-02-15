@@ -52,11 +52,13 @@
 
             </HorizontalStackLayout>
 
-            <Grid Grid.Row="2" Padding="0,10,0,10" ColumnDefinitions="*,*,*,*,*" ColumnSpacing="5">
-                <Button Grid.Column="0" Text="Play" Clicked="OnPlayClicked" />
-                <Button Grid.Column="1" Text="Pause" Clicked="OnPauseClicked" />
-                <Button Grid.Column="2" Text="Stop" Clicked="OnStopClicked" />
-                <Button Grid.Column="3" Text="Mute" Clicked="OnMuteClicked">
+            <Grid Grid.Row="2" Padding="5,5,5,5" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="5">
+                <Button Grid.Column="0" Text="Previous" Clicked="OnPreviousClicked" />
+                <Button Grid.Column="1" Text="Play" Clicked="OnPlayClicked" />
+                <Button Grid.Column="2" Text="Pause" Clicked="OnPauseClicked" />
+                <Button Grid.Column="3" Text="Next" Clicked="OnNextClicked" />
+                <Button Grid.Column="4" Text="Stop" Clicked="OnStopClicked" />
+                <Button Grid.Column="5" Text="Mute" Clicked="OnMuteClicked">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button"
                                      x:DataType="toolkit:MediaElement"

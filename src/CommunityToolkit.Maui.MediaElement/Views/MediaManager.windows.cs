@@ -20,6 +20,7 @@ partial class MediaManager : IDisposable
 {
 	Metadata? metadata;
 	SystemMediaTransportControls? systemMediaControls;
+	MediaPlaybackList? playbackList;
 
 	// States that allow changing position
 	readonly IReadOnlyList<MediaElementState> allowUpdatePositionStates =
@@ -117,6 +118,26 @@ partial class MediaManager : IDisposable
 		{
 			DisplayRequest.RequestRelease();
 			displayActiveRequested = false;
+		}
+	}
+
+	protected virtual async partial ValueTask PlatformNext()
+	{
+		if(playbackList is not null && playbackList.Items.Count > 0)
+		{
+			playbackList.MoveNext();
+			var mediaItem = MediaElement.MediaPlaylist?.MediaItem[MediaElement.MediaPlaylist.CurrentIndex] ?? throw new InvalidOperationException("MediaItem is null");
+			await UpdateMetaData(mediaItem);
+		}
+	}
+
+	protected virtual async partial ValueTask PlatformPrevious()
+	{
+		if(playbackList is not null && playbackList.Items.Count > 0)
+		{
+			playbackList.MovePrevious();
+			var mediaItem = MediaElement.MediaPlaylist?.MediaItem[MediaElement.MediaPlaylist.CurrentIndex] ?? throw new InvalidOperationException("MediaItem is null");
+			await UpdateMetaData(mediaItem);
 		}
 	}
 
@@ -341,7 +362,6 @@ partial class MediaManager : IDisposable
 		{
 			return;
 		}
-		var playbackList = new MediaPlaybackList();
 		await Dispatcher.DispatchAsync(() => Player.PosterSource = new BitmapImage());
 
 		if (MediaElement.MediaPlaylist is null && MediaElement.Source is null)
@@ -361,6 +381,7 @@ partial class MediaManager : IDisposable
 		MediaElement.Position = TimeSpan.Zero;
 		MediaElement.Duration = TimeSpan.Zero;
 		Player.AutoPlay = MediaElement.ShouldAutoPlay;
+		playbackList = new MediaPlaybackList();
 		foreach (var mediaItem in MediaElement.MediaPlaylist.MediaItem)
 		{
 			if (mediaItem.Source is UriMediaSource uriMediaSource)

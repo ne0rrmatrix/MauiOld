@@ -41,6 +41,8 @@ public partial class MediaElementHandler
 	public static CommandMapper<MediaElement, MediaElementHandler> CommandMapper = new(ViewCommandMapper)
 	{
 		[nameof(MediaElement.StatusUpdated)] = MapStatusUpdated,
+		[nameof(MediaElement.NextRequested)] = MapNextRequested,
+		[nameof(MediaElement.PreviousRequested)] = MapPreviousRequested,
 		[nameof(MediaElement.PlayRequested)] = MapPlayRequested,
 		[nameof(MediaElement.PauseRequested)] = MapPauseRequested,
 		[nameof(MediaElement.SeekRequested)] = MapSeekRequested,
@@ -164,6 +166,28 @@ public partial class MediaElementHandler
 	public static void MapShouldMute(MediaElementHandler handler, MediaElement mediaElement)
 	{
 		handler.mediaManager?.UpdateShouldMute();
+	}
+
+	/// <summary>
+	/// Maps the next operation request between the abstract <see cref="MediaElement"/> and platform counterpart.
+	/// </summary>
+	/// <param name="handler"></param>
+	/// <param name="mediaElement"></param>
+	/// <param name="args"></param>
+	public static void MapNextRequested(MediaElementHandler handler, MediaElement mediaElement, object? args)
+	{
+		handler.mediaManager?.Next();
+	}
+
+	/// <summary>
+	/// Maps the previous operation request between the abstract <see cref="MediaElement"/> and platform counterpart.
+	/// </summary>
+	/// <param name="handler"></param>
+	/// <param name="mediaElement"></param>
+	/// <param name="args"></param>
+	public static void MapPreviousRequested(MediaElementHandler handler, MediaElement mediaElement, object? args)
+	{
+		handler.mediaManager?.Previous();
 	}
 
 	/// <summary>

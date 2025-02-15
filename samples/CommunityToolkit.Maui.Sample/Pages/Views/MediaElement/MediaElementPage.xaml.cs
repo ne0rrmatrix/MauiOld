@@ -104,6 +104,10 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		}
 	}
 
+	void OnNextClicked(object? sender, EventArgs e)
+	{
+		MediaElement.Next();
+	}
 	void OnPlayClicked(object? sender, EventArgs e)
 	{
 		MediaElement.Play();
@@ -114,6 +118,10 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		MediaElement.Pause();
 	}
 
+	void OnPreviousClicked(object? sender, EventArgs e)
+	{
+		MediaElement.Previous();
+	}
 	void OnStopClicked(object? sender, EventArgs e)
 	{
 		MediaElement.Stop();

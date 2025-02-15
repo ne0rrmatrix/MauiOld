@@ -84,6 +84,16 @@ public partial class MediaManager : IDisposable
 		}
 	}
 
+	protected virtual partial ValueTask PlatformNext()
+	{
+		throw new NotImplementedException();
+	}
+
+	protected virtual partial ValueTask PlatformPrevious()
+	{
+		throw new NotImplementedException();
+	}
+
 	protected virtual async partial Task PlatformSeek(TimeSpan position, CancellationToken token)
 	{
 		if (Player is null)

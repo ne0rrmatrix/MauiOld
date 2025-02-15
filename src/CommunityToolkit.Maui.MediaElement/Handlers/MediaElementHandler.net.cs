@@ -20,6 +20,8 @@ public partial class MediaElementHandler : ViewHandler<MediaElement, PlatformMed
 	public static void MapSpeed(object handler, MediaElement MediaElement) => throw new NotImplementedException();
 	public static void MapStatusUpdated(MediaElementHandler handler, MediaElement MediaElement, object? args) => throw new NotImplementedException();
 	public static void MapVolume(object handler, MediaElement MediaElement) => throw new NotImplementedException();
+	public static void MapNextRequested(MediaElementHandler handler, MediaElement MediaElement, object? args) => throw new NotImplementedException();
+	public static void MapPreviousRequested(MediaElementHandler handler, MediaElement MediaElement, object? args) => throw new NotImplementedException();
 	public static void MapPlayRequested(MediaElementHandler handler, MediaElement MediaElement, object? args) => throw new NotImplementedException();
 	public static void MapPauseRequested(MediaElementHandler handler, MediaElement MediaElement, object? args) => throw new NotImplementedException();
 	public static void MapSeekRequested(MediaElementHandler handler, MediaElement MediaElement, object? args) => throw new NotImplementedException();
