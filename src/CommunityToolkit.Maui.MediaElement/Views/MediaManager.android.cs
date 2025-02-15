@@ -352,17 +352,18 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 			StartService();
 		}
 
-		Player.ClearMediaItems();
-		MediaElement.Duration = TimeSpan.Zero;
-		MediaElement.CurrentStateChanged(MediaElementState.None);
 		if (MediaElement.Source is null)
 		{
+			Player.ClearMediaItems();
+			MediaElement.Duration = TimeSpan.Zero;
+			MediaElement.CurrentStateChanged(MediaElementState.None);
 			return;
 		}
 
+
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 		Player.PlayWhenReady = MediaElement.ShouldAutoPlay;
-		cancellationTokenSource = new();
+		cancellationTokenSource ??= new();
 
 		CommunityToolkit.Maui.Primitives.MediaItem mediaItem = new(MediaElement.Source, MediaElement.MetadataTitle, MediaElement.MetadataArtist, MediaElement.MetadataArtworkUrl);
 		var result = await SetPlayerData(mediaItem, cancellationTokenSource.Token);
@@ -397,15 +398,16 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 			StartService();
 		}
 
-		Player.ClearMediaItems();
-		MediaElement.Duration = TimeSpan.Zero;
-		MediaElement.CurrentStateChanged(MediaElementState.None);
-
+		
 		if (MediaElement.MediaPlaylist is null)
 		{
+			Player.ClearMediaItems();
+			MediaElement.Duration = TimeSpan.Zero;
+			MediaElement.CurrentStateChanged(MediaElementState.None);
 			return;
 		}
-		
+
+		cancellationTokenSource ??= new();
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 		Player.PlayWhenReady = MediaElement.ShouldAutoPlay;
 
