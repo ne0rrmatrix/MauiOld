@@ -132,17 +132,29 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	{
 		Player = new ExoPlayerBuilder(MauiContext.Context).Build() ?? throw new InvalidOperationException("Player cannot be null");
 		Player.AddListener(this);
-		
-		XmlReader reader = Platform.AppContext.Resources?.GetXml(Microsoft.Maui.Resource.Layout.appView) ?? throw new InvalidOperationException();
-		reader.Read();
-		Android.Util.IAttributeSet attrs = Android.Util.Xml.AsAttributeSet(reader) ?? throw new InvalidOperationException();
-		PlayerView = new PlayerView(MauiContext.Context, attrs)
+		if (MediaElementOptions.ShouldEnableTextureViewOnAndroid)
 		{
-			Player = Player,
-			UseController = false,
-			ControllerAutoShow = false,
-			LayoutParameters = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)
-		};
+			XmlReader reader = Platform.AppContext.Resources?.GetXml(Microsoft.Maui.Resource.Layout.appView) ?? throw new InvalidOperationException();
+			reader.Read();
+			Android.Util.IAttributeSet attrs = Android.Util.Xml.AsAttributeSet(reader) ?? throw new InvalidOperationException();
+			PlayerView = new PlayerView(MauiContext.Context, attrs)
+			{
+				Player = Player,
+				UseController = false,
+				ControllerAutoShow = false,
+				LayoutParameters = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)
+			};
+		}
+		else
+		{
+			PlayerView = new PlayerView(MauiContext.Context)
+			{
+				Player = Player,
+				UseController = false,
+				ControllerAutoShow = false,
+				LayoutParameters = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)
+			};
+		}
 		string randomId = Convert.ToBase64String(Guid.NewGuid().ToByteArray())[..8];
 		var mediaSessionWRandomId = new MediaSession.Builder(Platform.AppContext, Player);
 		mediaSessionWRandomId.SetId(randomId);

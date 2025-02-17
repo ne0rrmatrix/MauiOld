@@ -67,7 +67,10 @@ public static class MauiProgram
 #endif
 								.UseMauiCommunityToolkitMarkup()
 								.UseMauiCommunityToolkitCamera()
-								.UseMauiCommunityToolkitMediaElement()
+								.UseMauiCommunityToolkitMediaElement(static options =>
+								{
+									options.SetShouldEnableTextureViewOnAndroid(true);
+								})
 
 								.ConfigureMauiHandlers(handlers =>
 								{
