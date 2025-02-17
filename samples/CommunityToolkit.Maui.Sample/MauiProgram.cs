@@ -67,7 +67,10 @@ public static class MauiProgram
 #endif
 								.UseMauiCommunityToolkitMarkup()
 								.UseMauiCommunityToolkitCamera()
-								.UseMauiCommunityToolkitMediaElement()
+								.UseMauiCommunityToolkitMediaElement(static options =>
+								{
+									options.SetShouldEnableServiceOnAndroid(true);
+								})
 
 								.ConfigureMauiHandlers(handlers =>
 								{

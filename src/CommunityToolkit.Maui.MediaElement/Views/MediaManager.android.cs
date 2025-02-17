@@ -62,9 +62,8 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 	public void UpdateNotifications()
 	{
-		if (connection?.Binder?.Service is null)
+		if (connection?.Binder?.Service is null || !MediaElementOptions.ShouldEnableServiceOnAndroid)
 		{
-			System.Diagnostics.Trace.TraceInformation("Notification Service not running.");
 			return;
 		}
 
@@ -354,6 +353,9 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		if (hasSetSource && Player.PlayerError is null)
 		{
 			MediaElement.MediaOpened();
+		}
+		if(hasSetSource && MediaElementOptions.ShouldEnableServiceOnAndroid)
+		{
 			UpdateNotifications();
 		}
 	}
@@ -531,9 +533,12 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		}
 	}
 
-	[MemberNotNull(nameof(connection))]
 	void StartService()
 	{
+		if (!MediaElementOptions.ShouldEnableServiceOnAndroid)
+		{
+			return;
+		}
 		var intent = new Intent(Android.App.Application.Context, typeof(MediaControlsService));
 		connection = new BoundServiceConnection(this);
 		connection.MediaControlsServiceTaskRemoved += HandleMediaControlsServiceTaskRemoved;
@@ -544,6 +549,10 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 	void StopService(in BoundServiceConnection boundServiceConnection)
 	{
+		if(!MediaElementOptions.ShouldEnableServiceOnAndroid)
+		{
+			return;
+		}
 		boundServiceConnection.MediaControlsServiceTaskRemoved -= HandleMediaControlsServiceTaskRemoved;
 
 		var serviceIntent = new Intent(Platform.AppContext, typeof(MediaControlsService));
