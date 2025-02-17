@@ -134,6 +134,13 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	{
 		Player = new ExoPlayerBuilder(MauiContext.Context).Build() ?? throw new InvalidOperationException("Player cannot be null");
 		Player.AddListener(this);
+		TextureView textureView = new(Platform.AppContext)
+		{
+			LayoutParameters = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent),
+			SurfaceTextureListener = new SurfaceTextureListener(Player)
+		};
+		Player.SetVideoTextureView(textureView);
+		
 		PlayerView = new PlayerView(MauiContext.Context)
 		{
 			Player = Player,
@@ -632,5 +639,35 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		public const int StateSkippingToQueueItem = 11;
 		public const int StateStopped = 1;
 		public const int StateError = 7;
+	}
+}
+
+class SurfaceTextureListener(IExoPlayer player) : Java.Lang.Object, TextureView.ISurfaceTextureListener
+{
+	readonly IExoPlayer player = player;
+
+	public void OnSurfaceTextureAvailable(Android.Graphics.SurfaceTexture surface, int width, int height)
+	{
+		System.Diagnostics.Trace.TraceInformation("SurfaceTextureListener.OnSurfaceTextureAvailable");
+		player.SetVideoSurface(new Surface(surface));
+	}
+
+	public bool OnSurfaceTextureDestroyed(Android.Graphics.SurfaceTexture surface)
+	{
+		player.ClearVideoSurface();
+		player.SetVideoTextureView(null);
+		surface.Release();
+		return true;
+	}
+
+	public void OnSurfaceTextureSizeChanged(Android.Graphics.SurfaceTexture surface, int width, int height)
+	{
+		throw new NotImplementedException();
+	}
+
+	public void OnSurfaceTextureUpdated(Android.Graphics.SurfaceTexture surface)
+	{
+		System.Diagnostics.Trace.TraceInformation("SurfaceTextureListener.OnSurfaceTextureUpdated");
+		player.SetVideoSurface(new Surface(surface));
 	}
 }
