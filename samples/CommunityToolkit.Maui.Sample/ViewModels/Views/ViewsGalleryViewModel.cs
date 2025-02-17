@@ -27,6 +27,7 @@ public sealed partial class ViewsGalleryViewModel() : BaseGalleryViewModel(
 	SectionModel.Create<MediaElementCarouselViewViewModel>("MediaElement in CarouselView", Colors.Red, "MediaElement can be used inside a DataTemplate in a CarouselView"),
 	SectionModel.Create<MediaElementCollectionViewViewModel>("MediaElement in CollectionView", Colors.Red, "MediaElement can be used inside a DataTemplate in a CollectionView"),
 	SectionModel.Create<MediaElementMultipleWindowsViewModel>("MediaElement in a Multi-Window Application", Colors.Red, "Demonstrates that MediaElement can be used inside a DataTemplate simultaneously on multiple windows"),
+	SectionModel.Create<MediaElementTextureViewViewModel>("MediaElement with TextureView", Colors.Red, "MediaElement can be used with a TextureView"),
 	SectionModel.Create<MultiplePopupViewModel>("Multiple Popups Page", Colors.Red, "A page demonstrating multiple different Popups"),
 	SectionModel.Create<PopupPositionViewModel>("Custom Positioning Popup", Colors.Red, "Displays a basic popup anywhere on the screen using VerticalOptions and HorizontalOptions"),
 	SectionModel.Create<PopupAnchorViewModel>("Anchor Popup", Colors.Red, "Popups can be anchored to other view's on the screen"),

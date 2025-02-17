@@ -255,6 +255,7 @@ public static class MauiProgram
 		services.AddTransientWithShellRoute<MediaElementCarouselViewPage, MediaElementCarouselViewViewModel>();
 		services.AddTransientWithShellRoute<MediaElementCollectionViewPage, MediaElementCollectionViewViewModel>();
 		services.AddTransientWithShellRoute<MediaElementMultipleWindowsPage, MediaElementMultipleWindowsViewModel>();
+		services.AddTransientWithShellRoute<MediaElementTextureViewPage, MediaElementTextureViewViewModel>();
 		services.AddTransientWithShellRoute<MultiplePopupPage, MultiplePopupViewModel>();
 		services.AddTransientWithShellRoute<PopupAnchorPage, PopupAnchorViewModel>();
 		services.AddTransientWithShellRoute<PopupLayoutAlignmentPage, PopupLayoutAlignmentViewModel>();

@@ -1,9 +1,9 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Xml;
 using Android.Content;
 using Android.Views;
 using Android.Widget;
 using AndroidX.Media3.Common;
-using AndroidX.Media3.Common.Text;
 using AndroidX.Media3.Common.Util;
 using AndroidX.Media3.ExoPlayer;
 using AndroidX.Media3.Session;
@@ -13,8 +13,6 @@ using CommunityToolkit.Maui.Media.Services;
 using CommunityToolkit.Maui.Services;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
-using AudioAttributes = AndroidX.Media3.Common.AudioAttributes;
-using DeviceInfo = AndroidX.Media3.Common.DeviceInfo;
 using MediaMetadata = AndroidX.Media3.Common.MediaMetadata;
 
 namespace CommunityToolkit.Maui.Core.Views;
@@ -134,14 +132,11 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	{
 		Player = new ExoPlayerBuilder(MauiContext.Context).Build() ?? throw new InvalidOperationException("Player cannot be null");
 		Player.AddListener(this);
-		TextureView textureView = new(Platform.AppContext)
-		{
-			LayoutParameters = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent),
-			SurfaceTextureListener = new SurfaceTextureListener(Player)
-		};
-		Player.SetVideoTextureView(textureView);
 		
-		PlayerView = new PlayerView(MauiContext.Context)
+		XmlReader reader = Platform.AppContext.Resources?.GetXml(Microsoft.Maui.Resource.Layout.appView) ?? throw new InvalidOperationException();
+		reader.Read();
+		Android.Util.IAttributeSet attrs = Android.Util.Xml.AsAttributeSet(reader) ?? throw new InvalidOperationException();
+		PlayerView = new PlayerView(MauiContext.Context, attrs)
 		{
 			Player = Player,
 			UseController = false,
@@ -595,7 +590,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 					var path = resourceMediaSource.Path;
 					if (!string.IsNullOrWhiteSpace(path))
 					{
-						var assetFilePath = $"asset://{package}{Path.PathSeparator}{path}";
+						var assetFilePath = $"asset://{package}{System.IO.Path.PathSeparator}{path}";
 						return await CreateMediaItem(assetFilePath, cancellationToken).ConfigureAwait(false);
 					}
 
@@ -639,35 +634,5 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		public const int StateSkippingToQueueItem = 11;
 		public const int StateStopped = 1;
 		public const int StateError = 7;
-	}
-}
-
-class SurfaceTextureListener(IExoPlayer player) : Java.Lang.Object, TextureView.ISurfaceTextureListener
-{
-	readonly IExoPlayer player = player;
-
-	public void OnSurfaceTextureAvailable(Android.Graphics.SurfaceTexture surface, int width, int height)
-	{
-		System.Diagnostics.Trace.TraceInformation("SurfaceTextureListener.OnSurfaceTextureAvailable");
-		player.SetVideoSurface(new Surface(surface));
-	}
-
-	public bool OnSurfaceTextureDestroyed(Android.Graphics.SurfaceTexture surface)
-	{
-		player.ClearVideoSurface();
-		player.SetVideoTextureView(null);
-		surface.Release();
-		return true;
-	}
-
-	public void OnSurfaceTextureSizeChanged(Android.Graphics.SurfaceTexture surface, int width, int height)
-	{
-		throw new NotImplementedException();
-	}
-
-	public void OnSurfaceTextureUpdated(Android.Graphics.SurfaceTexture surface)
-	{
-		System.Diagnostics.Trace.TraceInformation("SurfaceTextureListener.OnSurfaceTextureUpdated");
-		player.SetVideoSurface(new Surface(surface));
 	}
 }

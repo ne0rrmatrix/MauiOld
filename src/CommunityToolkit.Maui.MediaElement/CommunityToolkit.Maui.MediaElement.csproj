@@ -67,7 +67,7 @@
   </ItemGroup>
   
   <ItemGroup>
-    <PackageReference Include="Microsoft.Maui.Controls" Version="[$(MauiPackageVersion),$(NextMauiPackageVersion))"/>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="[$(MauiPackageVersion),$(NextMauiPackageVersion))" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" Condition=" '$(Configuration)'=='Release' " PrivateAssets="All" />
   </ItemGroup>
 
@@ -75,5 +75,8 @@
     <EmbeddedResource Include="ResourceDictionary.windows.xaml">
       <LogicalName>ResourceDictionary.windows.xaml</LogicalName>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <MauiResource Include="Platforms\Android\Resources\Layout\*" />
   </ItemGroup>
 </Project>
