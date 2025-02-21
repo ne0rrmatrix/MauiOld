@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Xml;
 using Android.Content;
 using Android.Views;
 using Android.Widget;
@@ -134,27 +133,21 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		Player.AddListener(this);
 		if (MediaElementOptions.ShouldEnableTextureViewOnAndroid)
 		{
-			XmlReader reader = Platform.AppContext.Resources?.GetXml(Microsoft.Maui.Resource.Layout.appView) ?? throw new InvalidOperationException();
-			reader.Read();
-			Android.Util.IAttributeSet attrs = Android.Util.Xml.AsAttributeSet(reader) ?? throw new InvalidOperationException();
-			PlayerView = new PlayerView(MauiContext.Context, attrs)
-			{
-				Player = Player,
-				UseController = false,
-				ControllerAutoShow = false,
-				LayoutParameters = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)
-			};
+			var inflater = LayoutInflater.From(MauiContext.Context)!;
+			var layout = inflater.Inflate(Microsoft.Maui.Resource.Layout.appView, null)!;
+			PlayerView = layout.FindViewById<PlayerView>(Microsoft.Maui.Resource.Id.exoplayer1) ?? throw new InvalidOperationException();
 		}
 		else
 		{
 			PlayerView = new PlayerView(MauiContext.Context)
 			{
-				Player = Player,
-				UseController = false,
-				ControllerAutoShow = false,
 				LayoutParameters = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)
 			};
 		}
+		PlayerView.Player = Player;
+		PlayerView.UseController = false;
+		PlayerView.ControllerAutoShow = false;
+
 		string randomId = Convert.ToBase64String(Guid.NewGuid().ToByteArray())[..8];
 		var mediaSessionWRandomId = new MediaSession.Builder(Platform.AppContext, Player);
 		mediaSessionWRandomId.SetId(randomId);
