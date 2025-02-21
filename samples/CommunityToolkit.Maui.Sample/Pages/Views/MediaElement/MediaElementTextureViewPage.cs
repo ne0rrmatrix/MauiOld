@@ -41,14 +41,8 @@ public partial class MediaElementTextureViewPage : BasePage<MediaElementTextureV
 			mediaElement.MetadataTitle = "Texture View";
 			mediaElement.MetadataArtist = "Community Toolkit";
 			mediaElement.MetadataArtworkUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
-			mediaElement.Loaded += delegate {
-				mediaElement.Play();
-			};
-			mediaElement.ShouldShowPlaybackControls = true;
 			mediaElement.ShouldAutoPlay = true;
-			mediaElement.Aspect = Aspect.AspectFill;
 			mediaElement.ShouldLoopPlayback = true;
-			mediaElement.Play();
 
 			mediaElements.Add(mediaElement);
 			absolute.Add(mediaElement);
@@ -68,21 +62,30 @@ public partial class MediaElementTextureViewPage : BasePage<MediaElementTextureV
 		}
 
 
-		Content.SizeChanged += delegate {
-			for (int i = 0; i < borders.Count; i++)
+		Content.SizeChanged += Content_SizeChanged;
+	}
+
+	void Content_SizeChanged(object? sender, EventArgs e)
+	{
+		for (int i = 0; i < borders.Count; i++)
+		{
+			borders[i].HeightRequest = Content.Height;
+			borders[i].WidthRequest = Content.Width * 0.5;
+
+			mediaElements[i].HeightRequest = Content.Height;
+			mediaElements[i].WidthRequest = Content.Width;
+
+			if (i == 1)
 			{
-				borders[i].HeightRequest = Content.Height;
-				borders[i].WidthRequest = Content.Width * 0.5;
-
-				mediaElements[i].HeightRequest = Content.Height;
-				mediaElements[i].WidthRequest = Content.Width;
-
-				if (i == 1)
-				{
-					borders[i].TranslationX = 0.5 * Content.Width;
-					mediaElements[i].TranslationX = -0.5 * Content.Width;
-				}
+				borders[i].TranslationX = 0.5 * Content.Width;
+				mediaElements[i].TranslationX = -0.5 * Content.Width;
 			}
-		};
+		}
+	}
+
+	protected override void OnNavigatedFrom(NavigatedFromEventArgs args)
+	{
+		base.OnNavigatedFrom(args);
+		Content.SizeChanged -= Content_SizeChanged;
 	}
 }
