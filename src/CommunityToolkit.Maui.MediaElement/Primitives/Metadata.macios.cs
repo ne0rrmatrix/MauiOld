@@ -1,6 +1,5 @@
 ﻿using AVFoundation;
 using CoreMedia;
-using Foundation;
 using MediaPlayer;
 using UIKit;
 
@@ -83,26 +82,10 @@ sealed class Metadata
 		NowPlayingInfo.IsLiveStream = false;
 		NowPlayingInfo.PlaybackRate = mediaElement.Speed;
 		NowPlayingInfo.ElapsedPlaybackTime = playerItem?.CurrentTime.Seconds ?? 0;
-		NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: _ => GetImage(mediaElement.MetadataArtworkUrl));
+		var proxy = new RequestHandlerProxy(mediaElement.MetadataArtworkUrl, defaultUIImage);
+		NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: proxy.RequestHandler);
 		MPNowPlayingInfoCenter.DefaultCenter.NowPlaying = NowPlayingInfo;
 	}
-
-	static UIImage GetImage(string imageUri)
-	{
-		try
-		{
-			if (imageUri.StartsWith(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
-			{
-				return UIImage.LoadFromData(NSData.FromUrl(new NSUrl(imageUri))) ?? defaultUIImage;
-			}
-			return defaultUIImage;
-		}
-		catch
-		{
-			return defaultUIImage;
-		}
-	}
-
 	MPRemoteCommandHandlerStatus SeekCommand(MPRemoteCommandEvent? commandEvent)
 	{
 		if (commandEvent is not MPChangePlaybackPositionCommandEvent eventArgs)
