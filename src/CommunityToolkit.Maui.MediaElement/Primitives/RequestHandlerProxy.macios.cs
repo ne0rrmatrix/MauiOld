@@ -4,24 +4,21 @@ using UIKit;
 
 namespace CommunityToolkit.Maui.Core;
 
-sealed class Metadata
+class RequestHandlerProxy(string metadataArtworkUrl, UIImage defaultUIImage)
 {
-	class RequestHandlerProxy(string metadataArtworkUrl, UIImage defaultUIImage)
+	public UIImage RequestHandler(CGSize size)
 	{
-		public UIImage RequestHandler(CGSize size)
+		try
 		{
-			try
+			if (metadataArtworkUrl.StartsWith(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
 			{
-				if (metadataArtworkUrl.StartsWith(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
-				{
-					return UIImage.LoadFromData(NSData.FromUrl(new NSUrl(metadataArtworkUrl))) ?? defaultUIImage;
-				}
-				return defaultUIImage;
+				return UIImage.LoadFromData(NSData.FromUrl(new NSUrl(metadataArtworkUrl))) ?? defaultUIImage;
 			}
-			catch
-			{
-				return defaultUIImage;
-			}
+			return defaultUIImage;
+		}
+		catch
+		{
+			return defaultUIImage;
 		}
 	}
 }
