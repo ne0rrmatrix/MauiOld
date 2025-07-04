@@ -9,6 +9,7 @@ using AndroidX.Camera.Video;
 using AndroidX.Core.Content;
 using AndroidX.Core.Util;
 using AndroidX.Lifecycle;
+using CommunityToolkit.Maui.ApplicationModel.Permissions;
 using CommunityToolkit.Maui.Extensions;
 using Java.Lang;
 using Java.Util.Concurrent;
@@ -299,6 +300,7 @@ partial class CameraManager
 			return;
 		}
 
+		await CheckAndRequestCameraRecordPermission(token);
 		if (cameraView.SelectedCamera is null)
 		{
 			if (cameraProvider.AvailableCameras is null)
@@ -326,7 +328,7 @@ partial class CameraManager
 		videoRecording = videoRecorder
 			.PrepareRecording(context, outputOptions)
 			.WithAudioEnabled()
-			.Start(ContextCompat.GetMainExecutor(context), captureListener);
+			.Start(ContextCompat.GetMainExecutor(context) ?? throw new InvalidOperationException("Unable to get main executor"), captureListener);
 	}
 
 	protected virtual async partial Task<Stream> PlatformStopVideoRecording(CancellationToken token)
@@ -398,6 +400,17 @@ partial class CameraManager
 				_ => (int)SurfaceOrientation.Rotation0
 			};
 		}
+	}
+
+	static async Task CheckAndRequestCameraRecordPermission(CancellationToken cancellationToken = default)
+	{
+		var status = await Permissions.CheckStatusAsync<AndroidMediaPermissions>().WaitAsync(cancellationToken);
+		if (status is PermissionStatus.Granted)
+		{
+			return;
+		}
+
+		await Permissions.RequestAsync<AndroidMediaPermissions>().WaitAsync(cancellationToken).ConfigureAwait(false);
 	}
 
 	sealed class ImageCallBack(ICameraView cameraView) : ImageCapture.OnImageCapturedCallback
