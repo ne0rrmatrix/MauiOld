@@ -59,13 +59,11 @@ public class MauiMediaElement : UIView
 			// look for an ItemsView (e.g. CarouselView or CollectionView) on page 
 			TryGetItemsViewOnPage(currentPage, out var itemsView);
 
-			// Set the viewController to the first root view controller.
-			viewController = Platform.GetCurrentUIViewController();
-			
-			// Check to see if there is a ItemsView in a collection view or CarouselView and replace Shell Renderer with the correct handler
-			viewController = itemsView?.Where(item => item.Handler is not null)
-					 .Select(item => GetUIViewController(item.Handler))
-					 .FirstOrDefault(viewController => viewController is not null); 
+			 // Update the view controller selection logic
+			viewController = itemsView?
+				.Where(item => item.Handler is not null)
+				.Select(item => GetUIViewController(item.Handler))
+				.FirstOrDefault(vc => vc is not null) ?? Platform.GetCurrentUIViewController();
 		}
 
 		if (viewController?.View is not null)
@@ -96,21 +94,20 @@ public class MauiMediaElement : UIView
 	}
 	static void TryGetItemsViewOnPage(List<Page> currentPage, out List<ItemsView> itemsView)
 	{
-		// We are looking for an ItemsView (e.g. CarouselView or CollectionView) on page.
-		// To retrieve its CarouselViewHandler / CollectionViewHandler, we must traverse all VisualElements on the current page/
-		// We check if Handler.PlatformView is a View to ensure we are looking at a VisualElement. If not, we continue to the next VisualElement.
-		// We need to check both the page and ItemsView to ensure we are looking at the correct VisualElement.
-		// Checking both the page and ItemsView is necessary because the ItemsView may be nested inside another VisualElement.
-		// We may be using Multi-window support, so we need to traverse all Windows to find the current page in a multi-window application.
-		// We then check if the VisualElement is an ItemsView (e.g. CarouselView or CollectionView) and add it to the itemsView list/
-
 		itemsView = [];
-		List<ItemsView> itemsViewsOnPage = [];
-		currentPage.Where(page => page.Handler?.PlatformView is View)
-			 .SelectMany(page => ((IElementController)page).Descendants().OfType<ItemsView>())
-			 .Where(item => item.Handler?.PlatformView is View)
-			 .ToList()
-			 .ForEach(item => itemsViewsOnPage.Add(item));
+		
+		foreach (var page in currentPage.Where(page => page.Handler?.PlatformView is View))
+		{
+			// Get all ItemsViews on the page
+			var itemsViewsOnPage = ((IElementController)page)
+				.Descendants()
+				.OfType<ItemsView>()
+				.Where(item => item.Handler?.PlatformView is View)
+				.ToList();
+				
+			// Add them to our result list
+			itemsView.AddRange(itemsViewsOnPage);
+		}
 	}
 
 	static bool TryGetCurrentPage([NotNullWhen(true)] out List<Page> currentPage)
