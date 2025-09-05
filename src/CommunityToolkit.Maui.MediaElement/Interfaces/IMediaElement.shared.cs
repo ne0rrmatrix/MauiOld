@@ -88,6 +88,16 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	MediaSource? Source { get; set; }
 
 	/// <summary>
+	/// Gets or sets the subtitles associated with the current context.
+	/// </summary>
+	Extensions.Subtitle Subtitles { get; set; }
+
+	/// <summary>
+	/// Gets or sets the DRM (Digital Rights Management) extensions associated with the current context.
+	/// </summary>
+	Extensions.DrmExtensions Drmextensions { get; set; }
+
+	/// <summary>
 	/// Gets or sets the speed with which the media should be played.
 	/// </summary>
 	/// <remarks>A value of 1 means normal speed.

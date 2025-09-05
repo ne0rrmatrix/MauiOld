@@ -30,7 +30,7 @@ public partial class MediaManager
 		ArgumentNullException.ThrowIfNull(context);
 		ArgumentNullException.ThrowIfNull(mediaElement);
 		ArgumentNullException.ThrowIfNull(dispatcher);
-
+		
 		MauiContext = context;
 		Dispatcher = dispatcher;
 		MediaElement = mediaElement;
@@ -156,6 +156,15 @@ public partial class MediaManager
 	}
 
 	/// <summary>
+	/// Select a track by its identifier.
+	/// </summary>
+	/// <param name="trackId">The identifier of the track to select.</param>
+	public void SelectTrack(string trackId)
+	{
+		PlatformSelectTrack(trackId);
+	}
+
+	/// <summary>
 	/// Update whether to show the platform playback controls.
 	/// </summary>
 	public void UpdateShouldShowPlaybackControls()
@@ -222,6 +231,12 @@ public partial class MediaManager
 	protected virtual partial void PlatformUpdateShouldLoopPlayback();
 
 	/// <summary>
+	/// Invokes the platform functionality to select a track.
+	/// </summary>
+	/// <param name="trackId">The identifier of the track to select.</param>
+	protected virtual partial void PlatformSelectTrack(string trackId);
+
+	/// <summary>
 	/// Invokes the platform functionality to toggle keeping the screen on
 	/// during media playback.
 	/// </summary>
@@ -265,6 +280,7 @@ partial class MediaManager
 	protected virtual partial void PlatformUpdateShouldShowPlaybackControls() { }
 	protected virtual partial void PlatformUpdatePosition() { }
 	protected virtual partial void PlatformUpdateVolume() { }
+	protected virtual partial void PlatformSelectTrack(string trackId) { }
 	protected virtual partial void PlatformUpdateShouldKeepScreenOn() { }
 	protected virtual partial void PlatformUpdateShouldMute() { }
 	protected virtual partial void PlatformUpdateShouldLoopPlayback() { }

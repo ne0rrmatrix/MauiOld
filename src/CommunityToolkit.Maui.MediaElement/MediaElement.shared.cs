@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using CommunityToolkit.Maui.Converters;
 using CommunityToolkit.Maui.Core;
+using CommunityToolkit.Maui.Extensions;
 
 namespace CommunityToolkit.Maui.Views;
 
@@ -74,6 +75,12 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 			propertyChanging: OnSourcePropertyChanging, propertyChanged: OnSourcePropertyChanged);
 
 	/// <summary>
+	/// Backing store for the <see cref="Subtitles"/> property.
+	/// </summary>
+	public static readonly BindableProperty SubtitleProperty =
+		BindableProperty.Create(nameof(Subtitles), typeof(Subtitle), typeof(MediaElement), new Subtitle());
+	
+	/// <summary>
 	/// Backing store for the <see cref="Speed"/> property.
 	/// </summary>
 	public static readonly BindableProperty SpeedProperty =
@@ -107,17 +114,36 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 	/// <summary>
 	/// Backing store for the <see cref="MetadataTitle"/> property.
 	/// </summary>
-	public static readonly BindableProperty MetadataTitleProperty = BindableProperty.Create(nameof(MetadataTitle), typeof(string), typeof(MediaElement), string.Empty);
+	public static readonly BindableProperty MetadataTitleProperty = 
+		BindableProperty.Create(nameof(MetadataTitle), typeof(string), typeof(MediaElement), string.Empty);
 
 	/// <summary>
 	/// Backing store for the <see cref="MetadataArtist"/> property.
 	/// </summary>
-	public static readonly BindableProperty MetadataArtistProperty = BindableProperty.Create(nameof(MetadataArtist), typeof(string), typeof(MediaElement), string.Empty);
+	public static readonly BindableProperty MetadataArtistProperty = 
+		BindableProperty.Create(nameof(MetadataArtist), typeof(string), typeof(MediaElement), string.Empty);
 
 	/// <summary>
 	/// Backing store for the <see cref="MetadataArtworkUrl"/> property.
 	/// </summary>
-	public static readonly BindableProperty MetadataArtworkUrlProperty = BindableProperty.Create(nameof(MetadataArtworkUrl), typeof(string), typeof(MediaElement), string.Empty);
+	public static readonly BindableProperty MetadataArtworkUrlProperty = 
+		BindableProperty.Create(nameof(MetadataArtworkUrl), typeof(string), typeof(MediaElement), string.Empty);
+
+	/// <summary>
+	/// Identifies the bindable property for specifying DRM (Digital Rights Management) extensions.
+	/// </summary>
+	/// <remarks>This property is used to configure DRM-related settings for the <see cref="MediaElement"/>. It
+	/// allows binding to a <see cref="DrmExtensions"/> object, which encapsulates the necessary DRM
+	/// configuration.</remarks>
+	public static readonly BindableProperty DrmExtensionsProperty =
+		BindableProperty.Create(nameof(Drmextensions), typeof(DrmExtensions), typeof(MediaElement), new DrmExtensions());
+
+	/// <summary>
+	/// Backing store for the <see cref="AvailableTracks"/> property.
+	/// </summary>
+	public static readonly BindableProperty AvailableTracksProperty =
+		BindableProperty.Create(nameof(AvailableTracks), typeof(MediaTrackCollection), typeof(MediaElement), 
+			new MediaTrackCollection(), BindingMode.OneWayToSource);
 
 	readonly WeakEventManager eventManager = new();
 	readonly SemaphoreSlim seekToSemaphoreSlim = new(1, 1);
@@ -173,6 +199,24 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 		remove => eventManager.RemoveEventHandler(value);
 	}
 
+	/// <summary>
+	/// Event raised when available tracks change.
+	/// </summary>
+	public event EventHandler<TracksChangedEventArgs> TracksChanged
+	{
+		add => eventManager.AddEventHandler(value);
+		remove => eventManager.RemoveEventHandler(value);
+	}
+
+	/// <summary>
+	/// Event raised when track selection changes.
+	/// </summary>
+	public event EventHandler<TrackSelectionChangedEventArgs> TrackSelectionChanged
+	{
+		add => eventManager.AddEventHandler(value);
+		remove => eventManager.RemoveEventHandler(value);
+	}
+
 	internal event EventHandler StatusUpdated
 	{
 		add => eventManager.AddEventHandler(value);
@@ -204,6 +248,12 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 	}
 
 	internal event EventHandler StopRequested
+	{
+		add => eventManager.AddEventHandler(value);
+		remove => eventManager.RemoveEventHandler(value);
+	}
+
+	internal event EventHandler<string> TrackSelectionRequested
 	{
 		add => eventManager.AddEventHandler(value);
 		remove => eventManager.RemoveEventHandler(value);
@@ -291,6 +341,14 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 		set => SetValue(SourceProperty, value);
 	}
 
+	/// <summary>
+	/// Gets or sets the subtitles associated with the current context.
+	/// </summary>
+	public Subtitle Subtitles
+	{
+		get => (Subtitle)GetValue(SubtitleProperty);
+		set => SetValue(SubtitleProperty, value);
+	}
 	/// <summary>
 	/// Gets or sets the volume of the audio for the media.
 	/// </summary>
@@ -393,6 +451,15 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 		private set => SetValue(CurrentStateProperty, value);
 	}
 
+	/// <summary>
+	/// Gets the collection of available media tracks.
+	/// </summary>
+	public MediaTrackCollection AvailableTracks
+	{
+		get => (MediaTrackCollection)GetValue(AvailableTracksProperty);
+		private set => SetValue(AvailableTracksProperty, value);
+	}
+
 	TimeSpan IMediaElement.Position
 	{
 		get => (TimeSpan)GetValue(PositionProperty);
@@ -425,9 +492,18 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 		get => (int)GetValue(MediaHeightProperty);
 		set => SetValue(mediaHeightPropertyKey, value);
 	}
-
+	
 	/// <inheritdoc/>
 	TaskCompletionSource IAsynchronousMediaElementHandler.SeekCompletedTCS => seekCompletedTaskCompletionSource;
+
+	/// <summary>
+	/// Gets or sets the DRM (Digital Rights Management) extensions associated with the current platform.
+	/// </summary>
+	public DrmExtensions Drmextensions
+	{
+		get => (DrmExtensions)GetValue(DrmExtensionsProperty);
+		set => SetValue(DrmExtensionsProperty, value);
+	}
 
 	/// <inheritdoc/>
 	public void Dispose()
@@ -476,6 +552,42 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 		Handler?.Invoke(nameof(StopRequested));
 	}
 
+	/// <summary>
+	/// Selects a specific track by its ID.
+	/// </summary>
+	/// <param name="trackId">The ID of the track to select.</param>
+	/// <returns>True if the track was found and selected, false otherwise.</returns>
+	public bool SelectTrack(string trackId)
+	{
+		var success = AvailableTracks.SelectTrack(trackId);
+		if (success)
+		{
+			OnTrackSelectionRequested(trackId);
+			Handler?.Invoke(nameof(TrackSelectionRequested), trackId);
+		}
+		return success;
+	}
+
+	/// <summary>
+	/// Gets the currently selected track of the specified type.
+	/// </summary>
+	/// <param name="trackType">The type of track to get.</param>
+	/// <returns>The selected track, or null if no track is selected.</returns>
+	public MediaTrack? GetSelectedTrack(MediaTrackType trackType)
+	{
+		return AvailableTracks.GetSelectedTrack(trackType);
+	}
+
+	/// <summary>
+	/// Gets all available tracks of the specified type.
+	/// </summary>
+	/// <param name="trackType">The type of tracks to get.</param>
+	/// <returns>Collection of tracks of the specified type.</returns>
+	public IEnumerable<MediaTrack> GetTracksByType(MediaTrackType trackType)
+	{
+		return AvailableTracks.GetTracksByType(trackType);
+	}
+
 	internal void OnMediaEnded()
 	{
 		CurrentState = MediaElementState.Stopped;
@@ -494,6 +606,29 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 	{
 		InitializeTimer();
 		eventManager.HandleEvent(this, EventArgs.Empty, nameof(MediaOpened));
+	}
+
+	/// <summary>
+	/// Handles track changes from the platform media player.
+	/// </summary>
+	/// <param name="tracks">The collection of available tracks.</param>
+	internal void OnTracksChanged(IEnumerable<MediaTrack> tracks)
+	{
+		AvailableTracks.Clear();
+		foreach (var track in tracks)
+		{
+			AvailableTracks.Add(track);
+		}
+		eventManager.HandleEvent(this, new TracksChangedEventArgs(tracks), nameof(TracksChanged));
+	}
+
+	/// <summary>
+	/// Handles track selection changes from the platform media player.
+	/// </summary>
+	/// <param name="selectedTrack">The track that was selected.</param>
+	internal void OnTrackSelectionChanged(MediaTrack selectedTrack)
+	{
+		eventManager.HandleEvent(this, new TrackSelectionChangedEventArgs(selectedTrack), nameof(TrackSelectionChanged));
 	}
 
 	/// <inheritdoc/>
@@ -529,7 +664,7 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 
 	static void OnSourcePropertyChanging(BindableObject bindable, object oldValue, object newValue) =>
 		((MediaElement)bindable).OnSourcePropertyChanging((MediaSource?)oldValue);
-
+	
 	static void OnCurrentStatePropertyChanged(BindableObject bindable, object oldValue, object newValue)
 	{
 		var mediaElement = (MediaElement)bindable;
@@ -580,7 +715,7 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 		timer.Stop();
 		timer = null;
 	}
-
+	
 	void OnSourceChanged(object? sender, EventArgs eventArgs)
 	{
 		OnPropertyChanged(SourceProperty.PropertyName);
@@ -650,4 +785,6 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 	void OnPositionRequested() => eventManager.HandleEvent(this, EventArgs.Empty, nameof(PositionRequested));
 
 	void OnUpdateStatus() => eventManager.HandleEvent(this, EventArgs.Empty, nameof(StatusUpdated));
+
+	void OnTrackSelectionRequested(string trackId) => eventManager.HandleEvent(this, trackId, nameof(TrackSelectionRequested));
 }

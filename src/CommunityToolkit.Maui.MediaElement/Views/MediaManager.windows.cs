@@ -5,7 +5,9 @@ using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Foundation.Collections;
 using Windows.Media;
+using Windows.Media.Core;
 using Windows.Media.Playback;
 using Windows.Storage;
 using Windows.System.Display;
@@ -19,6 +21,7 @@ partial class MediaManager : IDisposable
 {
 	Metadata? metadata;
 	SystemMediaTransportControls? systemMediaControls;
+	MediaPlaybackItem? playbackItem = null;
 
 	// States that allow changing position
 	readonly IReadOnlyList<MediaElementState> allowUpdatePositionStates =
@@ -47,10 +50,10 @@ partial class MediaManager : IDisposable
 	public PlatformMediaElement CreatePlatformView()
 	{
 		Player = new();
-		WindowsMediaElement MediaElement = new();
-		MediaElement.MediaOpened += OnMediaElementMediaOpened;
+		WindowsMediaElement mediaPlayer = new();
+		mediaPlayer.MediaOpened += OnMediaElementMediaOpened;
 
-		Player.SetMediaPlayer(MediaElement);
+		Player.SetMediaPlayer(mediaPlayer);
 		Player.MediaPlayer.PlaybackSession.NaturalVideoSizeChanged += OnNaturalVideoSizeChanged;
 		Player.MediaPlayer.PlaybackSession.PlaybackRateChanged += OnPlaybackSessionPlaybackRateChanged;
 		Player.MediaPlayer.PlaybackSession.PlaybackStateChanged += OnPlaybackSessionPlaybackStateChanged;
@@ -114,6 +117,71 @@ partial class MediaManager : IDisposable
 		}
 
 		static void UpdatePosition(in MediaPlayerElement mediaPlayerElement, in TimeSpan position) => mediaPlayerElement.MediaPlayer.Position = position;
+	}
+
+	protected virtual partial void PlatformSelectTrack(string trackId)
+	{
+		if (Player?.MediaPlayer.Source is not MediaPlaybackItem playbackItem)
+		{
+			return;
+		}
+
+		try
+		{
+			if (MediaElement.Handler?.VirtualView is not MediaElement mediaElement)
+			{
+				System.Diagnostics.Debug.WriteLine("MediaManager: PlatformSelectTrack - MediaElement is not available.");
+				return;
+			}
+
+			var track = mediaElement.AvailableTracks.FirstOrDefault(t => t.Id == trackId);
+			if (track is null)
+			{
+				return;
+			}
+
+			switch (track.Type)
+			{
+				case MediaTrackType.Audio:
+					SelectAudioTrack(playbackItem, track);
+					break;
+				case MediaTrackType.Text:
+					SelectSubtitleTrack(playbackItem, track);
+					break;
+			}
+
+			mediaElement.OnTrackSelectionChanged(track);
+		}
+		catch (Exception ex)
+		{
+			Logger?.LogError(ex, "Error selecting track: {TrackId}", trackId);
+		}
+	}
+
+	void SelectAudioTrack(MediaPlaybackItem playbackItem, CommunityToolkit.Maui.Core.MediaTrack track)
+	{
+		try
+		{
+			var audioTracks = playbackItem.AudioTracks;
+			if (track.Metadata?.TryGetValue("TrackIndex", out var indexObj) is true &&
+				indexObj is int trackIndex &&
+				trackIndex >= 0 &&
+				trackIndex < audioTracks.Count)
+			{
+				playbackItem.AudioTracks.SelectedIndex = trackIndex;
+			}
+		}
+		catch (Exception ex)
+		{
+			Logger?.LogError(ex, "Error selecting audio track");
+		}
+	}
+
+	void SelectSubtitleTrack(MediaPlaybackItem playbackItem, CommunityToolkit.Maui.Core.MediaTrack track)
+	{
+		// For now, subtitle track selection is limited due to Windows API constraints
+		// This would require more complex implementation with TimedMetadataTracks
+		System.Diagnostics.Debug.WriteLine($"Subtitle track selection requested: {track.Name}");
 	}
 
 	protected virtual partial void PlatformStop()
@@ -280,14 +348,24 @@ partial class MediaManager : IDisposable
 
 		MediaElement.Position = TimeSpan.Zero;
 		MediaElement.Duration = TimeSpan.Zero;
+		playbackItem = null;
+		Player.MediaPlayer.Source = null;
 		Player.AutoPlay = MediaElement.ShouldAutoPlay;
 
 		if (MediaElement.Source is UriMediaSource uriMediaSource)
 		{
+			
 			var uri = uriMediaSource.Uri?.AbsoluteUri;
 			if (!string.IsNullOrWhiteSpace(uri))
 			{
-				Player.Source = WinMediaSource.CreateFromUri(new Uri(uri));
+				var mediaSource = WinMediaSource.CreateFromUri(new Uri(uri));
+				playbackItem = new MediaPlaybackItem(mediaSource);
+				playbackItem.AudioTracksChanged += PlaybackItem_AudioTracksChanged;
+				playbackItem.VideoTracksChanged += PlaybackItem_VideoTracksChanged;
+				playbackItem.TimedMetadataTracksChanged += PlaybackItem_TimedMetadataTracksChanged;
+				playbackItem.AutoLoadedDisplayProperties = AutoLoadedDisplayPropertyKind.MusicOrVideo;
+
+				Player.MediaPlayer.Source = playbackItem;
 			}
 		}
 		else if (MediaElement.Source is FileMediaSource fileMediaSource)
@@ -308,6 +386,301 @@ partial class MediaManager : IDisposable
 			}
 		}
 	}
+
+	void PlaybackItem_TimedMetadataTracksChanged(MediaPlaybackItem sender, IVectorChangedEventArgs args)
+	{
+		System.Diagnostics.Debug.WriteLine($"TimedMetadataTracksChanged: {args.Index}");
+		//ExtractAndUpdateTracks(sender);
+		ExtractTextTracks(sender);
+	}
+
+	void PlaybackItem_VideoTracksChanged(MediaPlaybackItem sender, IVectorChangedEventArgs args)
+	{
+		System.Diagnostics.Debug.WriteLine($"VideoTracksChanged: {args.Index}");
+		//ExtractAndUpdateTracks(sender);
+	}
+
+	void PlaybackItem_AudioTracksChanged(MediaPlaybackItem sender, IVectorChangedEventArgs args)
+	{
+		System.Diagnostics.Debug.WriteLine($"AudioTracksChanged: {args.Index}");
+		//ExtractAndUpdateTracks(sender);
+		ExtractAudioTracks(sender);
+	}
+
+	void ExtractVideoTracks(MediaPlaybackItem playbackItem)
+	{
+		try
+		{
+			if (MediaElement.Handler?.VirtualView is not MediaElement mediaElement)
+			{
+				return;
+			}
+			var tracks = new List<CommunityToolkit.Maui.Core.MediaTrack>();
+			// Extract video tracks for quality selection
+			var videoTracks = playbackItem.VideoTracks;
+			for (int i = 0; i < videoTracks.Count; i++)
+			{
+				var videoTrack = videoTracks[i];
+				var props = videoTrack.GetEncodingProperties();
+				var displayName = !string.IsNullOrEmpty(videoTrack.Name)
+					? videoTrack.Name
+					: $"{props?.Width}x{props?.Height}";
+				var track = new CommunityToolkit.Maui.Core.MediaTrack
+				{
+					Id = $"video-{i}",
+					Type = MediaTrackType.Video,
+					Name = displayName,
+					Language = videoTrack.Language ?? string.Empty,
+					IsSelected = i == videoTracks.SelectedIndex,
+					IsDefault = i == 0,
+					Bitrate = (int)(props?.Bitrate ?? 0),
+					Width = (int)(props?.Width ?? 0),
+					Height = (int)(props?.Height ?? 0),
+					Metadata = new Dictionary<string, object>
+					{
+						{ "TrackIndex", i }
+					}
+				};
+				System.Diagnostics.Debug.WriteLine($"Found video track: {track.Name} ({track.Width}x{track.Height} @ {track.Bitrate}bps)");
+				tracks.Add(track);
+			}
+			// Update MediaElement with tracks
+			Dispatcher.Dispatch(() =>
+			{
+				mediaElement.OnTracksChanged(tracks);
+			});
+		}
+		catch (Exception ex)
+		{
+			Logger?.LogError(ex, "Error extracting video tracks");
+		}
+	}
+
+	void ExtractTextTracks(MediaPlaybackItem playbackItem)
+	{
+		try
+		{
+			if (MediaElement.Handler?.VirtualView is not MediaElement mediaElement)
+			{
+				return;
+			}
+			var tracks = new List<CommunityToolkit.Maui.Core.MediaTrack>();
+			// Extract text tracks (subtitles/captions)
+			var timedTracks = playbackItem.TimedMetadataTracks;
+			for (int i = 0; i < timedTracks.Count; i++)
+			{
+				var timedTrack = timedTracks[i];
+				if (timedTrack.TimedMetadataKind == Windows.Media.Core.TimedMetadataKind.Caption ||
+					timedTrack.TimedMetadataKind == Windows.Media.Core.TimedMetadataKind.Subtitle)
+				{
+					var displayName = !string.IsNullOrEmpty(timedTrack.Name)
+						? timedTrack.Name
+						: $"Subtitle {i + 1}";
+					var track = new CommunityToolkit.Maui.Core.MediaTrack
+					{
+						Id = $"subtitle-{i}",
+						Type = MediaTrackType.Text,
+						Name = displayName,
+						Language = timedTrack.Language ?? string.Empty,
+						IsSelected = false, // Subtitles typically start disabled
+						IsDefault = false,
+						Metadata = new Dictionary<string, object>
+						{
+							{ "TrackIndex", i }
+						}
+					};
+					tracks.Add(track);
+				}
+			}
+			// Update MediaElement with tracks
+			Dispatcher.Dispatch(() =>
+			{
+				mediaElement.OnTracksChanged(tracks);
+			});
+		}
+		catch (Exception ex)
+		{
+			Logger?.LogError(ex, "Error extracting text tracks");
+		}
+	}
+
+	void ExtractAudioTracks(MediaPlaybackItem playbackItem)
+	{
+		try
+		{
+			if (MediaElement.Handler?.VirtualView is not MediaElement mediaElement)
+			{
+				return;
+			}
+			var tracks = new List<CommunityToolkit.Maui.Core.MediaTrack>();
+			// Extract audio tracks
+			var audioTracks = playbackItem.AudioTracks;
+			for (int i = 0; i < audioTracks.Count; i++)
+			{
+				var audioTrack = audioTracks[i];
+				var props = audioTrack.GetEncodingProperties();
+				var displayName = !string.IsNullOrEmpty(audioTrack.Name)
+					? audioTrack.Name
+					: $"Audio Track {i + 1}";
+				var track = new CommunityToolkit.Maui.Core.MediaTrack
+				{
+					Id = $"audio-{i}",
+					Type = MediaTrackType.Audio,
+					Name = displayName,
+					Language = audioTrack.Language ?? string.Empty,
+					IsSelected = i == audioTracks.SelectedIndex,
+					IsDefault = i == 0,
+					Bitrate = (int)(props?.Bitrate ?? 0),
+					Metadata = new Dictionary<string, object>
+					{
+						{ "TrackIndex", i }
+					}
+				};
+				tracks.Add(track);
+			}
+			// Update MediaElement with tracks
+			Dispatcher.Dispatch(() =>
+			{
+				mediaElement.OnTracksChanged(tracks);
+			});
+		}
+		catch (Exception ex)
+		{
+			Logger?.LogError(ex, "Error extracting audio tracks");
+		}
+	}
+	/*
+	void ExtractAndUpdateTracks(MediaPlaybackItem playbackItem)
+	{
+		try
+		{
+			if (MediaElement.Handler?.VirtualView is not MediaElement mediaElement)
+			{
+				return;
+			}
+
+			var tracks = new List<CommunityToolkit.Maui.Core.MediaTrack>();
+
+			// Extract audio tracks
+			var audioTracks = playbackItem.AudioTracks;
+			for (int i = 0; i < audioTracks.Count; i++)
+			{
+				var audioTrack = audioTracks[i];
+				var props = audioTrack.GetEncodingProperties();
+
+				var displayName = !string.IsNullOrEmpty(audioTrack.Name) 
+					? audioTrack.Name 
+					: $"Audio Track {i + 1}";
+
+				var track = new CommunityToolkit.Maui.Core.MediaTrack
+				{
+					Id = $"audio-{i}",
+					Type = MediaTrackType.Audio,
+					Name = displayName,
+					Language = audioTrack.Language ?? string.Empty,
+					IsSelected = i == audioTracks.SelectedIndex,
+					IsDefault = i == 0,
+					Bitrate = (int)(props?.Bitrate ?? 0),
+					Metadata = new Dictionary<string, object>
+					{
+						{ "TrackIndex", i }
+					}
+				};
+
+				tracks.Add(track);
+			}
+
+			// Extract video tracks for quality selection
+			var videoTracks = playbackItem.VideoTracks;
+			for (int i = 0; i < videoTracks.Count; i++)
+			{
+				var videoTrack = videoTracks[i];
+				var props = videoTrack.GetEncodingProperties();
+
+				var displayName = !string.IsNullOrEmpty(videoTrack.Name)
+					? videoTrack.Name
+					: $"{props?.Width}x{props?.Height}";
+
+				var track = new CommunityToolkit.Maui.Core.MediaTrack
+				{
+					Id = $"video-{i}",
+					Type = MediaTrackType.Video,
+					Name = displayName,
+					Language = videoTrack.Language ?? string.Empty,
+					IsSelected = i == videoTracks.SelectedIndex,
+					IsDefault = i == 0,
+					Bitrate = (int)(props?.Bitrate ?? 0),
+					Width = (int)(props?.Width ?? 0),
+					Height = (int)(props?.Height ?? 0),
+					Metadata = new Dictionary<string, object>
+					{
+						{ "TrackIndex", i }
+					}
+				};
+				System.Diagnostics.Debug.WriteLine($"Found video track: {track.Name} ({track.Width}x{track.Height} @ {track.Bitrate}bps)");
+
+				tracks.Add(track);
+			}
+
+			// Add basic subtitle track support
+			var timedTracks = playbackItem.TimedMetadataTracks;
+			var hasSubtitles = false;
+			for (int i = 0; i < timedTracks.Count; i++)
+			{
+				var timedTrack = timedTracks[i];
+				if (timedTrack.TimedMetadataKind == Windows.Media.Core.TimedMetadataKind.Caption ||
+					timedTrack.TimedMetadataKind == Windows.Media.Core.TimedMetadataKind.Subtitle)
+				{
+					hasSubtitles = true;
+					var displayName = !string.IsNullOrEmpty(timedTrack.Name)
+						? timedTrack.Name
+						: $"Subtitle {i + 1}";
+
+					var track = new CommunityToolkit.Maui.Core.MediaTrack
+					{
+						Id = $"subtitle-{i}",
+						Type = MediaTrackType.Text,
+						Name = displayName,
+						Language = timedTrack.Language ?? string.Empty,
+						IsSelected = false, // Subtitles typically start disabled
+						IsDefault = false,
+						Metadata = new Dictionary<string, object>
+						{
+							{ "TrackIndex", i }
+						}
+					};
+
+					tracks.Add(track);
+				}
+			}
+
+			// Add "Off" option for subtitles
+			if (hasSubtitles)
+			{
+				tracks.Add(new CommunityToolkit.Maui.Core.MediaTrack
+				{
+					Id = "subtitle-none",
+					Type = MediaTrackType.Text,
+					Name = "Off",
+					Language = string.Empty,
+					IsSelected = true,
+					IsDefault = true
+				});
+			}
+
+			// Update MediaElement with tracks
+			Dispatcher.Dispatch(() =>
+			{
+				mediaElement.OnTracksChanged(tracks);
+			});
+
+		}
+		catch (Exception ex)
+		{
+			Logger?.LogError(ex, "Error extracting tracks");
+		}
+	}
+	*/
 
 	protected virtual partial void PlatformUpdateShouldLoopPlayback()
 	{
@@ -411,6 +784,19 @@ partial class MediaManager : IDisposable
 
 		await UpdateMetadata();
 
+		// Extract tracks if we have a MediaPlaybackItem
+		if (playbackItem is not null)
+		{
+			System.Diagnostics.Debug.WriteLine("MediaOpened - extracting tracks");
+			//ExtractAndUpdateTracks(playbackItem);
+			ExtractAudioTracks(playbackItem);
+			ExtractVideoTracks(playbackItem);
+			ExtractTextTracks(playbackItem);
+		}
+		else
+		{
+			System.Diagnostics.Debug.WriteLine("MediaOpened - no playback item available for track extraction");
+		}
 		static void SetDuration(in IMediaElement mediaElement, in MediaPlayerElement mediaPlayerElement)
 		{
 			mediaElement.Duration = mediaPlayerElement.MediaPlayer.NaturalDuration == TimeSpan.MaxValue
@@ -470,7 +856,7 @@ partial class MediaManager : IDisposable
 
 	void OnPlaybackSessionPlaybackRateChanged(MediaPlaybackSession sender, object args)
 	{
-		if (AreFloatingPointNumbersEqual(MediaElement.Speed, sender.PlaybackRate))
+		if (!AreFloatingPointNumbersEqual(MediaElement.Speed, sender.PlaybackRate))
 		{
 			if (Dispatcher.IsDispatchRequired)
 			{
@@ -497,7 +883,7 @@ partial class MediaManager : IDisposable
 		};
 
 		MediaElement?.CurrentStateChanged(newState);
-		if (sender.PlaybackState == MediaPlaybackState.Playing && IsZero<double>(sender.PlaybackRate))
+		if (sender.PlaybackState == MediaPlaybackState.Playing && sender.PlaybackRate == 0)
 		{
 			Dispatcher.Dispatch(() =>
 			{

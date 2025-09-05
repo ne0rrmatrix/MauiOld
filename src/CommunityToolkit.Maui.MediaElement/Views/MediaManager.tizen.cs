@@ -293,6 +293,11 @@ public partial class MediaManager : IDisposable
 
 	}
 
+	protected virtual partial void PlatformSelectTrack(string trackId)
+	{
+		// Track selection not implemented for Tizen yet
+	}
+
 	/// <summary>
 	/// Releases the unmanaged resources used by the <see cref="MediaManager"/> and optionally releases the managed resources.
 	/// </summary>

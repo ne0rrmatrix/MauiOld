@@ -23,5 +23,6 @@ public partial class MediaElementHandler : ViewHandler<MediaElement, PlatformMed
 	public static void MapPauseRequested(MediaElementHandler handler, MediaElement MediaElement, object? args) => throw new NotImplementedException();
 	public static void MapSeekRequested(MediaElementHandler handler, MediaElement MediaElement, object? args) => throw new NotImplementedException();
 	public static void MapStopRequested(MediaElementHandler handler, MediaElement MediaElement, object? args) => throw new NotImplementedException();
+	public static void MapTrackSelectionRequested(MediaElementHandler handler, MediaElement MediaElement, object? args) => throw new NotImplementedException();
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 }

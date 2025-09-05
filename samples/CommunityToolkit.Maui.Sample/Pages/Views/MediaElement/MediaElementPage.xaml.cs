@@ -15,6 +15,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	const string loadLocalResource = "Load Local Resource";
 	const string resetSource = "Reset Source to null";
 	const string loadMusic = "Load Music";
+	const string loadOnlineMpv = "Load Online MPV";
 
 	const string botImageUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
 	const string hlsStreamTestUrl = "https://mtoczko.github.io/hls-test-streams/test-gap/playlist.m3u8";
@@ -53,8 +54,12 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 
 	void OnMediaEnded(object? sender, EventArgs e) => logger.LogInformation("Media ended.");
 
-	void OnPositionChanged(object? sender, MediaPositionChangedEventArgs e)
+	void OnPositionChanged(object? sender, MediaPositionChangedEventArgs? e)
 	{
+		if (e is null ||e.Position == TimeSpan.Zero || sender is null)
+		{
+			return;
+		}
 		logger.LogInformation("Position changed to {Position}", e.Position);
 		PositionSlider.Value = e.Position.TotalSeconds;
 	}
@@ -166,7 +171,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	async void ChangeSourceClicked(Object sender, EventArgs e)
 	{
 		var result = await DisplayActionSheet("Choose a source", "Cancel", null,
-			loadOnlineMp4, loadHls, loadLocalResource, resetSource, loadMusic);
+			loadOnlineMp4, loadHls, loadLocalResource, resetSource, loadMusic, loadOnlineMpv);
 
 		MediaElement.Stop();
 		MediaElement.Source = null;
@@ -185,7 +190,13 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				MediaElement.MetadataArtist = "HLS Album";
 				MediaElement.MetadataArtworkUrl = botImageUrl;
 				MediaElement.MetadataTitle = "HLS Title";
-				MediaElement.Source = MediaSource.FromUri(hlsStreamTestUrl);
+				MediaElement.Source = MediaSource.FromUri(StreamingVideoUrls.Hls);
+				return;
+			case loadOnlineMpv:
+				MediaElement.MetadataTitle = "Big Buck Bunny";
+				MediaElement.MetadataArtworkUrl = botImageUrl;
+				MediaElement.MetadataArtist = "Big Buck Bunny Album";
+				MediaElement.Source = MediaSource.FromUri(StreamingVideoUrls.Dash);
 				return;
 
 			case resetSource:

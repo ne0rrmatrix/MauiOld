@@ -1,0 +1,21 @@
+<resources>
+  <!-- Text appearance -->
+  <style name="PopupMenuTextStyle" parent="@style/TextAppearance.Material3.BodyLarge">
+    <item name="android:textColor">#FFFFFF</item>
+  </style>
+
+  <!-- Custom popup menu style -->
+  <style name="CustomPopupMenuStyle" parent="ThemeOverlay.Material3">
+    <!-- This is the key: set the theme attribute -->
+    <item name="popupMenuBackground">@drawable/popup_background_material</item>
+
+    <!-- Also set the widget style -->
+    <item name="popupMenuStyle">@style/CustomPopupMenuWidgetStyle</item>
+  </style>
+
+  <!-- The actual widget style -->
+  <style name="CustomPopupMenuWidgetStyle" parent="Widget.Material3.PopupMenu">
+    <item name="android:popupBackground">@drawable/popup_background_material</item>
+    <item name="android:textAppearance">@style/PopupMenuTextStyle</item>
+  </style>
+</resources>

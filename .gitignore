@@ -268,3 +268,4 @@ paket-files/
 
 # Benchmarkdot
 BenchmarkDotNet.Artifacts/
+/src/CommunityToolkit.Maui.MediaElement/Primitives/HtmlFiles.cs

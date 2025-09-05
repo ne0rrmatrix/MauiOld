@@ -1,6 +1,8 @@
 ﻿using System.Runtime.Versioning;
 using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Core.Handlers;
+using CommunityToolkit.Maui.Extensions;
+using CommunityToolkit.Maui.Primitives;
 using CommunityToolkit.Maui.Views;
 
 namespace CommunityToolkit.Maui;
@@ -31,9 +33,11 @@ public static class AppBuilderExtensions
 		{
 			h.AddHandler<MediaElement, MediaElementHandler>();
 		});
-
+		builder.Services.AddSingleton<DrmExtensions>();
+		builder.Services.AddSingleton<Subtitle>();
 #if ANDROID
 		builder.Services.AddSingleton<Media.Services.MediaControlsService>();
+		
 #endif
 
 		return builder;

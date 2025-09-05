@@ -21,7 +21,7 @@ namespace CommunityToolkit.Maui.Core.Views;
 public class MauiMediaElement : CoordinatorLayout
 {
 	readonly RelativeLayout relativeLayout;
-	readonly PlayerView playerView;
+	readonly CustomPlayerViewWithCast playerView;
 
 	int defaultSystemUiVisibility;
 	bool isSystemBarVisible;
@@ -40,17 +40,19 @@ public class MauiMediaElement : CoordinatorLayout
 	/// Initializes a new instance of the <see cref="MauiMediaElement"/> class.
 	/// </summary>
 	/// <param name="context">The application's <see cref="Context"/>.</param>
-	/// <param name="playerView">The <see cref="PlayerView"/> that acts as the platform media player.</param>
-	public MauiMediaElement(Context context, PlayerView playerView) : base(context)
+	/// <param name="playerView">The <see cref="CustomPlayerViewWithCast"/> that acts as the platform media player.</param>
+	public MauiMediaElement(Context context, CustomPlayerViewWithCast playerView) : base(context)
 	{
 		this.playerView = playerView;
 		this.playerView.SetBackgroundColor(Android.Graphics.Color.Black);
 		playerView.FullscreenButtonClick += OnFullscreenButtonClick;
-		var layout = new RelativeLayout.LayoutParams(LayoutParams.WrapContent, LayoutParams.WrapContent);
+		
+		var layout = new RelativeLayout.LayoutParams(
+			LayoutParams.WrapContent, LayoutParams.WrapContent);
 		layout.AddRule(LayoutRules.CenterInParent);
 		layout.AddRule(LayoutRules.CenterVertical);
 		layout.AddRule(LayoutRules.CenterHorizontal);
-		relativeLayout = new RelativeLayout(Platform.AppContext)
+		relativeLayout = new RelativeLayout(context)
 		{
 			LayoutParameters = layout,
 		};
@@ -63,7 +65,7 @@ public class MauiMediaElement : CoordinatorLayout
 	{
 		if (isFullScreen)
 		{
-			OnFullscreenButtonClick(this, new PlayerView.FullscreenButtonClickEventArgs(!isFullScreen));
+			OnFullscreenButtonClick(this, new CustomPlayerViewWithCast.FullscreenButtonClickEventArgs(!isFullScreen));
 		}
 		base.OnDetachedFromWindow();
 	}
@@ -96,6 +98,7 @@ public class MauiMediaElement : CoordinatorLayout
 				{
 					playerView.Player.PlayWhenReady = false;
 				}
+				playerView.FullscreenButtonClick -= OnFullscreenButtonClick;
 				// https://github.com/google/ExoPlayer/issues/1855#issuecomment-251041500
 				playerView.Player?.Release();
 				playerView.Player?.Dispose();

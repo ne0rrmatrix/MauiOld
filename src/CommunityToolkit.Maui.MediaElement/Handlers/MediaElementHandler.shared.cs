@@ -34,7 +34,8 @@ public partial class MediaElementHandler
 		[nameof(MediaElement.PlayRequested)] = MapPlayRequested,
 		[nameof(MediaElement.PauseRequested)] = MapPauseRequested,
 		[nameof(MediaElement.SeekRequested)] = MapSeekRequested,
-		[nameof(MediaElement.StopRequested)] = MapStopRequested
+		[nameof(MediaElement.StopRequested)] = MapStopRequested,
+		[nameof(MediaElement.TrackSelectionRequested)] = MapTrackSelectionRequested
 	};
 
 	/// <summary>
@@ -203,6 +204,20 @@ public partial class MediaElementHandler
 	public static void MapStopRequested(MediaElementHandler handler, MediaElement mediaElement, object? args)
 	{
 		handler.MediaManager?.Stop();
+	}
+
+	/// <summary>
+	/// Maps the track selection request between the abstract <see cref="MediaElement"/> and platform counterpart.
+	/// </summary>
+	/// <param name="handler">The associated handler.</param>
+	/// <param name="mediaElement">The associated <see cref="MediaElement"/> instance.</param>
+	/// <param name="args">The track ID to select.</param>
+	public static void MapTrackSelectionRequested(MediaElementHandler handler, MediaElement mediaElement, object? args)
+	{
+		if (args is string trackId)
+		{
+			handler.MediaManager?.SelectTrack(trackId);
+		}
 	}
 
 	/// <summary>
