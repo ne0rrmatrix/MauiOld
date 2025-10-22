@@ -74,6 +74,13 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 			propertyChanging: OnSourcePropertyChanging, propertyChanged: OnSourcePropertyChanged);
 
 	/// <summary>
+	/// Backing store for the <see cref="Playlist"/> property.
+	/// </summary>
+	public static readonly BindableProperty PlaylistProperty =
+		BindableProperty.Create(nameof(Playlist), typeof(List<MediaSource?>), typeof(MediaElement),
+			propertyChanging: OnPlaylistPropertyChanging, propertyChanged: OnPlaylistPropertyChanged);
+
+	/// <summary>
 	/// Backing store for the <see cref="Speed"/> property.
 	/// </summary>
 	public static readonly BindableProperty SpeedProperty =
@@ -289,6 +296,15 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 	{
 		get => (MediaSource)GetValue(SourceProperty);
 		set => SetValue(SourceProperty, value);
+	}
+
+	/// <summary>
+	/// Gets or sets the playlist of media to play.
+	/// </summary>
+	public List<MediaSource?> Playlist
+	{
+		get => (List<MediaSource?>)GetValue(PlaylistProperty);
+		set => SetValue(PlaylistProperty, value);
 	}
 
 	/// <summary>
@@ -530,6 +546,10 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 	static void OnSourcePropertyChanging(BindableObject bindable, object oldValue, object newValue) =>
 		((MediaElement)bindable).OnSourcePropertyChanging((MediaSource?)oldValue);
 
+	static void OnPlaylistPropertyChanged(BindableObject bindable, object oldValue, object newValue) =>
+		((MediaElement)bindable).OnPlaylistPropertyChanged((List<MediaSource?>)newValue);
+	static void OnPlaylistPropertyChanging(BindableObject bindable, object oldValue, object newValue) =>
+		((MediaElement)bindable).OnPlaylistPropertyChanging((List<MediaSource?>)oldValue);
 	static void OnCurrentStatePropertyChanged(BindableObject bindable, object oldValue, object newValue)
 	{
 		var mediaElement = (MediaElement)bindable;
@@ -581,6 +601,11 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 		timer = null;
 	}
 
+	void OnPlaylistChanged(object? sender, EventArgs eventArgs)
+	{
+		OnPropertyChanged(PlaylistProperty.PropertyName);
+		InvalidateMeasure();
+	}
 	void OnSourceChanged(object? sender, EventArgs eventArgs)
 	{
 		OnPropertyChanged(SourceProperty.PropertyName);
@@ -601,6 +626,25 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 		InitializeTimer();
 	}
 
+	void OnPlaylistPropertyChanged(List<MediaSource?> newValue)
+	{
+		ClearTimer();
+		if (newValue is not null)
+		{
+			foreach (var mediaSource in newValue)
+			{
+				if (mediaSource is null)
+				{
+					continue;
+				}
+				mediaSource.SourceChanged += OnPlaylistChanged;
+				SetInheritedBindingContext(mediaSource, BindingContext);
+			}
+		}
+		InvalidateMeasure();
+		InitializeTimer();
+	}
+
 	void OnSourcePropertyChanging(MediaSource? oldValue)
 	{
 		if (oldValue is null)
@@ -611,6 +655,21 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 		oldValue.SourceChanged -= OnSourceChanged;
 	}
 
+	void OnPlaylistPropertyChanging(List<MediaSource?> oldValue)
+	{
+		if (oldValue is null)
+		{
+			return;
+		}
+		foreach (var mediaSource in oldValue)
+		{
+			if (mediaSource is null)
+			{
+				continue;
+			}
+			mediaSource.SourceChanged -= OnPlaylistChanged;
+		}
+	}
 	void IMediaElement.MediaEnded()
 	{
 		OnMediaEnded();

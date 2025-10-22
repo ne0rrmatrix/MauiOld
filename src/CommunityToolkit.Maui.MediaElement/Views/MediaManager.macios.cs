@@ -20,6 +20,11 @@ public partial class MediaManager : IDisposable
 	bool isInitialSpeedSet;
 
 	/// <summary>
+	/// A reference to the native iOS/macOS media player.
+	/// </summary>
+	protected IDisposable? CurrentItemObserver { get; set; }
+
+	/// <summary>
 	/// Creates the corresponding platform view of <see cref="MediaElement"/> on iOS and macOS.
 	/// </summary>
 	/// <returns>The platform native counterpart of <see cref="MediaElement"/>.</returns>
@@ -53,6 +58,19 @@ public partial class MediaManager : IDisposable
 		AddStatusObservers();
 		AddPlayedToEndObserver();
 		AddErrorObservers();
+
+		// Observe currentItem changes to keep metadata/dimensions in sync
+		CurrentItemObserver?.Dispose();
+		CurrentItemObserver = Player.AddObserver("currentItem", ValueObserverOptions, (NSObservedChange _) =>
+		{
+			if (Player?.CurrentItem is AVPlayerItem curr)
+			{
+				PlayerItem = curr;
+				metaData?.SetMetadata(curr, MediaElement);
+				(MediaElement.MediaWidth, MediaElement.MediaHeight) = GetVideoDimensions(curr);
+				SetPoster();
+			}
+		});
 
 		return (Player, PlayerViewController);
 	}
@@ -224,42 +242,7 @@ public partial class MediaManager : IDisposable
 		Metadata.ClearNowPlaying();
 		PlayerViewController?.ContentOverlayView?.Subviews.FirstOrDefault()?.RemoveFromSuperview();
 
-		if (MediaElement.Source is UriMediaSource uriMediaSource)
-		{
-			var uri = uriMediaSource.Uri;
-			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
-			{
-				asset = AVAsset.FromUrl(new NSUrl(uri.AbsoluteUri));
-			}
-		}
-		else if (MediaElement.Source is FileMediaSource fileMediaSource)
-		{
-			var uri = fileMediaSource.Path;
-
-			if (!string.IsNullOrWhiteSpace(uri))
-			{
-				asset = AVAsset.FromUrl(NSUrl.CreateFileUrl(uri));
-			}
-		}
-		else if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
-		{
-			var path = resourceMediaSource.Path;
-
-			if (!string.IsNullOrWhiteSpace(path) && Path.HasExtension(path))
-			{
-				string directory = Path.GetDirectoryName(path) ?? "";
-				string filename = Path.GetFileNameWithoutExtension(path);
-				string extension = Path.GetExtension(path)[1..];
-				var url = NSBundle.MainBundle.GetUrlForResource(filename,
-					extension, directory);
-
-				asset = AVAsset.FromUrl(url);
-			}
-			else
-			{
-				Logger.LogWarning("Invalid file path for ResourceMediaSource.");
-			}
-		}
+		asset = CreatePlayerItem(MediaElement.Source);
 
 		PlayerItem = asset is not null
 			? new AVPlayerItem(asset)
@@ -310,149 +293,224 @@ public partial class MediaManager : IDisposable
 		return ValueTask.CompletedTask;
 	}
 
-	void SetPoster()
+	protected virtual partial ValueTask PlatformUpdatePlaylist()
 	{
-		if (PlayerItem is null || metaData is null)
-		{
-			return;
-		}
+		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 
-		var videoTrack = PlayerItem.Asset.TracksWithMediaType(AVMediaTypes.Video.GetConstant() ?? "0").FirstOrDefault();
-		if (videoTrack is not null)
-		{
-			return;
-		}
-
-		if (PlayerItem.Asset.Tracks.Length == 0)
-		{
-			// No video track found and no tracks found. This is likely an audio file. So we can't set a poster.
-			return;
-		}
-
-		if (PlayerViewController?.View is not null && PlayerViewController.ContentOverlayView is not null && !string.IsNullOrEmpty(MediaElement.MetadataArtworkUrl))
-		{
-			var image = UIImage.LoadFromData(NSData.FromUrl(new NSUrl(MediaElement.MetadataArtworkUrl))) ?? new UIImage();
-			var imageView = new UIImageView(image)
-			{
-				ContentMode = UIViewContentMode.ScaleAspectFit,
-				TranslatesAutoresizingMaskIntoConstraints = false,
-				ClipsToBounds = true,
-				AutoresizingMask = UIViewAutoresizing.FlexibleDimensions
-			};
-
-			PlayerViewController.ContentOverlayView.AddSubview(imageView);
-			NSLayoutConstraint.ActivateConstraints(
-			[
-				imageView.CenterXAnchor.ConstraintEqualTo(PlayerViewController.ContentOverlayView.CenterXAnchor),
-				imageView.CenterYAnchor.ConstraintEqualTo(PlayerViewController.ContentOverlayView.CenterYAnchor),
-				imageView.WidthAnchor.ConstraintLessThanOrEqualTo(PlayerViewController.ContentOverlayView.WidthAnchor),
-				imageView.HeightAnchor.ConstraintLessThanOrEqualTo(PlayerViewController.ContentOverlayView.HeightAnchor),
-
-				// Maintain the aspect ratio
-				imageView.WidthAnchor.ConstraintEqualTo(imageView.HeightAnchor, image.Size.Width / image.Size.Height)
-			]);
-		}
-	}
-
-	protected virtual partial void PlatformUpdateSpeed()
-	{
-		if (PlayerViewController?.Player is null)
-		{
-			return;
-		}
-
-		// First time we're getting a playback speed and should NOT auto play, do nothing.
-		if (!isInitialSpeedSet && !MediaElement.ShouldAutoPlay)
-		{
-			isInitialSpeedSet = true;
-			return;
-		}
-
-		PlayerViewController.Player.Rate = (float)MediaElement.Speed;
-	}
-
-	protected virtual partial void PlatformUpdateShouldShowPlaybackControls()
-	{
-		if (PlayerViewController is null)
-		{
-			return;
-		}
-
-		PlayerViewController.ShowsPlaybackControls =
-			MediaElement.ShouldShowPlaybackControls;
-	}
-
-	protected virtual partial void PlatformUpdatePosition()
-	{
 		if (Player is null)
 		{
-			return;
+			return ValueTask.CompletedTask;
 		}
 
+		metaData ??= new(Player);
+		Metadata.ClearNowPlaying();
+		PlayerViewController?.ContentOverlayView?.Subviews.FirstOrDefault()?.RemoveFromSuperview();
+
+		List<AVPlayerItem> items = [];
+		foreach (var source in MediaElement.Playlist)
+		{
+			var asset = CreatePlayerItem(source);
+			if (asset is null)
+			{
+				continue;
+			}
+			items.Add(new AVPlayerItem(asset));
+		}
+
+		if (items.Count == 0)
+		{
+			MediaElement.MediaWidth = MediaElement.MediaHeight = 0;
+			MediaElement.CurrentStateChanged(MediaElementState.None);
+			return ValueTask.CompletedTask;
+		}
+
+		// All queue mutations on main thread
+		DispatchQueue.MainQueue.DispatchSync(() =>
+		{
+			// Clear any previous queue contents to prevent mixed queues
+			Player.RemoveAllItems();
+
+			// Make the first item the current item
+			var first = items[0];
+			Player.ReplaceCurrentItemWithPlayerItem(first);
+			PlayerItem = first;
+
+			// Append the rest in order, anchored after the last inserted
+			var last = first;
+			for (int i = 1; i < items.Count; i++)
+			{
+				var next = items[i];
+				if (Player.CanInsert(next, last))
+				{
+					Player.InsertItem(next, last);
+				}
+				else
+				{
+					// Fallback: append at end
+					Player.InsertItem(next, afterItem: null);
+				}
+				last = next;
+			}
+		});
+
+		// Setup error observer for the current item
+		CurrentItemErrorObserver?.Dispose();
 		if (PlayerItem is not null)
 		{
-			if (PlayerItem.Duration == CMTime.Indefinite)
-			{
-				var range = PlayerItem.SeekableTimeRanges?.LastOrDefault();
+			metaData.SetMetadata(PlayerItem, MediaElement);
 
-				if (range?.CMTimeRangeValue is not null)
+			CurrentItemErrorObserver = PlayerItem.AddObserver("error",
+				ValueObserverOptions, (NSObservedChange change) =>
 				{
-					MediaElement.Duration = ConvertTime(range.CMTimeRangeValue.Duration);
-					MediaElement.Position = ConvertTime(PlayerItem.CurrentTime);
-				}
-			}
-			else
+					if (Player?.CurrentItem?.Error is null)
+					{
+						return;
+					}
+
+					var message = $"{Player.CurrentItem?.Error?.LocalizedDescription} - {Player.CurrentItem?.Error?.LocalizedFailureReason}";
+					MediaElement.MediaFailed(new MediaFailedEventArgs(message));
+					Logger.LogError("{LogMessage}", message);
+				});
+
+			MediaElement.MediaOpened();
+			(MediaElement.MediaWidth, MediaElement.MediaHeight) = GetVideoDimensions(PlayerItem);
+
+			if (MediaElement.ShouldAutoPlay)
 			{
-				MediaElement.Duration = ConvertTime(PlayerItem.Duration);
-				MediaElement.Position = ConvertTime(PlayerItem.CurrentTime);
+				Player.Play();
 			}
+
+			SetPoster();
 		}
 		else
 		{
-			Player.Pause();
-			MediaElement.Duration = MediaElement.Position = TimeSpan.Zero;
+			MediaElement.MediaWidth = MediaElement.MediaHeight = 0;
+			MediaElement.CurrentStateChanged(MediaElementState.None);
 		}
+
+		return ValueTask.CompletedTask;
 	}
 
-	protected virtual partial void PlatformUpdateVolume()
+	void PlayedToEnd(object? sender, NSNotificationEventArgs args)
 	{
 		if (Player is null)
 		{
 			return;
 		}
 
-		var volumeDiff = Math.Abs(Player.Volume - MediaElement.Volume);
-		if (volumeDiff > 0.01)
-		{
-			Player.Volume = (float)MediaElement.Volume;
-		}
-	}
+		// AVQueuePlayer auto-advances. When the last item finishes:
+		// - CurrentItem is null
+		// - Items is empty
+		var queueEmpty = Player.CurrentItem is null && (Player.Items?.Length ?? 0) == 0;
 
-
-	protected virtual partial void PlatformUpdateShouldKeepScreenOn()
-	{
-		if (Player is null)
+		if (!queueEmpty)
 		{
+			// Still more items in the queue; nothing to do.
 			return;
 		}
 
-		UIApplication.SharedApplication.IdleTimerDisabled = MediaElement.ShouldKeepScreenOn;
-	}
-
-
-	protected virtual partial void PlatformUpdateShouldMute()
-	{
-		if (Player is null)
+		if (MediaElement.ShouldLoopPlayback)
 		{
-			return;
-		}
+			// Re-enqueue the playlist and continue playing
+			var sources = MediaElement.Playlist;
+			if (sources is null || sources.Count == 0)
+			{
+				// Single-source fallback
+				PlayerViewController?.Player?.Seek(CMTime.Zero);
+				Player.Play();
+				return;
+			}
 
-		Player.Muted = MediaElement.ShouldMute;
+			List<AVPlayerItem> newItems = [];
+			foreach (var source in sources)
+			{
+				var asset = CreatePlayerItem(source);
+				if (asset is null)
+				{
+					continue;
+				}
+				newItems.Add(new AVPlayerItem(asset));
+			}
+
+			if (newItems.Count == 0)
+			{
+				return;
+			}
+
+			DispatchQueue.MainQueue.DispatchSync(() =>
+			{
+				Player.RemoveAllItems();
+				var first = newItems[0];
+				Player.ReplaceCurrentItemWithPlayerItem(first);
+				var last = first;
+				for (int i = 1; i < newItems.Count; i++)
+				{
+					var next = newItems[i];
+					if (Player.CanInsert(next, last))
+					{
+						Player.InsertItem(next, last);
+					}
+					else
+					{
+						Player.InsertItem(next, afterItem: null);
+					}
+					last = next;
+				}
+				Player.Play();
+			});
+		}
+		else
+		{
+			try
+			{
+				DispatchQueue.MainQueue.DispatchAsync(MediaElement.MediaEnded);
+			}
+			catch (Exception e)
+			{
+				Logger.LogWarning(e, "{LogMessage}", $"Failed to play media to end.");
+			}
+		}
 	}
 
-	protected virtual partial void PlatformUpdateShouldLoopPlayback()
+	AVAsset? CreatePlayerItem(MediaSource? source)
 	{
-		// no-op we loop through using the PlayedToEndObserver
+		if (source is UriMediaSource uriMediaSource)
+		{
+			var uri = uriMediaSource.Uri;
+			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
+			{
+				return AVAsset.FromUrl(new NSUrl(uri.AbsoluteUri));
+			}
+		}
+		else if (source is FileMediaSource fileMediaSource)
+		{
+			var uri = fileMediaSource.Path;
+
+			if (!string.IsNullOrWhiteSpace(uri))
+			{
+				return AVAsset.FromUrl(NSUrl.CreateFileUrl(uri));
+			}
+		}
+		else if (source is ResourceMediaSource resourceMediaSource)
+		{
+			var path = resourceMediaSource.Path;
+
+			if (!string.IsNullOrWhiteSpace(path) && Path.HasExtension(path))
+			{
+				string directory = Path.GetDirectoryName(path) ?? "";
+				string filename = Path.GetFileNameWithoutExtension(path);
+				string extension = Path.GetExtension(path)[1..];
+				var url = NSBundle.MainBundle.GetUrlForResource(filename,
+					extension, directory);
+
+				return AVAsset.FromUrl(url);
+			}
+			else
+			{
+				Logger.LogWarning("Invalid file path for ResourceMediaSource.");
+			}
+		}
+		return null;
 	}
 
 	/// <summary>
@@ -503,8 +561,6 @@ public partial class MediaManager : IDisposable
 			PlayerViewController = null;
 		}
 	}
-
-	static TimeSpan ConvertTime(CMTime cmTime) => TimeSpan.FromSeconds(double.IsNaN(cmTime.Seconds) ? 0 : cmTime.Seconds);
 
 	static (int Width, int Height) GetVideoDimensions(AVPlayerItem avPlayerItem)
 	{
@@ -673,32 +729,49 @@ public partial class MediaManager : IDisposable
 		}
 	}
 
-
-	void PlayedToEnd(object? sender, NSNotificationEventArgs args)
+	void SetPoster()
 	{
-		if (args.Notification.Object != PlayerViewController?.Player?.CurrentItem || Player is null)
+		if (PlayerItem is null || metaData is null)
 		{
 			return;
 		}
 
-		if (MediaElement.ShouldLoopPlayback)
+		var videoTrack = PlayerItem.Asset.TracksWithMediaType(AVMediaTypes.Video.GetConstant() ?? "0").FirstOrDefault();
+		if (videoTrack is not null)
 		{
-			PlayerViewController?.Player?.Seek(CMTime.Zero);
-			Player.Play();
+			return;
 		}
-		else
+
+		if (PlayerItem.Asset.Tracks.Length == 0)
 		{
-			try
+			// No video track found and no tracks found. This is likely an audio file. So we can't set a poster.
+			return;
+		}
+
+		if (PlayerViewController?.View is not null && PlayerViewController.ContentOverlayView is not null && !string.IsNullOrEmpty(MediaElement.MetadataArtworkUrl))
+		{
+			var image = UIImage.LoadFromData(NSData.FromUrl(new NSUrl(MediaElement.MetadataArtworkUrl))) ?? new UIImage();
+			var imageView = new UIImageView(image)
 			{
-				DispatchQueue.MainQueue.DispatchAsync(MediaElement.MediaEnded);
-			}
-			catch (Exception e)
-			{
-				Logger.LogWarning(e, "{LogMessage}", $"Failed to play media to end.");
-			}
+				ContentMode = UIViewContentMode.ScaleAspectFit,
+				TranslatesAutoresizingMaskIntoConstraints = false,
+				ClipsToBounds = true,
+				AutoresizingMask = UIViewAutoresizing.FlexibleDimensions
+			};
+
+			PlayerViewController.ContentOverlayView.AddSubview(imageView);
+			NSLayoutConstraint.ActivateConstraints(
+			[
+				imageView.CenterXAnchor.ConstraintEqualTo(PlayerViewController.ContentOverlayView.CenterXAnchor),
+				imageView.CenterYAnchor.ConstraintEqualTo(PlayerViewController.ContentOverlayView.CenterYAnchor),
+				imageView.WidthAnchor.ConstraintLessThanOrEqualTo(PlayerViewController.ContentOverlayView.WidthAnchor),
+				imageView.HeightAnchor.ConstraintLessThanOrEqualTo(PlayerViewController.ContentOverlayView.HeightAnchor),
+
+				// Maintain the aspect ratio
+				imageView.WidthAnchor.ConstraintEqualTo(imageView.HeightAnchor, image.Size.Width / image.Size.Height)
+			]);
 		}
 	}
-
 
 	void RateChanged(object? sender, NSNotificationEventArgs args)
 	{

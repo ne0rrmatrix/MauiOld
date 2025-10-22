@@ -15,6 +15,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	const string loadLocalResource = "Load Local Resource";
 	const string resetSource = "Reset Source to null";
 	const string loadMusic = "Load Music";
+	const string loadPlaylist = "Load Playlist";
 
 	const string botImageUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
 	const string hlsStreamTestUrl = "https://mtoczko.github.io/hls-test-streams/test-gap/playlist.m3u8";
@@ -166,7 +167,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 	async void ChangeSourceClicked(Object sender, EventArgs e)
 	{
 		var result = await DisplayActionSheet("Choose a source", "Cancel", null,
-			loadOnlineMp4, loadHls, loadLocalResource, resetSource, loadMusic);
+			loadOnlineMp4, loadHls, loadLocalResource, resetSource, loadMusic, loadPlaylist);
 
 		MediaElement.Stop();
 		MediaElement.Source = null;
@@ -220,6 +221,21 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				MediaElement.MetadataArtist = "HAL 9000 Album";
 				MediaElement.MetadataArtworkUrl = botImageUrl;
 				MediaElement.Source = MediaSource.FromUri(hal9000AudioUrl);
+				return;
+			case loadPlaylist:
+				var playlist = new List<MediaSource?>
+				{
+					MediaSource.FromUri(StreamingVideoUrls.BuckBunny),
+					MediaSource.FromUri(StreamingVideoUrls.ElephantsDream),
+					MediaSource.FromResource("WindowsVideo.mp4"),
+					MediaSource.FromUri(hal9000AudioUrl),
+					MediaSource.FromResource("WindowsVideo.mp4"),
+					MediaSource.FromUri(StreamingVideoUrls.Sintel),
+				};
+				MediaElement.MetadataTitle = "Playlist: Big Buck Bunny, Elephant's Dream, Sintel";
+				MediaElement.MetadataArtist = "Various Artists";
+				MediaElement.MetadataArtworkUrl = botImageUrl;
+				MediaElement.Playlist = playlist;
 				return;
 		}
 	}

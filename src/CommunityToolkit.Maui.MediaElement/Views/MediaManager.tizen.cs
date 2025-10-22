@@ -196,6 +196,12 @@ public partial class MediaManager : IDisposable
 		return ValueTask.CompletedTask;
 	}
 
+	protected virtual partial ValueTask PlatformUpdatePlaylist()
+	{
+		// Playlist is not supported on Android ExoPlayer implementation yet.
+		return ValueTask.CompletedTask;
+	}
+
 	protected virtual partial void PlatformUpdateSpeed()
 	{
 		if (Player is null)

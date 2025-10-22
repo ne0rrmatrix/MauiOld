@@ -85,11 +85,14 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	/// </remarks>
 	public void OnPlayerStateChanged(bool playWhenReady, int playbackState)
 	{
-		if (Player is null || MediaElement.Source is null)
+		if (Player is null)
 		{
 			return;
 		}
-
+		if(MediaElement.Source is null && MediaElement.Playlist is null)
+		{
+			return;
+		}
 		var newState = playbackState switch
 		{
 			PlaybackState.StateFastForwarding
@@ -190,7 +193,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	/// </remarks>
 	public void OnPlaybackStateChanged(int playbackState)
 	{
-		if (MediaElement.Source is null)
+		if (MediaElement.Source is null && MediaElement.Playlist is null)
 		{
 			return;
 		}
@@ -286,7 +289,11 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 	protected virtual partial void PlatformPlay()
 	{
-		if (Player is null || MediaElement.Source is null)
+		if (Player is null)
+		{
+			return;
+		}
+		if (MediaElement.Source is null && MediaElement.Playlist is null)
 		{
 			return;
 		}
@@ -297,7 +304,11 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 	protected virtual partial void PlatformPause()
 	{
-		if (Player is null || MediaElement.Source is null)
+		if (Player is null)
+		{
+			return;
+		}
+		if (MediaElement.Source is null && MediaElement.Playlist is null)
 		{
 			return;
 		}
@@ -334,7 +345,11 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 	protected virtual partial void PlatformStop()
 	{
-		if (Player is null || MediaElement.Source is null)
+		if (Player is null)
+		{
+			return;
+		}
+		if (MediaElement.Source is null && MediaElement.Playlist is null)
 		{
 			return;
 		}
@@ -358,9 +373,9 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 			StartService();
 		}
 
+		Player.ClearMediaItems();
 		if (MediaElement.Source is null)
-		{
-			Player.ClearMediaItems();
+		{	
 			MediaElement.Duration = TimeSpan.Zero;
 			MediaElement.CurrentStateChanged(MediaElementState.None);
 
@@ -371,7 +386,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		Player.PlayWhenReady = MediaElement.ShouldAutoPlay;
 		cancellationTokenSource ??= new();
 		// ConfigureAwait(true) is required to prevent crash on startup
-		var result = await SetPlayerData(cancellationTokenSource.Token).ConfigureAwait(true);
+		var result = await SetPlayerData(MediaElement.Source, cancellationTokenSource.Token).ConfigureAwait(true);
 		var item = result?.Build();
 
 		if (item?.MediaMetadata is not null)
@@ -388,6 +403,69 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		}
 	}
 
+	protected virtual async partial ValueTask PlatformUpdatePlaylist()
+	{
+		if (Player is null)
+		{
+			return;
+		}
+
+		if (connection is null)
+		{
+			StartService();
+		}
+
+		Player.ClearMediaItems();
+		if (MediaElement.Playlist is null || MediaElement.Playlist.Count == 0)
+		{
+			MediaElement.Duration = TimeSpan.Zero;
+			MediaElement.CurrentStateChanged(MediaElementState.None);
+			System.Diagnostics.Trace.TraceInformation("Playlist is null or empty.");
+			return;
+		}
+
+		MediaElement.CurrentStateChanged(MediaElementState.Opening);
+		Player.PlayWhenReady = MediaElement.ShouldAutoPlay;
+		await SetPlayerItems(MediaElement.Playlist).ConfigureAwait(true);
+		
+		Player.Prepare();
+
+		if (Player.PlayerError is null)
+		{
+			System.Diagnostics.Trace.TraceInformation("Playlist items set successfully.");
+			MediaElement.MediaOpened();
+			UpdateNotifications();
+		}
+		else
+		{
+			System.Diagnostics.Trace.TraceInformation("Error occurred while setting playlist items.");
+		}
+	}
+
+	async ValueTask SetPlayerItems(List<MediaSource?> sources, CancellationToken cancellationToken = default)
+	{
+		if (Player is null)
+		{
+			throw new InvalidOperationException($"{nameof(IExoPlayer)} is not yet initialized");
+		}
+		Player.ClearMediaItems();
+		foreach (var source in sources)
+		{
+			if (source is null)
+			{
+				System.Diagnostics.Trace.TraceInformation("Playlist item is null, skipping...");
+				continue;
+			}
+			var result = await SetPlayerData(source, cancellationToken);
+			var item = result?.Build();
+			if (item is null)
+			{
+				continue;
+			}
+			Player.AddMediaItem(item);
+		}
+		System.Diagnostics.Trace.TraceInformation("All playlist items processed.");
+	}
 	protected virtual partial void PlatformUpdateAspect()
 	{
 		if (PlayerView is null)
@@ -653,14 +731,9 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 	void HandleMediaControlsServiceTaskRemoved(object? sender, EventArgs e) => Player?.Stop();
 
-	async Task<MediaItem.Builder?> SetPlayerData(CancellationToken cancellationToken = default)
+	async Task<MediaItem.Builder?> SetPlayerData(MediaSource source, CancellationToken cancellationToken = default)
 	{
-		if (MediaElement.Source is null)
-		{
-			return null;
-		}
-
-		switch (MediaElement.Source)
+		switch (source)
 		{
 			case UriMediaSource uriMediaSource:
 				{
@@ -695,7 +768,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 					break;
 				}
 			default:
-				throw new NotSupportedException($"{MediaElement.Source.GetType().FullName} is not yet supported for {nameof(MediaElement.Source)}");
+				throw new NotSupportedException($"{MediaElement.Source?.GetType().FullName} is not yet supported for {nameof(MediaElement.Source)}");
 		}
 
 		return mediaItem;

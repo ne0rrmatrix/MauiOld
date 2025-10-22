@@ -14,6 +14,7 @@ public partial class MediaElementHandler
 	public static IPropertyMapper<MediaElement, MediaElementHandler> PropertyMapper = new PropertyMapper<MediaElement, MediaElementHandler>(ViewMapper)
 	{
 		[nameof(IMediaElement.Aspect)] = MapAspect,
+		[nameof(IMediaElement.Playlist)] = MapPlaylist,
 		[nameof(IMediaElement.ShouldShowPlaybackControls)] = MapShouldShowPlaybackControls,
 		[nameof(IMediaElement.Source)] = MapSource,
 		[nameof(IMediaElement.Speed)] = MapSpeed,
@@ -72,6 +73,16 @@ public partial class MediaElementHandler
 	public static void MapAspect(MediaElementHandler handler, MediaElement mediaElement)
 	{
 		handler.MediaManager?.UpdateAspect();
+	}
+
+	/// <summary>
+	/// Updates the playlist associated with the specified media element handler.
+	/// </summary>
+	/// <param name="handler">The media element handler whose playlist will be updated. Cannot be null.</param>
+	/// <param name="mediaElement">The media element that is associated with the handler. Cannot be null.</param>
+	public static void MapPlaylist(MediaElementHandler handler, MediaElement mediaElement)
+	{
+		handler.MediaManager?.UpdatePlaylist();
 	}
 
 	/// <summary>

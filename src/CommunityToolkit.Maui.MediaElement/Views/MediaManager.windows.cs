@@ -20,6 +20,7 @@ partial class MediaManager : IDisposable
 {
 	Metadata? metadata;
 	SystemMediaTransportControls? systemMediaControls;
+	MediaPlaybackList? playbackList;
 
 	// States that allow changing position
 	readonly IReadOnlyList<MediaElementState> allowUpdatePositionStates =
@@ -60,11 +61,16 @@ partial class MediaManager : IDisposable
 		Player.MediaPlayer.MediaEnded += OnMediaElementMediaEnded;
 		Player.MediaPlayer.VolumeChanged += OnMediaElementVolumeChanged;
 		Player.MediaPlayer.IsMutedChanged += OnMediaElementIsMutedChanged;
-
+		Player.MediaPlayer.MediaFailed += MediaPlayer_MediaFailed;
 		Player.MediaPlayer.SystemMediaTransportControls.IsEnabled = false;
 		systemMediaControls = Player.MediaPlayer.SystemMediaTransportControls;
 
 		return Player;
+	}
+
+	void MediaPlayer_MediaFailed(WindowsMediaElement sender, MediaPlayerFailedEventArgs args)
+	{
+		System.Diagnostics.Trace.WriteLine($"Media failed: {args.ErrorMessage}");
 	}
 
 	/// <summary>
@@ -268,10 +274,20 @@ partial class MediaManager : IDisposable
 		}
 
 		await Dispatcher.DispatchAsync(() => Player.PosterSource = new BitmapImage());
+		
+		Player.Source = null;
+		if (playbackList is not null)
+		{
+			foreach (var item in playbackList.Items)
+			{
+				item.Source.Dispose();
+			}
+			playbackList.Items.Clear();
+			playbackList = null;
+		}
 
 		if (MediaElement.Source is null)
 		{
-			Player.Source = null;
 			MediaElement.MediaWidth = MediaElement.MediaHeight = 0;
 
 			MediaElement.CurrentStateChanged(MediaElementState.None);
@@ -288,7 +304,7 @@ partial class MediaManager : IDisposable
 			var uri = uriMediaSource.Uri?.AbsoluteUri;
 			if (!string.IsNullOrWhiteSpace(uri))
 			{
-				Player.Source = WinMediaSource.CreateFromUri(new Uri(uri));
+				Player.MediaPlayer.SetUriSource(new Uri(uri));
 			}
 		}
 		else if (MediaElement.Source is FileMediaSource fileMediaSource)
@@ -297,7 +313,7 @@ partial class MediaManager : IDisposable
 			if (!string.IsNullOrWhiteSpace(filename))
 			{
 				StorageFile storageFile = await StorageFile.GetFileFromPathAsync(filename);
-				Player.Source = WinMediaSource.CreateFromStorageFile(storageFile);
+				Player.MediaPlayer.SetFileSource(storageFile);
 			}
 		}
 		else if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
@@ -311,11 +327,94 @@ partial class MediaManager : IDisposable
 			string path = GetFullAppPackageFilePath(resourceMediaSource.Path);
 			if (!string.IsNullOrWhiteSpace(path))
 			{
-				Player.Source = WinMediaSource.CreateFromUri(new Uri(path));
+				Player.MediaPlayer.SetUriSource(new Uri(path));
 			}
 		}
 	}
 
+	protected virtual async partial ValueTask PlatformUpdatePlaylist()
+	{
+		if (Player is null)
+		{
+			return;
+		}
+		await Dispatcher.DispatchAsync(() => Player.PosterSource = new BitmapImage());
+	
+		Player.Source = null;
+		if (playbackList is not null)
+		{
+			foreach (var item in playbackList.Items)
+			{
+				item.Source.Dispose();
+			}
+			playbackList.Items.Clear();
+			playbackList = null;
+		}
+
+		if (MediaElement.Playlist is null)
+		{
+			MediaElement.MediaWidth = MediaElement.MediaHeight = 0;
+			MediaElement.CurrentStateChanged(MediaElementState.None);
+			return;
+		}
+
+		MediaElement.Position = TimeSpan.Zero;
+		MediaElement.Duration = TimeSpan.Zero;
+		Player.AutoPlay = MediaElement.ShouldAutoPlay;
+		playbackList = new MediaPlaybackList();
+
+		foreach (var item in MediaElement.Playlist)
+		{
+			if (item is null)
+			{
+				continue;
+			}
+			System.Diagnostics.Trace.WriteLine($"MediaElement.Playlist item: {item}");
+			var mediaSource = await GetMediaSourceFromMediaItem(item);
+			if (mediaSource is not null)
+			{
+				var mediaPlaybackItem = new MediaPlaybackItem(mediaSource);
+				playbackList.Items.Add(mediaPlaybackItem);
+			}
+		}
+		Player.MediaPlayer.Source = playbackList;
+	}
+
+	async Task<Windows.Media.Core.MediaSource?> GetMediaSourceFromMediaItem(MediaSource mediaItem)
+	{
+		
+		if (mediaItem is UriMediaSource uriMediaSource)
+		{
+			var uri = uriMediaSource.Uri?.AbsoluteUri;
+			if (!string.IsNullOrWhiteSpace(uri))
+			{
+				return Windows.Media.Core.MediaSource.CreateFromUri(new Uri(uri));
+			}
+		}
+		else if (mediaItem is FileMediaSource fileMediaSource)
+		{
+			var filename = fileMediaSource.Path;
+			if (!string.IsNullOrWhiteSpace(filename))
+			{
+				var storageFile = await StorageFile.GetFileFromPathAsync(filename);
+				return Windows.Media.Core.MediaSource.CreateFromStorageFile(storageFile);
+			}
+		}
+		else if (mediaItem is ResourceMediaSource resourceMediaSource)
+		{
+			if (string.IsNullOrWhiteSpace(resourceMediaSource.Path))
+			{
+				Logger.LogInformation("ResourceMediaSource Path is null or empty");
+				return null;
+			}
+			string path = GetFullAppPackageFilePath(resourceMediaSource.Path);
+			if (!string.IsNullOrWhiteSpace(path))
+			{
+				return Windows.Media.Core.MediaSource.CreateFromUri(new Uri(path));
+			}
+		}
+		return null;
+	}
 	protected virtual partial void PlatformUpdateShouldLoopPlayback()
 	{
 		if (Player is null)
@@ -341,7 +440,11 @@ partial class MediaManager : IDisposable
 					DisplayRequest.RequestRelease();
 					displayActiveRequested = false;
 				}
-
+				if(playbackList is not null)
+				{
+					playbackList.Items.Clear();
+					playbackList = null;
+				}
 				Player.MediaPlayer.MediaOpened -= OnMediaElementMediaOpened;
 				Player.MediaPlayer.MediaFailed -= OnMediaElementMediaFailed;
 				Player.MediaPlayer.MediaEnded -= OnMediaElementMediaEnded;
