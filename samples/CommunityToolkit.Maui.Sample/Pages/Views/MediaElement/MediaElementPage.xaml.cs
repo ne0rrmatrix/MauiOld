@@ -223,14 +223,50 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				MediaElement.Source = MediaSource.FromUri(hal9000AudioUrl);
 				return;
 			case loadPlaylist:
-				var playlist = new List<MediaSource?>
+				var playlist = new List<MediaItem>
 				{
-					MediaSource.FromUri(StreamingVideoUrls.BuckBunny),
-					MediaSource.FromUri(StreamingVideoUrls.ElephantsDream),
-					MediaSource.FromResource("WindowsVideo.mp4"),
-					MediaSource.FromUri(hal9000AudioUrl),
-					MediaSource.FromResource("WindowsVideo.mp4"),
-					MediaSource.FromUri(StreamingVideoUrls.Sintel),
+					new() {
+						Source = MediaSource.FromUri(StreamingVideoUrls.BuckBunny),
+						MetadataTitle = "Big Buck Bunny",
+						MetadataArtist = "Big Buck Bunny Artist",
+						MetadataArtworkUrl = botImageUrl,
+					},
+					new() {
+						Source = MediaSource.FromUri(StreamingVideoUrls.ElephantsDream),
+						MetadataTitle = "Elephant's Dream",
+						MetadataArtist = "Elephant's Dream Artist",
+						MetadataArtworkUrl = botImageUrl,
+					},
+					new() {
+					Source = MediaSource.FromUri(StreamingVideoUrls.BuckBunny),
+					MetadataTitle = "Big Buck Bunny",
+					MetadataArtist = "Big Buck Bunny Artist",
+					MetadataArtworkUrl = botImageUrl,
+					},
+					new() {
+						Source = MediaSource.FromResource("WindowsVideo.mp4"),
+						MetadataTitle = "Local Windows Video",
+						MetadataArtist = "Local Windows Video Artist",
+						MetadataArtworkUrl = botImageUrl,
+					},
+					new() {
+						Source = MediaSource.FromUri(hal9000AudioUrl),
+						MetadataTitle = "HAL 9000",
+						MetadataArtist = "HAL 9000 Album",
+						MetadataArtworkUrl = botImageUrl,
+					},
+					new() {
+						Source = MediaSource.FromResource("WindowsVideo.mp4"),
+						MetadataTitle = "Local Windows Video",
+						MetadataArtist = "Local Windows Video Artist",
+						MetadataArtworkUrl = botImageUrl,
+					},
+					new() {
+						Source = MediaSource.FromUri(StreamingVideoUrls.Sintel),
+						MetadataTitle = "Sintel",
+						MetadataArtist = "Sintel Artist",
+						MetadataArtworkUrl = botImageUrl,
+					},
 				};
 				MediaElement.MetadataTitle = "Playlist: Big Buck Bunny, Elephant's Dream, Sintel";
 				MediaElement.MetadataArtist = "Various Artists";

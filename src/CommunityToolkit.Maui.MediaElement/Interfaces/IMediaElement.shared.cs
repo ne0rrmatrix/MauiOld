@@ -90,7 +90,7 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	/// <summary>
 	/// Gets or sets the playlist of media to play.
 	/// </summary>
-	List<MediaSource?> Playlist { get; set; }
+	List<MediaItem> Playlist { get; set; }
 
 	/// <summary>
 	/// Gets or sets the speed with which the media should be played.

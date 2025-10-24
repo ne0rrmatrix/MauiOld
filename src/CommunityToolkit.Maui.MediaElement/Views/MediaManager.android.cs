@@ -34,7 +34,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	TaskCompletionSource? seekToTaskCompletionSource;
 	CancellationTokenSource? cancellationTokenSource;
 	MediaSession? session;
-	MediaItem.Builder? mediaItem;
+    AndroidX.Media3.Common.MediaItem.Builder? mediaItem;
 	BoundServiceConnection? connection;
 
 	/// <summary>
@@ -416,7 +416,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		}
 
 		Player.ClearMediaItems();
-		if (MediaElement.Playlist is null || MediaElement.Playlist.Count == 0)
+		if (MediaElement.Playlist.Count == 0)
 		{
 			MediaElement.Duration = TimeSpan.Zero;
 			MediaElement.CurrentStateChanged(MediaElementState.None);
@@ -442,27 +442,25 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		}
 	}
 
-	async ValueTask SetPlayerItems(List<MediaSource?> sources, CancellationToken cancellationToken = default)
+	async ValueTask SetPlayerItems(List<MediaItem> mediaItems, CancellationToken cancellationToken = default)
 	{
 		if (Player is null)
 		{
 			throw new InvalidOperationException($"{nameof(IExoPlayer)} is not yet initialized");
 		}
 		Player.ClearMediaItems();
-		foreach (var source in sources)
+		foreach (var item in mediaItems)
 		{
-			if (source is null)
-			{
-				System.Diagnostics.Trace.TraceInformation("Playlist item is null, skipping...");
-				continue;
-			}
-			var result = await SetPlayerData(source, cancellationToken);
-			var item = result?.Build();
 			if (item is null)
 			{
 				continue;
 			}
-			Player.AddMediaItem(item);
+			var result = await SetPlayerData(item, cancellationToken);
+			if (result is null)
+			{
+				continue;
+			}
+			Player.AddMediaItem(result.Build());
 		}
 		System.Diagnostics.Trace.TraceInformation("All playlist items processed.");
 	}
@@ -731,7 +729,50 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 	void HandleMediaControlsServiceTaskRemoved(object? sender, EventArgs e) => Player?.Stop();
 
-	async Task<MediaItem.Builder?> SetPlayerData(MediaSource source, CancellationToken cancellationToken = default)
+	async Task<AndroidX.Media3.Common.MediaItem.Builder?> SetPlayerData(MediaItem mediaItem, CancellationToken cancellationToken = default)
+	{
+		switch (mediaItem.Source)
+		{
+			case UriMediaSource uriMediaSource:
+				{
+					var uri = uriMediaSource.Uri;
+					if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
+					{
+						return await CreateMediaItem(mediaItem, uri.AbsoluteUri, cancellationToken).ConfigureAwait(false);
+					}
+
+					break;
+				}
+			case FileMediaSource fileMediaSource:
+				{
+					var filePath = fileMediaSource.Path;
+					if (!string.IsNullOrWhiteSpace(filePath))
+					{
+						return await CreateMediaItem(mediaItem, filePath, cancellationToken).ConfigureAwait(false);
+					}
+
+					break;
+				}
+			case ResourceMediaSource resourceMediaSource:
+				{
+					var package = PlayerView?.Context?.PackageName ?? "";
+					var path = resourceMediaSource.Path;
+					if (!string.IsNullOrWhiteSpace(path))
+					{
+						var assetFilePath = $"asset://{package}{Path.PathSeparator}{path}";
+						return await CreateMediaItem(mediaItem, assetFilePath, cancellationToken).ConfigureAwait(false);
+					}
+
+					break;
+				}
+			default:
+				throw new NotSupportedException($"{MediaElement.Source?.GetType().FullName} is not yet supported for {nameof(MediaElement.Source)}");
+		}
+
+		return null;
+	}
+
+	async Task<AndroidX.Media3.Common.MediaItem.Builder?> SetPlayerData(MediaSource source, CancellationToken cancellationToken = default)
 	{
 		switch (source)
 		{
@@ -774,7 +815,27 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		return mediaItem;
 	}
 
-	async Task<MediaItem.Builder> CreateMediaItem(string url, CancellationToken cancellationToken = default)
+	async Task<AndroidX.Media3.Common.MediaItem.Builder> CreateMediaItem(MediaItem item, string url, CancellationToken cancellationToken = default)
+	{
+
+		MediaMetadata.Builder mediaMetaData = new();
+		mediaMetaData.SetArtist(item.MetadataArtist);
+		mediaMetaData.SetTitle(item.MetadataTitle);
+		var data = await GetBytesFromMetadataArtworkUrl(item.MetadataArtworkUrl, cancellationToken).ConfigureAwait(true);
+		if (data is not null && data.Length > 0)
+		{
+			mediaMetaData.SetArtworkData(data, (Java.Lang.Integer)MediaMetadata.PictureTypeFrontCover);
+		}
+
+		mediaItem = new AndroidX.Media3.Common.MediaItem.Builder();
+		mediaItem.SetUri(url);
+		mediaItem.SetMediaId(url);
+		mediaItem.SetMediaMetadata(mediaMetaData.Build());
+
+		return mediaItem;
+	}
+
+	async Task<AndroidX.Media3.Common.MediaItem.Builder> CreateMediaItem(string url, CancellationToken cancellationToken = default)
 	{
 		MediaMetadata.Builder mediaMetaData = new();
 		mediaMetaData.SetArtist(MediaElement.MetadataArtist);
@@ -785,7 +846,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 			mediaMetaData.SetArtworkData(data, (Java.Lang.Integer)MediaMetadata.PictureTypeFrontCover);
 		}
 
-		mediaItem = new MediaItem.Builder();
+		mediaItem = new AndroidX.Media3.Common.MediaItem.Builder();
 		mediaItem.SetUri(url);
 		mediaItem.SetMediaId(url);
 		mediaItem.SetMediaMetadata(mediaMetaData.Build());

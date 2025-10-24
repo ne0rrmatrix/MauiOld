@@ -20,7 +20,7 @@ partial class MediaManager : IDisposable
 {
 	Metadata? metadata;
 	SystemMediaTransportControls? systemMediaControls;
-	MediaPlaybackList? playbackList;
+	MediaPlaybackList playbackList;
 
 	// States that allow changing position
 	readonly IReadOnlyList<MediaElementState> allowUpdatePositionStates =
@@ -50,6 +50,7 @@ partial class MediaManager : IDisposable
 	{
 		Player = new();
 		WindowsMediaElement MediaElement = new();
+		playbackList ??= new MediaPlaybackList();
 		MediaElement.MediaOpened += OnMediaElementMediaOpened;
 
 		Player.SetMediaPlayer(MediaElement);
@@ -62,6 +63,7 @@ partial class MediaManager : IDisposable
 		Player.MediaPlayer.VolumeChanged += OnMediaElementVolumeChanged;
 		Player.MediaPlayer.IsMutedChanged += OnMediaElementIsMutedChanged;
 		Player.MediaPlayer.MediaFailed += MediaPlayer_MediaFailed;
+		playbackList.CurrentItemChanged += OnPlaybackListCurrentItemChanged;
 		Player.MediaPlayer.SystemMediaTransportControls.IsEnabled = false;
 		systemMediaControls = Player.MediaPlayer.SystemMediaTransportControls;
 
@@ -268,7 +270,7 @@ partial class MediaManager : IDisposable
 
 	protected virtual async partial ValueTask PlatformUpdateSource()
 	{
-		if (Player is null)
+		if (Player is null || string.IsNullOrEmpty(MediaElement.Source?.ToString()))
 		{
 			return;
 		}
@@ -276,15 +278,6 @@ partial class MediaManager : IDisposable
 		await Dispatcher.DispatchAsync(() => Player.PosterSource = new BitmapImage());
 		
 		Player.Source = null;
-		if (playbackList is not null)
-		{
-			foreach (var item in playbackList.Items)
-			{
-				item.Source.Dispose();
-			}
-			playbackList.Items.Clear();
-			playbackList = null;
-		}
 
 		if (MediaElement.Source is null)
 		{
@@ -334,34 +327,19 @@ partial class MediaManager : IDisposable
 
 	protected virtual async partial ValueTask PlatformUpdatePlaylist()
 	{
-		if (Player is null)
+		if (Player is null || MediaElement.Playlist is null || MediaElement.Playlist.Count == 0)
 		{
 			return;
 		}
 		await Dispatcher.DispatchAsync(() => Player.PosterSource = new BitmapImage());
-	
-		Player.Source = null;
-		if (playbackList is not null)
-		{
-			foreach (var item in playbackList.Items)
-			{
-				item.Source.Dispose();
-			}
-			playbackList.Items.Clear();
-			playbackList = null;
-		}
 
-		if (MediaElement.Playlist is null)
-		{
-			MediaElement.MediaWidth = MediaElement.MediaHeight = 0;
-			MediaElement.CurrentStateChanged(MediaElementState.None);
-			return;
-		}
+		playbackList.Items.Clear();
 
+		Player.MediaPlayer.Source = null;
+		MediaElement.MediaWidth = MediaElement.MediaHeight = 0;
+		MediaElement.CurrentStateChanged(MediaElementState.None);
 		MediaElement.Position = TimeSpan.Zero;
 		MediaElement.Duration = TimeSpan.Zero;
-		Player.AutoPlay = MediaElement.ShouldAutoPlay;
-		playbackList = new MediaPlaybackList();
 
 		foreach (var item in MediaElement.Playlist)
 		{
@@ -369,20 +347,41 @@ partial class MediaManager : IDisposable
 			{
 				continue;
 			}
-			System.Diagnostics.Trace.WriteLine($"MediaElement.Playlist item: {item}");
-			var mediaSource = await GetMediaSourceFromMediaItem(item);
+			System.Diagnostics.Trace.WriteLine($"MediaElement.Playlist item: {item.Source?.ToString()}");
+			var mediaSource = await GetMediaSourceFromMediaItem(item.Source).ConfigureAwait(true);
 			if (mediaSource is not null)
 			{
+				try
+				{
+					mediaSource.CustomProperties["MetadataTitle"] = item.MetadataTitle ?? string.Empty;
+					mediaSource.CustomProperties["MetadataArtist"] = item.MetadataArtist ?? string.Empty;
+					mediaSource.CustomProperties["MetadataArtworkUrl"] = item.MetadataArtworkUrl ?? string.Empty;
+				}
+				catch
+				{
+					System.Diagnostics.Trace.WriteLine("Failed to set CustomProperties on MediaSource");
+				}
+				
 				var mediaPlaybackItem = new MediaPlaybackItem(mediaSource);
 				playbackList.Items.Add(mediaPlaybackItem);
 			}
 		}
-		Player.MediaPlayer.Source = playbackList;
-	}
 
-	async Task<Windows.Media.Core.MediaSource?> GetMediaSourceFromMediaItem(MediaSource mediaItem)
+		Player.AutoPlay = MediaElement.ShouldAutoPlay;
+		Player.Source = playbackList;
+		playbackList.ItemFailed += (s, e) =>
+		{
+			System.Diagnostics.Trace.WriteLine($"PlaybackList item failed: {e.Error.ToString()}");
+		};
+	}
+	
+	async Task<Windows.Media.Core.MediaSource?> GetMediaSourceFromMediaItem(MediaSource? mediaItem)
 	{
-		
+		if (mediaItem is null)
+		{
+			return null;
+		}
+
 		if (mediaItem is UriMediaSource uriMediaSource)
 		{
 			var uri = uriMediaSource.Uri?.AbsoluteUri;
@@ -442,14 +441,19 @@ partial class MediaManager : IDisposable
 				}
 				if(playbackList is not null)
 				{
+					playbackList.CurrentItemChanged -= OnPlaybackListCurrentItemChanged;
 					playbackList.Items.Clear();
-					playbackList = null;
 				}
 				Player.MediaPlayer.MediaOpened -= OnMediaElementMediaOpened;
 				Player.MediaPlayer.MediaFailed -= OnMediaElementMediaFailed;
 				Player.MediaPlayer.MediaEnded -= OnMediaElementMediaEnded;
 				Player.MediaPlayer.VolumeChanged -= OnMediaElementVolumeChanged;
 				Player.MediaPlayer.IsMutedChanged -= OnMediaElementIsMutedChanged;
+
+				if(playbackList is not null)
+				{
+					playbackList.CurrentItemChanged -= OnPlaybackListCurrentItemChanged;
+				}
 
 				if (Player.MediaPlayer.PlaybackSession is not null)
 				{
@@ -483,7 +487,7 @@ partial class MediaManager : IDisposable
 		{
 			return;
 		}
-
+		
 		metadata ??= new(systemMediaControls, MediaElement, Dispatcher);
 		metadata.SetMetadata(MediaElement);
 		if (string.IsNullOrEmpty(MediaElement.MetadataArtworkUrl))
@@ -629,5 +633,81 @@ partial class MediaManager : IDisposable
 	void OnPlaybackSessionSeekCompleted(MediaPlaybackSession sender, object args)
 	{
 		MediaElement?.SeekCompleted();
+	}
+
+	// Called whenever the playback list advances to a new item
+	void OnPlaybackListCurrentItemChanged(MediaPlaybackList? sender, CurrentMediaPlaybackItemChangedEventArgs? args)
+	{
+		if (sender is null || args is null)
+		{
+			System.Diagnostics.Trace.WriteLine("Sender is null");
+			return;
+		}
+		foreach(var item in playbackList.Items)
+		{
+			System.Diagnostics.Trace.WriteLine($"playbackList item: {item.Source.Uri.AbsoluteUri}");
+		}
+		System.Diagnostics.Trace.WriteLine($"args reason: {args.Reason}, args oldItem: {args.OldItem?.Source?.Uri}, args newItem: {args.NewItem?.Source?.Uri}");
+
+		System.Diagnostics.Trace.WriteLine($"CurrentItem: {sender.CurrentItem?.Source?.Uri.ToString()}");
+		try
+		{
+			// Try to retrieve per-item metadata we stored on the MediaSource.CustomProperties
+			var mediaSource = args.NewItem?.Source;
+			if (mediaSource is not null)
+			{
+				if (mediaSource.CustomProperties.TryGetValue("MetadataTitle", out var titleObj)
+					&& titleObj is string title)
+				{
+					MediaElement.MetadataTitle = title;
+				}
+				if (mediaSource.CustomProperties.TryGetValue("MetadataArtist", out var artistObj)
+					&& artistObj is string artist)
+				{
+					MediaElement.MetadataArtist = artist;
+				}
+				if (mediaSource.CustomProperties.TryGetValue("MetadataArtworkUrl", out var artworkObj)
+					&& artworkObj is string artworkUrl)
+				{
+					MediaElement.MetadataArtworkUrl = artworkUrl;
+				}
+				if (systemMediaControls is null)
+				{
+					System.Diagnostics.Trace.WriteLine("systemMediaControls is null in OnPlaybackListCurrentItemChanged");
+					return;
+				}
+				if(Player is null)
+				{
+					System.Diagnostics.Trace.WriteLine("Player is null in OnPlaybackListCurrentItemChanged");
+					return;
+				}
+				
+				// Update system metadata and poster
+				metadata ??= new(systemMediaControls, MediaElement, Dispatcher);
+				metadata.SetMetadata(MediaElement);
+
+				if (!string.IsNullOrEmpty(MediaElement.MetadataArtworkUrl)
+					&& Uri.TryCreate(MediaElement.MetadataArtworkUrl, UriKind.RelativeOrAbsolute, out var artworkUri))
+				{
+					if (Dispatcher.IsDispatchRequired)
+					{
+						_ = Dispatcher.DispatchAsync(() => UpdatePoster(Player, artworkUri));
+					}
+					else
+					{
+						UpdatePoster(Player, artworkUri);
+					}
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			Trace.TraceError($"Error updating metadata from playback list: {ex}");
+		}
+
+		static void UpdatePoster(in MediaPlayerElement player, in Uri metadataArtworkUri)
+		{
+			player.PosterSource = new BitmapImage(metadataArtworkUri);
+		}
 	}
 }
