@@ -70,7 +70,7 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 	/// Backing store for the <see cref="Source"/> property.
 	/// </summary>
 	public static readonly BindableProperty SourceProperty =
-		BindableProperty.Create(nameof(Source), typeof(MediaSource), typeof(MediaElement),
+		BindableProperty.Create(nameof(Source), typeof(MediaItem), typeof(MediaElement),
 			propertyChanging: OnSourcePropertyChanging, propertyChanged: OnSourcePropertyChanged);
 
 	/// <summary>
@@ -110,21 +110,6 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 	public static readonly BindableProperty VolumeProperty =
 		BindableProperty.Create(nameof(Volume), typeof(double), typeof(MediaElement), 1.0,
 			BindingMode.TwoWay, propertyChanging: ValidateVolume);
-
-	/// <summary>
-	/// Backing store for the <see cref="MetadataTitle"/> property.
-	/// </summary>
-	public static readonly BindableProperty MetadataTitleProperty = BindableProperty.Create(nameof(MetadataTitle), typeof(string), typeof(MediaElement), string.Empty);
-
-	/// <summary>
-	/// Backing store for the <see cref="MetadataArtist"/> property.
-	/// </summary>
-	public static readonly BindableProperty MetadataArtistProperty = BindableProperty.Create(nameof(MetadataArtist), typeof(string), typeof(MediaElement), string.Empty);
-
-	/// <summary>
-	/// Backing store for the <see cref="MetadataArtworkUrl"/> property.
-	/// </summary>
-	public static readonly BindableProperty MetadataArtworkUrlProperty = BindableProperty.Create(nameof(MetadataArtworkUrl), typeof(string), typeof(MediaElement), string.Empty);
 
 	readonly WeakEventManager eventManager = new();
 	readonly SemaphoreSlim seekToSemaphoreSlim = new(1, 1);
@@ -291,17 +276,16 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 	/// Gets or sets the source of the media to play.
 	/// This is a bindable property.
 	/// </summary>
-	[TypeConverter(typeof(MediaSourceConverter))]
-	public MediaSource? Source
+	public MediaItem? Source
 	{
-		get => (MediaSource)GetValue(SourceProperty);
+		get => (MediaItem)GetValue(SourceProperty);
 		set => SetValue(SourceProperty, value);
 	}
 
 	/// <summary>
 	/// Gets or sets the playlist of media to play.
 	/// </summary>
-	public List<MediaItem> Playlist
+	public List<MediaItem>? Playlist
 	{
 		get => (List<MediaItem>)GetValue(PlaylistProperty);
 		set => SetValue(PlaylistProperty, value);
@@ -359,36 +343,6 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 	/// </summary>
 	/// <remarks>Not reported for non-visual media, sometimes not available for live-streamed content on iOS and macOS.</remarks>
 	public int MediaWidth => (int)GetValue(MediaWidthProperty);
-
-	/// <summary>
-	/// Gets or sets the Title of the media.
-	/// This is a bindable property.
-	/// </summary>
-	public string MetadataTitle
-	{
-		get => (string)GetValue(MetadataTitleProperty);
-		set => SetValue(MetadataTitleProperty, value);
-	}
-
-	/// <summary>
-	/// Gets or sets the Artist of the media.
-	/// This is a bindable property.
-	/// </summary>
-	public string MetadataArtist
-	{
-		get => (string)GetValue(MetadataArtistProperty);
-		set => SetValue(MetadataArtistProperty, value);
-	}
-
-	/// <summary>
-	/// Gets or sets the Artwork Image Url of the media.
-	/// This is a bindable property.
-	/// </summary>
-	public string MetadataArtworkUrl
-	{
-		get => (string)GetValue(MetadataArtworkUrlProperty);
-		set => SetValue(MetadataArtworkUrlProperty, value);
-	}
 
 	/// <summary>
 	/// Gets or sets how the media will be scaled to fit the display area.
@@ -541,15 +495,15 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 	}
 
 	static void OnSourcePropertyChanged(BindableObject bindable, object oldValue, object newValue) =>
-		((MediaElement)bindable).OnSourcePropertyChanged((MediaSource?)newValue);
+		((MediaElement)bindable).OnSourcePropertyChanged((MediaItem?)newValue);
 
 	static void OnSourcePropertyChanging(BindableObject bindable, object oldValue, object newValue) =>
-		((MediaElement)bindable).OnSourcePropertyChanging((MediaSource?)oldValue);
+		((MediaElement)bindable).OnSourcePropertyChanging((MediaItem?)oldValue);
 
 	static void OnPlaylistPropertyChanged(BindableObject bindable, object oldValue, object newValue) =>
-		((MediaElement)bindable).OnPlaylistPropertyChanged((List<MediaItem?>)newValue);
+		((MediaElement)bindable).OnPlaylistPropertyChanged((List<MediaItem>?)newValue);
 	static void OnPlaylistPropertyChanging(BindableObject bindable, object oldValue, object newValue) =>
-		((MediaElement)bindable).OnPlaylistPropertyChanging((List<MediaItem?>)oldValue);
+		((MediaElement)bindable).OnPlaylistPropertyChanging((List<MediaItem>?)oldValue);
 	static void OnCurrentStatePropertyChanged(BindableObject bindable, object oldValue, object newValue)
 	{
 		var mediaElement = (MediaElement)bindable;
@@ -612,21 +566,21 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 		InvalidateMeasure();
 	}
 
-	void OnSourcePropertyChanged(MediaSource? newValue)
+	void OnSourcePropertyChanged(MediaItem? newValue)
 	{
 		ClearTimer();
 
-		if (newValue is not null)
+		if (newValue is not null && newValue.Source is not null)
 		{
-			newValue.SourceChanged += OnSourceChanged;
-			SetInheritedBindingContext(newValue, BindingContext);
+			newValue.Source.SourceChanged += OnSourceChanged;
+			SetInheritedBindingContext(newValue.Source, BindingContext);
 		}
 
 		InvalidateMeasure();
 		InitializeTimer();
 	}
 
-	void OnPlaylistPropertyChanged(List<MediaItem?> newValue)
+	void OnPlaylistPropertyChanged(List<MediaItem>? newValue)
 	{
 		ClearTimer();
 		if (newValue is not null)
@@ -645,17 +599,17 @@ public partial class MediaElement : View, IMediaElement, IDisposable
 		InitializeTimer();
 	}
 
-	void OnSourcePropertyChanging(MediaSource? oldValue)
+	void OnSourcePropertyChanging(MediaItem? oldValue)
 	{
-		if (oldValue is null)
+		if (oldValue is null || oldValue.Source is null)
 		{
 			return;
 		}
 
-		oldValue.SourceChanged -= OnSourceChanged;
+		oldValue.Source.SourceChanged -= OnSourceChanged;
 	}
 
-	void OnPlaylistPropertyChanging(List<MediaItem?> oldValue)
+	void OnPlaylistPropertyChanging(List<MediaItem>? oldValue)
 	{
 		if (oldValue is null)
 		{

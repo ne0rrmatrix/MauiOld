@@ -18,12 +18,19 @@ public partial class MediaElementMultipleWindowsPage : BasePage<MediaElementMult
 	public MediaElementMultipleWindowsPage(MediaElementMultipleWindowsViewModel viewModel) : base(viewModel)
 	{
 #if WINDOWS || MACCATALYST
+		var mediaItem = new MediaItem
+				{
+					MetadataTitle = "Big Buck Bunny",
+					MetadataArtist = "Blender Foundation",
+					MetadataArtworkUrl = "https://peach.blender.org/wp-content/uploads/title_anouncement.jpg?x11217",
+					Source = StreamingVideoUrls.BuckBunny,
+				};
 		secondWindow = new Window(new ContentPage
 		{
 			Content = new MediaElement
 			{
 				AndroidViewType= AndroidViewType.SurfaceView,
-				Source = StreamingVideoUrls.ElephantsDream,
+				Source = mediaItem,
 				ShouldAutoPlay = true
 			}
 		});
@@ -31,7 +38,7 @@ public partial class MediaElementMultipleWindowsPage : BasePage<MediaElementMult
 		Content = new MediaElement
 		{
 			AndroidViewType= AndroidViewType.SurfaceView,
-			Source = StreamingVideoUrls.BuckBunny,
+			Source = mediaItem,
 			ShouldAutoPlay = true
 		};
 #else

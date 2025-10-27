@@ -1,4 +1,6 @@
-﻿using CommunityToolkit.Maui.Views;
+﻿using System.ComponentModel;
+using CommunityToolkit.Maui.Converters;
+using CommunityToolkit.Maui.Views;
 
 namespace CommunityToolkit.Maui.Core;
 
@@ -26,12 +28,15 @@ public partial class MediaItem : View
 	/// Backing store for the <see cref="Source"/> property.
 	/// </summary>
 	public static readonly BindableProperty SourceProperty = BindableProperty.Create(nameof(Source), typeof(MediaSource), typeof(MediaItem), null);
+
 	/// <summary>
-	/// Gets or sets the media source to be used for playback.
+	/// Gets or sets the source of the media to play.
+	/// This is a bindable property.
 	/// </summary>
+	[TypeConverter(typeof(MediaSourceConverter))]
 	public MediaSource? Source
 	{
-		get => (MediaSource?)GetValue(SourceProperty);
+		get => (MediaSource)GetValue(SourceProperty);
 		set => SetValue(SourceProperty, value);
 	}
 

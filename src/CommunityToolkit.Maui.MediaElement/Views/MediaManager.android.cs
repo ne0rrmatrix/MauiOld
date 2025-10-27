@@ -34,13 +34,28 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	TaskCompletionSource? seekToTaskCompletionSource;
 	CancellationTokenSource? cancellationTokenSource;
 	MediaSession? session;
-    AndroidX.Media3.Common.MediaItem.Builder? mediaItem;
 	BoundServiceConnection? connection;
 
 	/// <summary>
 	/// The platform native counterpart of <see cref="MediaElement"/>.
 	/// </summary>
 	protected PlayerView? PlayerView { get; set; }
+
+	public void OnMediaMetadataChanged(MediaMetadata? mediaMetadata)
+	{
+		try
+		{
+			if (mediaMetadata is not null)
+			{
+				Logger.LogInformation("Media metadata changed, updating notifications.");
+				UpdateNotifications();
+			}
+		}
+		catch (Exception ex)
+		{
+			Logger.LogError(ex, "Error handling OnMediaMetadataChanged.");
+		}
+	}
 
 	/// <summary>
 	/// Occurs when ExoPlayer changes the playback parameters.
@@ -386,7 +401,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		Player.PlayWhenReady = MediaElement.ShouldAutoPlay;
 		cancellationTokenSource ??= new();
 		// ConfigureAwait(true) is required to prevent crash on startup
-		var result = await SetPlayerData(MediaElement.Source, cancellationTokenSource.Token).ConfigureAwait(true);
+		var result = await CreateMediaItem(MediaElement.Source, cancellationTokenSource.Token).ConfigureAwait(true);
 		var item = result?.Build();
 
 		if (item?.MediaMetadata is not null)
@@ -416,7 +431,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		}
 
 		Player.ClearMediaItems();
-		if (MediaElement.Playlist.Count == 0)
+		if (MediaElement.Playlist?.Count == 0)
 		{
 			MediaElement.Duration = TimeSpan.Zero;
 			MediaElement.CurrentStateChanged(MediaElementState.None);
@@ -426,7 +441,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 		Player.PlayWhenReady = MediaElement.ShouldAutoPlay;
-		await SetPlayerItems(MediaElement.Playlist).ConfigureAwait(true);
+		await SetPlaylist(MediaElement.Playlist).ConfigureAwait(true);
 		
 		Player.Prepare();
 
@@ -442,28 +457,6 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		}
 	}
 
-	async ValueTask SetPlayerItems(List<MediaItem> mediaItems, CancellationToken cancellationToken = default)
-	{
-		if (Player is null)
-		{
-			throw new InvalidOperationException($"{nameof(IExoPlayer)} is not yet initialized");
-		}
-		Player.ClearMediaItems();
-		foreach (var item in mediaItems)
-		{
-			if (item is null)
-			{
-				continue;
-			}
-			var result = await SetPlayerData(item, cancellationToken);
-			if (result is null)
-			{
-				continue;
-			}
-			Player.AddMediaItem(result.Build());
-		}
-		System.Diagnostics.Trace.TraceInformation("All playlist items processed.");
-	}
 	protected virtual partial void PlatformUpdateAspect()
 	{
 		if (PlayerView is null)
@@ -613,7 +606,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		}
 	}
 
-	static async Task<byte[]> GetBytesFromMetadataArtworkUrl(string url, CancellationToken cancellationToken = default)
+	static async Task<byte[]> GetBytesFromMetadataArtworkUrl(string? url, CancellationToken cancellationToken = default)
 	{
 		if (string.IsNullOrWhiteSpace(url))
 		{
@@ -672,7 +665,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		}
 		catch (Exception e)
 		{
-			Trace.WriteLine($"Unable to retrieve {nameof(MediaElement.MetadataArtworkUrl)} for {url}.{e}\n");
+			Trace.WriteLine($"Unable to retrieve {nameof(MediaElement.Source.MetadataArtworkUrl)} for {url}.{e}\n");
 			return [];
 		}
 		finally
@@ -729,7 +722,56 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 	void HandleMediaControlsServiceTaskRemoved(object? sender, EventArgs e) => Player?.Stop();
 
-	async Task<AndroidX.Media3.Common.MediaItem.Builder?> SetPlayerData(MediaItem mediaItem, CancellationToken cancellationToken = default)
+
+	static async Task<AndroidX.Media3.Common.MediaItem.Builder> CreateMediaItem(MediaItem item, string url, CancellationToken cancellationToken = default)
+	{
+
+		MediaMetadata.Builder mediaMetaData = new();
+		mediaMetaData.SetArtist(item.MetadataArtist);
+		mediaMetaData.SetTitle(item.MetadataTitle);
+		var data = await GetBytesFromMetadataArtworkUrl(item.MetadataArtworkUrl, cancellationToken).ConfigureAwait(true);
+		if (data is not null && data.Length > 0)
+		{
+			mediaMetaData.SetArtworkData(data, (Java.Lang.Integer)MediaMetadata.PictureTypeFrontCover);
+		}
+
+		var mediaItem = new AndroidX.Media3.Common.MediaItem.Builder();
+		mediaItem.SetUri(url);
+		mediaItem.SetMediaId(url);
+		mediaItem.SetMediaMetadata(mediaMetaData.Build());
+
+		return mediaItem;
+	}
+
+	async ValueTask SetPlaylist(List<MediaItem>? mediaItems, CancellationToken cancellationToken = default)
+	{
+		if (Player is null)
+		{
+			throw new InvalidOperationException($"{nameof(IExoPlayer)} is not yet initialized");
+		}
+		if (mediaItems is null || mediaItems.Count == 0)
+		{
+			System.Diagnostics.Trace.TraceInformation("No media items to set.");
+			return;
+		}
+		Player.ClearMediaItems();
+		foreach (var item in mediaItems)
+		{
+			if (item is null)
+			{
+				continue;
+			}
+			var result = await CreateMediaItem(item, cancellationToken);
+			if (result is null)
+			{
+				continue;
+			}
+			Player.AddMediaItem(result.Build());
+		}
+		System.Diagnostics.Trace.TraceInformation("All playlist items processed.");
+	}
+
+	async Task<AndroidX.Media3.Common.MediaItem.Builder?> CreateMediaItem(MediaItem mediaItem, CancellationToken cancellationToken = default)
 	{
 		switch (mediaItem.Source)
 		{
@@ -772,88 +814,6 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		return null;
 	}
 
-	async Task<AndroidX.Media3.Common.MediaItem.Builder?> SetPlayerData(MediaSource source, CancellationToken cancellationToken = default)
-	{
-		switch (source)
-		{
-			case UriMediaSource uriMediaSource:
-				{
-					var uri = uriMediaSource.Uri;
-					if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
-					{
-						return await CreateMediaItem(uri.AbsoluteUri, cancellationToken).ConfigureAwait(false);
-					}
-
-					break;
-				}
-			case FileMediaSource fileMediaSource:
-				{
-					var filePath = fileMediaSource.Path;
-					if (!string.IsNullOrWhiteSpace(filePath))
-					{
-						return await CreateMediaItem(filePath, cancellationToken).ConfigureAwait(false);
-					}
-
-					break;
-				}
-			case ResourceMediaSource resourceMediaSource:
-				{
-					var package = PlayerView?.Context?.PackageName ?? "";
-					var path = resourceMediaSource.Path;
-					if (!string.IsNullOrWhiteSpace(path))
-					{
-						var assetFilePath = $"asset://{package}{Path.PathSeparator}{path}";
-						return await CreateMediaItem(assetFilePath, cancellationToken).ConfigureAwait(false);
-					}
-
-					break;
-				}
-			default:
-				throw new NotSupportedException($"{MediaElement.Source?.GetType().FullName} is not yet supported for {nameof(MediaElement.Source)}");
-		}
-
-		return mediaItem;
-	}
-
-	async Task<AndroidX.Media3.Common.MediaItem.Builder> CreateMediaItem(MediaItem item, string url, CancellationToken cancellationToken = default)
-	{
-
-		MediaMetadata.Builder mediaMetaData = new();
-		mediaMetaData.SetArtist(item.MetadataArtist);
-		mediaMetaData.SetTitle(item.MetadataTitle);
-		var data = await GetBytesFromMetadataArtworkUrl(item.MetadataArtworkUrl, cancellationToken).ConfigureAwait(true);
-		if (data is not null && data.Length > 0)
-		{
-			mediaMetaData.SetArtworkData(data, (Java.Lang.Integer)MediaMetadata.PictureTypeFrontCover);
-		}
-
-		mediaItem = new AndroidX.Media3.Common.MediaItem.Builder();
-		mediaItem.SetUri(url);
-		mediaItem.SetMediaId(url);
-		mediaItem.SetMediaMetadata(mediaMetaData.Build());
-
-		return mediaItem;
-	}
-
-	async Task<AndroidX.Media3.Common.MediaItem.Builder> CreateMediaItem(string url, CancellationToken cancellationToken = default)
-	{
-		MediaMetadata.Builder mediaMetaData = new();
-		mediaMetaData.SetArtist(MediaElement.MetadataArtist);
-		mediaMetaData.SetTitle(MediaElement.MetadataTitle);
-		var data = await GetBytesFromMetadataArtworkUrl(MediaElement.MetadataArtworkUrl, cancellationToken).ConfigureAwait(true);
-		if (data is not null && data.Length > 0)
-		{
-			mediaMetaData.SetArtworkData(data, (Java.Lang.Integer)MediaMetadata.PictureTypeFrontCover);
-		}
-
-		mediaItem = new AndroidX.Media3.Common.MediaItem.Builder();
-		mediaItem.SetUri(url);
-		mediaItem.SetMediaId(url);
-		mediaItem.SetMediaMetadata(mediaMetaData.Build());
-
-		return mediaItem;
-	}
-
 	#region PlayerListener implementation method stubs
 	public void OnAudioAttributesChanged(AudioAttributes? audioAttributes) { }
 	public void OnAvailableCommandsChanged(PlayerCommands? player) { }
@@ -866,7 +826,6 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	public void OnLoadingChanged(bool isLoading) { }
 	public void OnMaxSeekToPreviousPositionChanged(long maxSeekToPreviousPositionMs) { }
 	public void OnMediaItemTransition(MediaItem? mediaItem, int reason) { }
-	public void OnMediaMetadataChanged(MediaMetadata? mediaMetadata) { }
 	public void OnMetadata(Metadata? metadata) { }
 	public void OnPlayWhenReadyChanged(bool playWhenReady, int reason) { }
 	public void OnPositionDiscontinuity(PlayerPositionInfo? oldPosition, PlayerPositionInfo? newPosition, int reason) { }

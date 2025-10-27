@@ -4,21 +4,17 @@ namespace CommunityToolkit.Maui.Core.Primitives;
 
 sealed class Metadata
 {
-	readonly IMediaElement? mediaElement;
 	readonly SystemMediaTransportControls? systemMediaControls;
-	readonly IDispatcher dispatcher;
 	/// <summary>
 	/// Initializes a new instance of the <see cref="Metadata"/> class.
 	/// </summary>
-	public Metadata(SystemMediaTransportControls systemMediaTransportControls, IMediaElement MediaElement, IDispatcher Dispatcher)
+	public Metadata(SystemMediaTransportControls systemMediaTransportControls)
 	{
-		mediaElement = MediaElement;
-		this.dispatcher = Dispatcher;
 		systemMediaControls = systemMediaTransportControls;
-		systemMediaControls.ButtonPressed += OnSystemMediaControlsButtonPressed;
+		//systemMediaControls.ButtonPressed += OnSystemMediaControlsButtonPressed;
 	}
 
-
+	/*
 	void OnSystemMediaControlsButtonPressed(SystemMediaTransportControls sender, SystemMediaTransportControlsButtonPressedEventArgs args)
 	{
 		if (mediaElement is null)
@@ -49,24 +45,25 @@ sealed class Metadata
 			}
 		}
 	}
+	*/
 
 	/// <summary>
 	/// Sets the metadata for the given MediaElement.
 	/// </summary>
-	public void SetMetadata(IMediaElement mp)
+	public void SetMetadata(MediaItem? mp)
 	{
-		if (systemMediaControls is null || mediaElement is null)
+		if (systemMediaControls is null || mp is null)
 		{
 			return;
 		}
 
 		if (!string.IsNullOrEmpty(mp.MetadataArtworkUrl))
 		{
-			systemMediaControls.DisplayUpdater.Thumbnail = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromUri(new Uri(mp.MetadataArtworkUrl ?? string.Empty));
+			systemMediaControls.DisplayUpdater.Thumbnail = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromUri(new Uri(mp.MetadataArtworkUrl));
 		}
 		systemMediaControls.DisplayUpdater.Type = MediaPlaybackType.Music;
-		systemMediaControls.DisplayUpdater.MusicProperties.Artist = mp.MetadataTitle;
-		systemMediaControls.DisplayUpdater.MusicProperties.Title = mp.MetadataArtist;
+		systemMediaControls.DisplayUpdater.MusicProperties.Artist = mp.MetadataArtist;
+		systemMediaControls.DisplayUpdater.MusicProperties.Title = mp.MetadataTitle;
 		systemMediaControls.DisplayUpdater.Update();
 	}
 }

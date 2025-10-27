@@ -20,7 +20,7 @@ partial class MediaManager : IDisposable
 {
 	Metadata? metadata;
 	SystemMediaTransportControls? systemMediaControls;
-	MediaPlaybackList playbackList;
+	MediaPlaybackList playbackList = new();
 
 	// States that allow changing position
 	readonly IReadOnlyList<MediaElementState> allowUpdatePositionStates =
@@ -50,7 +50,6 @@ partial class MediaManager : IDisposable
 	{
 		Player = new();
 		WindowsMediaElement MediaElement = new();
-		playbackList ??= new MediaPlaybackList();
 		MediaElement.MediaOpened += OnMediaElementMediaOpened;
 
 		Player.SetMediaPlayer(MediaElement);
@@ -292,7 +291,8 @@ partial class MediaManager : IDisposable
 		MediaElement.Duration = TimeSpan.Zero;
 		Player.AutoPlay = MediaElement.ShouldAutoPlay;
 
-		if (MediaElement.Source is UriMediaSource uriMediaSource)
+		var source = MediaElement.Source.Source;
+		if (source is UriMediaSource uriMediaSource)
 		{
 			var uri = uriMediaSource.Uri?.AbsoluteUri;
 			if (!string.IsNullOrWhiteSpace(uri))
@@ -300,7 +300,7 @@ partial class MediaManager : IDisposable
 				Player.MediaPlayer.SetUriSource(new Uri(uri));
 			}
 		}
-		else if (MediaElement.Source is FileMediaSource fileMediaSource)
+		else if (source is FileMediaSource fileMediaSource)
 		{
 			var filename = fileMediaSource.Path;
 			if (!string.IsNullOrWhiteSpace(filename))
@@ -309,7 +309,7 @@ partial class MediaManager : IDisposable
 				Player.MediaPlayer.SetFileSource(storageFile);
 			}
 		}
-		else if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
+		else if (source is ResourceMediaSource resourceMediaSource)
 		{
 			if (string.IsNullOrWhiteSpace(resourceMediaSource.Path))
 			{
@@ -488,15 +488,17 @@ partial class MediaManager : IDisposable
 			return;
 		}
 		
-		metadata ??= new(systemMediaControls, MediaElement, Dispatcher);
-		metadata.SetMetadata(MediaElement);
-		if (string.IsNullOrEmpty(MediaElement.MetadataArtworkUrl))
+		metadata ??= new(systemMediaControls);
+		metadata.SetMetadata(MediaElement.Source);
+		var mediaItem = MediaElement.Source;
+		var artworkUrl = mediaItem?.MetadataArtworkUrl;
+		if (string.IsNullOrEmpty(artworkUrl))
 		{
 			return;
 		}
-		if (!Uri.TryCreate(MediaElement.MetadataArtworkUrl, UriKind.RelativeOrAbsolute, out var metadataArtworkUri))
+		if (!Uri.TryCreate(artworkUrl, UriKind.RelativeOrAbsolute, out var metadataArtworkUri))
 		{
-			Trace.TraceError($"{nameof(MediaElement)} unable to update artwork because {nameof(MediaElement.MetadataArtworkUrl)} is not a valid URI");
+			Trace.TraceError($"{nameof(MediaElement)} unable to update artwork because {nameof(artworkUrl)} is not a valid URI");
 			return;
 		}
 
@@ -643,33 +645,28 @@ partial class MediaManager : IDisposable
 			System.Diagnostics.Trace.WriteLine("Sender is null");
 			return;
 		}
-		foreach(var item in playbackList.Items)
-		{
-			System.Diagnostics.Trace.WriteLine($"playbackList item: {item.Source.Uri.AbsoluteUri}");
-		}
-		System.Diagnostics.Trace.WriteLine($"args reason: {args.Reason}, args oldItem: {args.OldItem?.Source?.Uri}, args newItem: {args.NewItem?.Source?.Uri}");
-
-		System.Diagnostics.Trace.WriteLine($"CurrentItem: {sender.CurrentItem?.Source?.Uri.ToString()}");
 		try
 		{
 			// Try to retrieve per-item metadata we stored on the MediaSource.CustomProperties
 			var mediaSource = args.NewItem?.Source;
+			var mediaItem = new MediaItem();
 			if (mediaSource is not null)
 			{
+				mediaItem.Source = mediaSource.Uri;
 				if (mediaSource.CustomProperties.TryGetValue("MetadataTitle", out var titleObj)
 					&& titleObj is string title)
 				{
-					MediaElement.MetadataTitle = title;
+					mediaItem.MetadataTitle = title;
 				}
 				if (mediaSource.CustomProperties.TryGetValue("MetadataArtist", out var artistObj)
 					&& artistObj is string artist)
 				{
-					MediaElement.MetadataArtist = artist;
+					mediaItem.MetadataArtist = artist;
 				}
 				if (mediaSource.CustomProperties.TryGetValue("MetadataArtworkUrl", out var artworkObj)
 					&& artworkObj is string artworkUrl)
 				{
-					MediaElement.MetadataArtworkUrl = artworkUrl;
+					mediaItem.MetadataArtworkUrl = artworkUrl;
 				}
 				if (systemMediaControls is null)
 				{
@@ -681,13 +678,13 @@ partial class MediaManager : IDisposable
 					System.Diagnostics.Trace.WriteLine("Player is null in OnPlaybackListCurrentItemChanged");
 					return;
 				}
-				
+				MediaElement.Source = mediaItem;
 				// Update system metadata and poster
-				metadata ??= new(systemMediaControls, MediaElement, Dispatcher);
-				metadata.SetMetadata(MediaElement);
+				metadata = new(systemMediaControls);
+				metadata.SetMetadata(mediaItem);
 
-				if (!string.IsNullOrEmpty(MediaElement.MetadataArtworkUrl)
-					&& Uri.TryCreate(MediaElement.MetadataArtworkUrl, UriKind.RelativeOrAbsolute, out var artworkUri))
+				if (!string.IsNullOrEmpty(mediaItem.MetadataArtworkUrl)
+					&& Uri.TryCreate(mediaItem.MetadataArtworkUrl, UriKind.RelativeOrAbsolute, out var artworkUri))
 				{
 					if (Dispatcher.IsDispatchRequired)
 					{

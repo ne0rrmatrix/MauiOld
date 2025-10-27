@@ -16,17 +16,21 @@ public class MediaElementTests : BaseViewTest
 	public void PosterIsNotStringEmptyOrNull()
 	{
 		MediaElement mediaElement = new();
-		mediaElement.MetadataArtworkUrl = "https://www.example.com/image.jpg";
-		Assert.False(string.IsNullOrEmpty(mediaElement.MetadataArtworkUrl));
+		MediaItem mediaItem = new();
+		mediaItem.MetadataArtworkUrl = "https://www.example.com/image.jpg";
+		mediaElement.Source = mediaItem;
+		Assert.False(string.IsNullOrEmpty(mediaElement.Source.MetadataArtworkUrl));
 	}
 
 	[Fact]
 	public void PosterIsStringEmptyDoesNotThrow()
 	{
 		MediaElement mediaElement = new();
-		mediaElement.MetadataArtworkUrl = string.Empty;
-		Assert.True(string.IsNullOrEmpty(mediaElement.MetadataArtworkUrl));
-		Assert.True(mediaElement.MetadataArtworkUrl == string.Empty);
+		MediaItem mediaItem = new();
+		mediaItem.MetadataArtworkUrl = string.Empty;
+		mediaElement.Source = mediaItem;
+		Assert.True(string.IsNullOrEmpty(mediaElement.Source.MetadataArtworkUrl));
+		Assert.True(mediaElement.Source.MetadataArtworkUrl == string.Empty);
 	}
 
 	[Fact]
@@ -35,8 +39,9 @@ public class MediaElementTests : BaseViewTest
 		object context = new();
 		MediaElement mediaElement = new();
 		FileMediaSource mediaSource = new();
-
-		mediaElement.Source = mediaSource;
+		MediaItem mediaItem = new();
+		mediaItem.Source = mediaSource;
+		mediaElement.Source = mediaItem;
 
 		mediaElement.BindingContext = context;
 
@@ -47,7 +52,9 @@ public class MediaElementTests : BaseViewTest
 	public void CorrectDimensionsForVideoTest()
 	{
 		MediaElement mediaElement = new();
+		MediaItem mediaItem = new();
 		var mediaSource = MediaSource.FromUri("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4");
+		mediaItem.Source = mediaSource;
 
 		mediaElement.MediaOpened += (_, _) =>
 		{
@@ -55,7 +62,7 @@ public class MediaElementTests : BaseViewTest
 			mediaElement.MediaHeight.Should().Be(720);
 		};
 
-		mediaElement.Source = mediaSource;
+		mediaElement.Source = mediaItem;
 	}
 
 	[Fact]
@@ -63,7 +70,9 @@ public class MediaElementTests : BaseViewTest
 	{
 		object context = new();
 		MediaElement mediaElement = new();
+		MediaItem mediaItem = new();
 		var mediaSource = MediaSource.FromUri("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4");
+		mediaItem.Source = mediaSource;
 
 		mediaElement.MediaOpened += (_, _) =>
 		{
@@ -86,7 +95,7 @@ public class MediaElementTests : BaseViewTest
 		};
 
 		// Set the first (actual) media source, which will trigger the above event
-		mediaElement.Source = mediaSource;
+		mediaElement.Source = mediaItem;
 	}
 
 	[Fact]

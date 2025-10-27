@@ -77,18 +77,22 @@ sealed class Metadata
 			return;
 		}
 
-		NowPlayingInfo.Title = mediaElement.MetadataTitle;
-		NowPlayingInfo.Artist = mediaElement.MetadataArtist;
+		NowPlayingInfo.Title = mediaElement.Source?.MetadataTitle;
+		NowPlayingInfo.Artist = mediaElement.Source?.MetadataArtist;
 		NowPlayingInfo.PlaybackDuration = playerItem?.Duration.Seconds ?? 0;
 		NowPlayingInfo.IsLiveStream = false;
 		NowPlayingInfo.PlaybackRate = mediaElement.Speed;
 		NowPlayingInfo.ElapsedPlaybackTime = playerItem?.CurrentTime.Seconds ?? 0;
-		NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: _ => GetImage(mediaElement.MetadataArtworkUrl));
+		NowPlayingInfo.Artwork = new(boundsSize: new(320, 240), requestHandler: _ => GetImage(mediaElement.Source?.MetadataArtworkUrl));
 		MPNowPlayingInfoCenter.DefaultCenter.NowPlaying = NowPlayingInfo;
 	}
 
-	static UIImage GetImage(string imageUri)
+	static UIImage GetImage(string? imageUri)
 	{
+		if (string.IsNullOrWhiteSpace(imageUri))
+		{
+			return defaultUIImage;
+		}
 		try
 		{
 			if (imageUri.StartsWith(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))

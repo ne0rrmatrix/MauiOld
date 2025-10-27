@@ -8,21 +8,6 @@ namespace CommunityToolkit.Maui.Core;
 public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 {
 	/// <summary>
-	/// Gets or sets the title of the media.
-	/// </summary>
-	string MetadataTitle { get; set; }
-
-	/// <summary>
-	/// Gets or sets the artist of the media.
-	/// </summary>
-	string MetadataArtist { get; set; }
-
-	/// <summary>
-	/// Gets or sets the artwork Image Url.
-	/// </summary>
-	string MetadataArtworkUrl { get; set; }
-
-	/// <summary>
 	/// Gets the media aspect ratio.
 	/// </summary>
 	/// <remarks>Not functional for non-visual media.</remarks>
@@ -85,12 +70,12 @@ public interface IMediaElement : IView, IAsynchronousMediaElementHandler
 	/// <summary>
 	/// Gets or sets the source of the media to play.
 	/// </summary>
-	MediaSource? Source { get; set; }
+	MediaItem? Source { get; set; }
 
 	/// <summary>
 	/// Gets or sets the playlist of media to play.
 	/// </summary>
-	List<MediaItem> Playlist { get; set; }
+	List<MediaItem>? Playlist { get; set; }
 
 	/// <summary>
 	/// Gets or sets the speed with which the media should be played.

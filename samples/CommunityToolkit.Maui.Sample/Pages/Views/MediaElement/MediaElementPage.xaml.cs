@@ -161,7 +161,9 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 			return;
 		}
 
-		MediaElement.Source = MediaSource.FromUri(CustomSourceEntry.Text);
+		MediaElement.Source =new MediaItem() {
+			Source=  MediaSource.FromUri(CustomSourceEntry.Text)
+			};
 	}
 
 	async void ChangeSourceClicked(Object sender, EventArgs e)
@@ -175,52 +177,71 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		switch (result)
 		{
 			case loadOnlineMp4:
-				MediaElement.MetadataTitle = "Big Buck Bunny";
-				MediaElement.MetadataArtworkUrl = botImageUrl;
-				MediaElement.MetadataArtist = "Big Buck Bunny Album";
-				MediaElement.Source =
-					MediaSource.FromUri(StreamingVideoUrls.BuckBunny);
+				MediaItem mediaItem = new()
+				{
+					MetadataTitle = "Big Buck Bunny",
+					MetadataArtist = "Big Buck Bunny Album",
+					MetadataArtworkUrl = botImageUrl,
+					Source = MediaSource.FromUri(StreamingVideoUrls.BuckBunny),
+				};
+				MediaElement.Source = mediaItem;
 				return;
 
 			case loadHls:
-				MediaElement.MetadataArtist = "HLS Album";
-				MediaElement.MetadataArtworkUrl = botImageUrl;
-				MediaElement.MetadataTitle = "HLS Title";
-				MediaElement.Source = MediaSource.FromUri(hlsStreamTestUrl);
+				MediaItem mediaItemHls = new()
+				{
+					MetadataArtist = "HLS Album",
+					MetadataArtworkUrl = botImageUrl,
+					MetadataTitle = "HLS Title",
+					Source = MediaSource.FromUri(hlsStreamTestUrl),
+				};
+				MediaElement.Source = mediaItemHls;
 				return;
 
 			case resetSource:
-				MediaElement.MetadataArtworkUrl = string.Empty;
-				MediaElement.MetadataTitle = string.Empty;
-				MediaElement.MetadataArtist = string.Empty;
-				MediaElement.Source = null;
+				MediaItem mediaItemReset = new()
+				{
+					MetadataTitle = string.Empty,
+					MetadataArtist = string.Empty,
+					MetadataArtworkUrl = string.Empty,
+					Source = null,
+				};
+				MediaElement.Source = mediaItemReset;
 				return;
 
 			case loadLocalResource:
-				MediaElement.MetadataArtworkUrl = botImageUrl;
-				MediaElement.MetadataTitle = "Local Resource Title";
-				MediaElement.MetadataArtist = "Local Resource Album";
+				MediaItem mediaItemLocal = new()
+				{
+					MetadataArtworkUrl = botImageUrl,
+					MetadataTitle = "Local Resource Title",
+					MetadataArtist = "Local Resource Album",
+				};
 
 				if (DeviceInfo.Platform == DevicePlatform.MacCatalyst
 					|| DeviceInfo.Platform == DevicePlatform.iOS)
 				{
-					MediaElement.Source = MediaSource.FromResource("AppleVideo.mp4");
+					mediaItemLocal.Source = MediaSource.FromResource("AppleVideo.mp4");
 				}
 				else if (DeviceInfo.Platform == DevicePlatform.Android)
 				{
-					MediaElement.Source = MediaSource.FromResource("AndroidVideo.mp4");
+					mediaItemLocal.Source = MediaSource.FromResource("AndroidVideo.mp4");
 				}
 				else if (DeviceInfo.Platform == DevicePlatform.WinUI)
 				{
-					MediaElement.Source = MediaSource.FromResource("WindowsVideo.mp4");
+					mediaItemLocal.Source = MediaSource.FromResource("WindowsVideo.mp4");
 				}
+				MediaElement.Source = mediaItemLocal;
 				return;
 
 			case loadMusic:
-				MediaElement.MetadataTitle = "HAL 9000";
-				MediaElement.MetadataArtist = "HAL 9000 Album";
-				MediaElement.MetadataArtworkUrl = botImageUrl;
-				MediaElement.Source = MediaSource.FromUri(hal9000AudioUrl);
+				MediaItem mediaItemMusic = new()
+				{
+					MetadataTitle = "HAL 9000",
+					MetadataArtist = "HAL 9000 Album",
+					MetadataArtworkUrl = botImageUrl,
+					Source = MediaSource.FromUri(hal9000AudioUrl),
+				};
+				MediaElement.Source = mediaItemMusic;
 				return;
 			case loadPlaylist:
 				var playlist = new List<MediaItem>
@@ -236,12 +257,6 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 						MetadataTitle = "Elephant's Dream",
 						MetadataArtist = "Elephant's Dream Artist",
 						MetadataArtworkUrl = botImageUrl,
-					},
-					new() {
-					Source = MediaSource.FromUri(StreamingVideoUrls.BuckBunny),
-					MetadataTitle = "Big Buck Bunny",
-					MetadataArtist = "Big Buck Bunny Artist",
-					MetadataArtworkUrl = botImageUrl,
 					},
 					new() {
 						Source = MediaSource.FromResource("WindowsVideo.mp4"),
@@ -268,9 +283,6 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 						MetadataArtworkUrl = botImageUrl,
 					},
 				};
-				MediaElement.MetadataTitle = "Playlist: Big Buck Bunny, Elephant's Dream, Sintel";
-				MediaElement.MetadataArtist = "Various Artists";
-				MediaElement.MetadataArtworkUrl = botImageUrl;
 				MediaElement.Playlist = playlist;
 				return;
 		}
@@ -308,6 +320,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		MediaElement.Pause();
 
 		MediaSource source;
+		MediaItem item;
 
 		if (deviceInfo.Platform == DevicePlatform.Android)
 		{
@@ -323,14 +336,19 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		{
 			source = MediaSource.FromResource("WindowsVideo.mp4");
 		}
-
+		MediaItem mediaItem = new()
+		{
+			MetadataTitle = "Big Buck Bunny",
+			MetadataArtist = "Big Buck Bunny Album",
+			MetadataArtworkUrl = botImageUrl,
+			Source = source,
+		};
 		var popupMediaElement = new MediaElement
 		{
 			WidthRequest = 600,
 			HeightRequest = 400,
 			AndroidViewType = AndroidViewType.SurfaceView,
-			Source = source,
-			MetadataArtworkUrl = botImageUrl,
+			Source = mediaItem,
 			ShouldAutoPlay = true,
 			ShouldShowPlaybackControls = true,
 		};

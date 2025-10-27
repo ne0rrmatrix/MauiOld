@@ -224,7 +224,7 @@ public partial class MediaManager : IDisposable
 		Metadata.ClearNowPlaying();
 		PlayerViewController?.ContentOverlayView?.Subviews.FirstOrDefault()?.RemoveFromSuperview();
 
-		if (MediaElement.Source is UriMediaSource uriMediaSource)
+		if (MediaElement.Source?.Source is UriMediaSource uriMediaSource)
 		{
 			var uri = uriMediaSource.Uri;
 			if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
@@ -232,7 +232,7 @@ public partial class MediaManager : IDisposable
 				asset = AVAsset.FromUrl(new NSUrl(uri.AbsoluteUri));
 			}
 		}
-		else if (MediaElement.Source is FileMediaSource fileMediaSource)
+		else if (MediaElement.Source?.Source is FileMediaSource fileMediaSource)
 		{
 			var uri = fileMediaSource.Path;
 
@@ -241,7 +241,7 @@ public partial class MediaManager : IDisposable
 				asset = AVAsset.FromUrl(NSUrl.CreateFileUrl(uri));
 			}
 		}
-		else if (MediaElement.Source is ResourceMediaSource resourceMediaSource)
+		else if (MediaElement.Source?.Source is ResourceMediaSource resourceMediaSource)
 		{
 			var path = resourceMediaSource.Path;
 
@@ -334,9 +334,9 @@ public partial class MediaManager : IDisposable
 			return;
 		}
 
-		if (PlayerViewController?.View is not null && PlayerViewController.ContentOverlayView is not null && !string.IsNullOrEmpty(MediaElement.MetadataArtworkUrl))
+		if (PlayerViewController?.View is not null && PlayerViewController.ContentOverlayView is not null && !string.IsNullOrEmpty(MediaElement.Source?.MetadataArtworkUrl))
 		{
-			var image = UIImage.LoadFromData(NSData.FromUrl(new NSUrl(MediaElement.MetadataArtworkUrl))) ?? new UIImage();
+			var image = UIImage.LoadFromData(NSData.FromUrl(new NSUrl(MediaElement.Source?.MetadataArtworkUrl ?? string.Empty))) ?? new UIImage();
 			var imageView = new UIImageView(image)
 			{
 				ContentMode = UIViewContentMode.ScaleAspectFit,
