@@ -9,7 +9,7 @@ using Xunit;
 
 namespace CommunityToolkit.Maui.UnitTests.Views;
 
-public class RatingViewTests : BaseHandlerTest
+public class RatingViewTests : BaseViewTest
 {
 	const string customShape = "M 12 0C5.388 0 0 5.388 0 12s5.388 12 12 12 12-5.38 12-12c0-6.612-5.38-12-12-12z";
 
@@ -82,7 +82,7 @@ public class RatingViewTests : BaseHandlerTest
 	public void Defaults_ShouldHaveCorrectDefaultProperties()
 	{
 		RatingView ratingView = new();
-		ratingView.Rating.Should().Be(RatingViewDefaults.DefaultRating);
+		ratingView.Rating.Should().Be(RatingViewDefaults.Rating);
 		ratingView.EmptyShapeColor.Should().BeOfType<Color>().And.Be(RatingViewDefaults.EmptyShapeColor);
 		ratingView.FillColor.Should().BeOfType<Color>().And.Be(RatingViewDefaults.FillColor);
 		ratingView.IsReadOnly.Should().BeFalse().And.Be(RatingViewDefaults.IsReadOnly);
@@ -93,7 +93,8 @@ public class RatingViewTests : BaseHandlerTest
 		ratingView.ShapeBorderColor.Should().BeOfType<Color>().And.Be(RatingViewDefaults.ShapeBorderColor);
 		ratingView.ShapeBorderThickness.Should().Be(RatingViewDefaults.ShapeBorderThickness);
 		ratingView.Spacing.Should().Be(RatingViewDefaults.Spacing);
-		ratingView.FillOption.Should().BeOneOf(RatingViewFillOption.Shape).And.Be(RatingViewFillOption.Shape);
+		ratingView.FillWhenTapped.Should().Be(RatingViewDefaults.FillWhenTapped);
+		ratingView.FillOption.Should().BeOneOf(RatingViewDefaults.FillOption);
 		ratingView.CustomShapePath.Should().BeNull();
 	}
 
@@ -170,7 +171,7 @@ public class RatingViewTests : BaseHandlerTest
 	{
 		const double currentRating = 3.5;
 		RatingView ratingView = new();
-		ratingView.Rating.Should().Be(RatingViewDefaults.DefaultRating);
+		ratingView.Rating.Should().Be(RatingViewDefaults.Rating);
 		var signaled = false;
 		ratingView.RatingChanged += (sender, e) => signaled = true;
 		ratingView.Rating = currentRating;
@@ -622,24 +623,6 @@ public class RatingViewTests : BaseHandlerTest
 	}
 
 	[Fact]
-	public void Properties_MaximumRating_Validator()
-	{
-		RatingView ratingView = new();
-		RatingView.MaximumRatingProperty.ValidateValue(ratingView, 0).Should().BeFalse();
-		RatingView.MaximumRatingProperty.ValidateValue(ratingView, RatingViewDefaults.MaximumRatingLimit + 1).Should().BeFalse();
-		RatingView.MaximumRatingProperty.ValidateValue(ratingView, 1).Should().BeTrue();
-	}
-
-	[Fact]
-	public void Properties_Rating_Validator()
-	{
-		RatingView ratingView = new();
-		RatingView.RatingProperty.ValidateValue(ratingView, -1.0).Should().BeFalse();
-		RatingView.RatingProperty.ValidateValue(ratingView, (double)(RatingViewDefaults.MaximumRatingLimit + 1)).Should().BeFalse();
-		RatingView.RatingProperty.ValidateValue(ratingView, 0.1).Should().BeTrue();
-	}
-
-	[Fact]
 	public void RatingViewDoesNotThrowsArgumentOutOfRangeExceptionWhenRatingSetBeforeMaximumRating()
 	{
 		const int maximumRating = RatingViewDefaults.MaximumRatingLimit - 1;
@@ -675,7 +658,7 @@ public class RatingViewTests : BaseHandlerTest
 	public void RatingViewThrowsArgumentOutOfRangeExceptionWhenOutsideLowerBounds()
 	{
 		RatingView ratingView = new();
-		Assert.Throws<ArgumentOutOfRangeException>(() => ratingView.Rating = 0 - double.Epsilon);
+		Assert.Throws<ArgumentOutOfRangeException>(() => ratingView.Rating = -1);
 	}
 
 	[Fact]

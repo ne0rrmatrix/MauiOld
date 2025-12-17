@@ -21,7 +21,7 @@ sealed partial class MediaControlsService : Service
 	bool isDisposed;
 
 	PlayerNotificationManager? playerNotificationManager;
-	NotificationCompat.Builder? notification;
+	NotificationCompat.Builder? notificationBuilder;
 
 	public event EventHandler TaskRemoved
 	{
@@ -76,10 +76,10 @@ sealed partial class MediaControlsService : Service
 		StartForegroundServices();
 	}
 
-	[MemberNotNull(nameof(NotificationManager), nameof(notification))]
+	[MemberNotNull(nameof(NotificationManager), nameof(notificationBuilder))]
 	public void UpdateNotifications(in MediaSession session, in PlatformMediaElement mediaElement)
 	{
-		ArgumentNullException.ThrowIfNull(notification);
+		ArgumentNullException.ThrowIfNull(notificationBuilder);
 		ArgumentNullException.ThrowIfNull(NotificationManager);
 
 		var style = new MediaStyleNotificationHelper.MediaStyle(session);
@@ -88,8 +88,8 @@ sealed partial class MediaControlsService : Service
 			SetLegacyNotifications(session, mediaElement);
 		}
 
-		notification.SetStyle(style);
-		NotificationManagerCompat.From(Platform.AppContext).Notify(1, notification.Build());
+		notificationBuilder.SetStyle(style);
+		NotificationManagerCompat.From(Platform.AppContext)?.Notify(1, notificationBuilder.Build());
 	}
 
 	[MemberNotNull(nameof(playerNotificationManager))]
@@ -110,7 +110,7 @@ sealed partial class MediaControlsService : Service
 		playerNotificationManager.SetColor(Resource.Color.abc_primary_text_material_dark);
 		playerNotificationManager.SetUsePreviousActionInCompactView(true);
 		playerNotificationManager.SetVisibility(NotificationCompat.VisibilityPublic);
-		playerNotificationManager.SetMediaSessionToken(session.SessionCompatToken);
+		playerNotificationManager.SetMediaSessionToken(session.PlatformToken);
 		playerNotificationManager.SetPlayer(mediaElement);
 		playerNotificationManager.SetColorized(true);
 		playerNotificationManager.SetShowPlayButtonIfPlaybackIsSuppressed(true);
@@ -151,26 +151,29 @@ sealed partial class MediaControlsService : Service
 		notificationMnaManager.CreateNotificationChannel(channel);
 	}
 
-	[MemberNotNull(nameof(notification), nameof(NotificationManager))]
+	[MemberNotNull(nameof(notificationBuilder), nameof(NotificationManager))]
 	void StartForegroundServices()
 	{
 		NotificationManager ??= GetSystemService(NotificationService) as NotificationManager ?? throw new InvalidOperationException($"{nameof(NotificationManager)} cannot be null");
-		notification ??= new NotificationCompat.Builder(Platform.AppContext, "1");
+		notificationBuilder ??= new NotificationCompat.Builder(Platform.AppContext, "1");
 
-		notification.SetSmallIcon(Resource.Drawable.media3_notification_small_icon);
-		notification.SetAutoCancel(false);
-		notification.SetForegroundServiceBehavior(NotificationCompat.ForegroundServiceImmediate);
-		notification.SetVisibility(NotificationCompat.VisibilityPublic);
+		notificationBuilder.SetSmallIcon(Resource.Drawable.media3_notification_small_icon);
+		notificationBuilder.SetAutoCancel(false);
+		notificationBuilder.SetForegroundServiceBehavior(NotificationCompat.ForegroundServiceImmediate);
+		notificationBuilder.SetVisibility(NotificationCompat.VisibilityPublic);
 
 		CreateNotificationChannel(NotificationManager);
 
 		if (OperatingSystem.IsAndroidVersionAtLeast(29))
 		{
-			StartForeground(1, notification.Build(), ForegroundService.TypeMediaPlayback);
+			if (notificationBuilder.Build() is Notification notification)
+			{
+				StartForeground(1, notification, ForegroundService.TypeMediaPlayback);
+			}
 		}
 		else
 		{
-			StartForeground(1, notification.Build());
+			StartForeground(1, notificationBuilder.Build());
 		}
 	}
 }

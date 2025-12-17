@@ -1,6 +1,8 @@
 ﻿using System.Runtime.Versioning;
+using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Core.Handlers;
 using CommunityToolkit.Maui.Views;
+using Microsoft.Maui.Hosting;
 
 namespace CommunityToolkit.Maui;
 
@@ -22,7 +24,10 @@ public static class AppBuilderExtensions
 	/// <returns><see cref="MauiAppBuilder"/> initialized for <see cref="MediaElement"/>.</returns>
 	public static MauiAppBuilder UseMauiCommunityToolkitMediaElement(this MauiAppBuilder builder, Action<MediaElementOptions>? options = null)
 	{
+		// Update the default MediaElementOptions for MediaElement if Action is not null
 		options?.Invoke(new MediaElementOptions(builder));
+
+		// Perform Handler configuration
 		builder.ConfigureMauiHandlers(h =>
 		{
 			h.AddHandler<MediaElement, MediaElementHandler>();
@@ -31,6 +36,7 @@ public static class AppBuilderExtensions
 #if ANDROID
 		builder.Services.AddSingleton<Media.Services.MediaControlsService>();
 #endif
+
 		return builder;
 	}
 }

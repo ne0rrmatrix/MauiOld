@@ -1,5 +1,7 @@
 using CommunityToolkit.Maui.Behaviors;
 using CommunityToolkit.Maui.Converters;
+using CommunityToolkit.Maui.Extensions;
+using CommunityToolkit.Maui.Views;
 #if WINDOWS
 using Microsoft.Maui.LifecycleEvents;
 #endif
@@ -9,7 +11,7 @@ namespace CommunityToolkit.Maui;
 /// <summary>
 /// .NET MAUI Community Toolkit Options.
 /// </summary>
-public class Options() : Core.Options
+public class Options : Core.Options
 {
 	readonly MauiAppBuilder? builder;
 
@@ -18,10 +20,17 @@ public class Options() : Core.Options
 		this.builder = builder;
 	}
 
+	internal Options()
+	{
+
+	}
+
 	internal static bool ShouldSuppressExceptionsInAnimations { get; private set; }
 	internal static bool ShouldSuppressExceptionsInConverters { get; private set; }
 	internal static bool ShouldSuppressExceptionsInBehaviors { get; private set; }
 	internal static bool ShouldEnableSnackbarOnWindows { get; private set; }
+	internal static DefaultPopupSettings DefaultPopupSettings { get; private set; } = new();
+	internal static DefaultPopupOptionsSettings DefaultPopupOptionsSettings { get; private set; } = new();
 
 	/// <summary>
 	/// Will return the <see cref="ICommunityToolkitValueConverter.DefaultConvertReturnValue"/> default value instead of throwing an exception when using <see cref="BaseConverter{TFrom,TTo}"/>.
@@ -87,7 +96,7 @@ public class Options() : Core.Options
 						{
 							throw new InvalidOperationException($"{nameof(Application)}.{nameof(Application.Current)} cannot be null when Windows are closed");
 						}
-						else if (Application.Current.Windows.Count is 1)
+						else if (Application.Current.Windows.Count is 0)
 						{
 							Microsoft.Windows.AppNotifications.AppNotificationManager.Default.NotificationInvoked -= OnSnackbarNotificationInvoked;
 							Microsoft.Windows.AppNotifications.AppNotificationManager.Default.Unregister();
@@ -104,5 +113,25 @@ public class Options() : Core.Options
 #endif
 
 		ShouldEnableSnackbarOnWindows = value;
+	}
+
+	/// <summary>
+	/// Sets the default settings for <see cref="Popup"/>
+	/// </summary>
+	/// <param name="globalPopupSettings"></param>
+	/// <remarks>The settings passed in here will be set on initialization of every new Popup</remarks>
+	public void SetPopupDefaults(DefaultPopupSettings globalPopupSettings)
+	{
+		DefaultPopupSettings = globalPopupSettings;
+	}
+
+	/// <summary>
+	/// Sets the default settings for <see cref="PopupOptions"/>
+	/// </summary>
+	/// <param name="globalPopupOptionsSettings"></param>
+	/// <remarks>The settings passed in here will be used when <see cref="PopupExtensions.ShowPopup(Microsoft.Maui.Controls.Page,Microsoft.Maui.Controls.View,CommunityToolkit.Maui.IPopupOptions?)"/> is called the <see cref="CommunityToolkit.Maui.IPopupOptions"/> parameter is null</remarks>
+	public void SetPopupOptionsDefaults(DefaultPopupOptionsSettings globalPopupOptionsSettings)
+	{
+		DefaultPopupOptionsSettings = globalPopupOptionsSettings;
 	}
 }

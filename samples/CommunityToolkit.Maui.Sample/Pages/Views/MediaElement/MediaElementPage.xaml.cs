@@ -1,32 +1,37 @@
 ﻿using System.ComponentModel;
-using CommunityToolkit.Maui.Core.Primitives;
+using CommunityToolkit.Maui.Core;
+using CommunityToolkit.Maui.Extensions;
+using CommunityToolkit.Maui.Sample.Constants;
 using CommunityToolkit.Maui.Sample.ViewModels.Views;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
-using LayoutAlignment = Microsoft.Maui.Primitives.LayoutAlignment;
 
 namespace CommunityToolkit.Maui.Sample.Pages.Views;
 
 public partial class MediaElementPage : BasePage<MediaElementViewModel>
 {
-	readonly ILogger logger;
-
 	const string loadOnlineMp4 = "Load Online MP4";
 	const string loadHls = "Load HTTP Live Stream (HLS)";
 	const string loadLocalResource = "Load Local Resource";
 	const string resetSource = "Reset Source to null";
 	const string loadMusic = "Load Music";
 
-	const string buckBunnyMp4Url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
 	const string botImageUrl = "https://lh3.googleusercontent.com/pw/AP1GczNRrebWCJvfdIau1EbsyyYiwAfwHS0JXjbioXvHqEwYIIdCzuLodQCZmA57GADIo5iB3yMMx3t_vsefbfoHwSg0jfUjIXaI83xpiih6d-oT7qD_slR0VgNtfAwJhDBU09kS5V2T5ZML-WWZn8IrjD4J-g=w1792-h1024-s-no-gm";
 	const string hlsStreamTestUrl = "https://mtoczko.github.io/hls-test-streams/test-gap/playlist.m3u8";
 	const string hal9000AudioUrl = "https://github.com/prof3ssorSt3v3/media-sample-files/raw/master/hal-9000.mp3";
 
-	public MediaElementPage(MediaElementViewModel viewModel, ILogger<MediaElementPage> logger) : base(viewModel)
+
+	readonly ILogger logger;
+	readonly IDeviceInfo deviceInfo;
+	readonly IFileSystem fileSystem;
+
+	public MediaElementPage(MediaElementViewModel viewModel, IFileSystem fileSystem, IDeviceInfo deviceInfo, ILogger<MediaElementPage> logger) : base(viewModel)
 	{
 		InitializeComponent();
 
 		this.logger = logger;
+		this.deviceInfo = deviceInfo;
+		this.fileSystem = fileSystem;
 		MediaElement.PropertyChanged += MediaElement_PropertyChanged;
 	}
 
@@ -39,14 +44,14 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		}
 	}
 
-	void OnMediaOpened(object? sender, EventArgs e) => logger.LogInformation("Media opened.");
+	void OnMediaOpened(object? sender, EventArgs? e) => logger.LogInformation("Media opened.");
 
 	void OnStateChanged(object? sender, MediaStateChangedEventArgs e) =>
 		logger.LogInformation("Media State Changed. Old State: {PreviousState}, New State: {NewState}", e.PreviousState, e.NewState);
 
 	void OnMediaFailed(object? sender, MediaFailedEventArgs e) => logger.LogInformation("Media failed. Error: {ErrorMessage}", e.ErrorMessage);
 
-	void OnMediaEnded(object? sender, EventArgs e) => logger.LogInformation("Media ended.");
+	void OnMediaEnded(object? sender, EventArgs? e) => logger.LogInformation("Media ended.");
 
 	void OnPositionChanged(object? sender, MediaPositionChangedEventArgs e)
 	{
@@ -54,9 +59,9 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		PositionSlider.Value = e.Position.TotalSeconds;
 	}
 
-	void OnSeekCompleted(object? sender, EventArgs e) => logger.LogInformation("Seek completed.");
+	void OnSeekCompleted(object? sender, EventArgs? e) => logger.LogInformation("Seek completed.");
 
-	void OnSpeedMinusClicked(object? sender, EventArgs e)
+	void OnSpeedMinusClicked(object? sender, EventArgs? e)
 	{
 		if (MediaElement.Speed >= 1)
 		{
@@ -64,7 +69,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		}
 	}
 
-	void OnSpeedPlusClicked(object? sender, EventArgs e)
+	void OnSpeedPlusClicked(object? sender, EventArgs? e)
 	{
 		if (MediaElement.Speed < 10)
 		{
@@ -72,7 +77,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		}
 	}
 
-	void OnVolumeMinusClicked(object? sender, EventArgs e)
+	void OnVolumeMinusClicked(object? sender, EventArgs? e)
 	{
 		if (MediaElement.Volume >= 0)
 		{
@@ -87,7 +92,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		}
 	}
 
-	void OnVolumePlusClicked(object? sender, EventArgs e)
+	void OnVolumePlusClicked(object? sender, EventArgs? e)
 	{
 		if (MediaElement.Volume < 1)
 		{
@@ -102,22 +107,22 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		}
 	}
 
-	void OnPlayClicked(object? sender, EventArgs e)
+	void OnPlayClicked(object? sender, EventArgs? e)
 	{
 		MediaElement.Play();
 	}
 
-	void OnPauseClicked(object? sender, EventArgs e)
+	void OnPauseClicked(object? sender, EventArgs? e)
 	{
 		MediaElement.Pause();
 	}
 
-	void OnStopClicked(object? sender, EventArgs e)
+	void OnStopClicked(object? sender, EventArgs? e)
 	{
 		MediaElement.Stop();
 	}
 
-	void OnMuteClicked(object? sender, EventArgs e)
+	void OnMuteClicked(object? sender, EventArgs? e)
 	{
 		MediaElement.ShouldMute = !MediaElement.ShouldMute;
 	}
@@ -129,7 +134,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		MediaElement.Handler?.DisconnectHandler();
 	}
 
-	async void Slider_DragCompleted(object? sender, EventArgs e)
+	async void Slider_DragCompleted(object? sender, EventArgs? e)
 	{
 		ArgumentNullException.ThrowIfNull(sender);
 
@@ -139,16 +144,16 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		MediaElement.Play();
 	}
 
-	void Slider_DragStarted(object sender, EventArgs e)
+	void Slider_DragStarted(object? sender, EventArgs? e)
 	{
 		MediaElement.Pause();
 	}
 
-	void Button_Clicked(object? sender, EventArgs e)
+	async void Button_Clicked(object? sender, EventArgs? e)
 	{
 		if (string.IsNullOrWhiteSpace(CustomSourceEntry.Text))
 		{
-			DisplayAlert("Error Loading URL Source", "No value was found to load as a media source. " +
+			await DisplayAlertAsync("Error Loading URL Source", "No value was found to load as a media source. " +
 				"When you do enter a value, make sure it's a valid URL. No additional validation is done.",
 				"OK");
 
@@ -158,10 +163,13 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		MediaElement.Source = MediaSource.FromUri(CustomSourceEntry.Text);
 	}
 
-	async void ChangeSourceClicked(Object sender, EventArgs e)
+	async void ChangeSourceClicked(object? sender, EventArgs? e)
 	{
-		var result = await DisplayActionSheet("Choose a source", "Cancel", null,
+		var result = await DisplayActionSheetAsync("Choose a source", "Cancel", null,
 			loadOnlineMp4, loadHls, loadLocalResource, resetSource, loadMusic);
+
+		MediaElement.Stop();
+		MediaElement.Source = null;
 
 		switch (result)
 		{
@@ -170,7 +178,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 				MediaElement.MetadataArtworkUrl = botImageUrl;
 				MediaElement.MetadataArtist = "Big Buck Bunny Album";
 				MediaElement.Source =
-					MediaSource.FromUri(buckBunnyMp4Url);
+					MediaSource.FromUri(StreamingVideoUrls.BuckBunny);
 				return;
 
 			case loadHls:
@@ -216,11 +224,11 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		}
 	}
 
-	async void ChangeAspectClicked(object? sender, EventArgs e)
+	async void ChangeAspectClicked(object? sender, EventArgs? e)
 	{
 		const string cancel = "Cancel";
 
-		var resultAspect = await DisplayActionSheet(
+		var resultAspect = await DisplayActionSheetAsync(
 			"Choose aspect ratio",
 			cancel,
 			null,
@@ -235,7 +243,7 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 
 		if (!Enum.TryParse(typeof(Aspect), resultAspect, true, out var aspectEnum))
 		{
-			await DisplayAlert("Error", "There was an error determining the selected aspect", "OK");
+			await DisplayAlertAsync("Error", "There was an error determining the selected aspect", "OK");
 
 			return;
 		}
@@ -243,35 +251,41 @@ public partial class MediaElementPage : BasePage<MediaElementViewModel>
 		MediaElement.Aspect = (Aspect)aspectEnum;
 	}
 
-	void DisplayPopup(object sender, EventArgs e)
+	async void DisplayPopup(object? sender, EventArgs? e)
 	{
 		MediaElement.Pause();
+
+		MediaSource source;
+
+		if (deviceInfo.Platform == DevicePlatform.Android)
+		{
+			source = MediaSource.FromResource("AndroidVideo.mp4");
+		}
+		else if (deviceInfo.Platform == DevicePlatform.MacCatalyst
+				 || deviceInfo.Platform == DevicePlatform.iOS
+				 || deviceInfo.Platform == DevicePlatform.macOS)
+		{
+			source = MediaSource.FromResource("AppleVideo.mp4");
+		}
+		else
+		{
+			source = MediaSource.FromResource("WindowsVideo.mp4");
+		}
+
 		var popupMediaElement = new MediaElement
 		{
-			Source = MediaSource.FromResource("AppleVideo.mp4"),
-			HeightRequest = 600,
 			WidthRequest = 600,
+			HeightRequest = 400,
+			AndroidViewType = AndroidViewType.SurfaceView,
+			Source = source,
+			MetadataArtworkUrl = botImageUrl,
 			ShouldAutoPlay = true,
 			ShouldShowPlaybackControls = true,
 		};
-		var popup = new Popup
-		{
-			VerticalOptions = LayoutAlignment.Center,
-			HorizontalOptions = LayoutAlignment.Center,
-			Content = new StackLayout
-			{
-				Children =
-				{
-					popupMediaElement,
-				}
-			}
-		};
 
-		this.ShowPopup(popup);
-		popup.Closed += (s, e) =>
-		{
-			popupMediaElement.Stop();
-			popupMediaElement.Handler?.DisconnectHandler();
-		};
+		await this.ShowPopupAsync(popupMediaElement);
+
+		popupMediaElement.Stop();
+		popupMediaElement.Source = null;
 	}
 }

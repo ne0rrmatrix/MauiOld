@@ -18,23 +18,11 @@ public partial class AnimationBehavior : EventToCommandBehavior
 		behavior.SetBinding(AnimationBehavior.AnimateCommandProperty, nameof(ViewModel.TriggerAnimationCommand));
 		""";
 
-	/// <summary>
-	/// Backing BindableProperty for the <see cref="AnimationType"/> property.
-	/// </summary>
-	public static readonly BindableProperty AnimationTypeProperty =
-		BindableProperty.Create(nameof(AnimationType), typeof(BaseAnimation), typeof(AnimationBehavior));
-
-	/// <summary>
-	/// Backing BindableProperty for the <see cref="AnimateCommand"/> property.
-	/// </summary>
-	public static readonly BindableProperty AnimateCommandProperty =
-		BindableProperty.CreateReadOnly(nameof(AnimateCommand), typeof(Command<CancellationToken>), typeof(AnimationBehavior), default, BindingMode.OneWayToSource, propertyChanging: OnAnimateCommandChanging, defaultValueCreator: CreateAnimateCommand).BindableProperty;
-
 	TapGestureRecognizer? tapGestureRecognizer;
 
 	/// <summary>
 	/// Gets the Command that allows the triggering of the animation.
-	/// 
+	///
 	/// NOTE: Apps should not directly set this property, treating it as read only. The setter is only public because
 	/// that's currently needed to make XAML Hot Reload work. Instead, apps should provide a value for this OneWayToSource
 	/// property by creating a binding, in XAML or C#. If done via C# use code like this:
@@ -43,51 +31,35 @@ public partial class AnimationBehavior : EventToCommandBehavior
 	/// <remarks>
 	/// <see cref="AnimateCommand"/> has a <see cref="Type"/> of Command&lt;CancellationToken&gt; which requires a <see cref="CancellationToken"/> as a CommandParameter. See <see cref="Command{CancellationToken}"/> and <see cref="System.Windows.Input.ICommand.Execute(object)"/> for more information on passing a <see cref="CancellationToken"/> into <see cref="Command{T}"/> as a CommandParameter"
 	/// </remarks>
-	public Command<CancellationToken> AnimateCommand
+	[BindableProperty(DefaultBindingMode = BindingMode.OneWayToSource, PropertyChangingMethodName = nameof(OnAnimateCommandChanging), DefaultValueCreatorMethodName = nameof(CreateAnimateCommand))]
+	public partial Command<CancellationToken> AnimateCommand
 	{
-		get => (Command<CancellationToken>)GetValue(AnimateCommandProperty);
-
+		get;
 		[Obsolete(animateCommandSetterWarning), EditorBrowsable(EditorBrowsableState.Never)]
-		set
-		{
-			Trace.WriteLine(animateCommandSetterWarning);
-			SetValue(AnimateCommandProperty, value);
-		}
+		set;
 	}
 
 	/// <summary>
 	/// The type of animation to perform.
 	/// </summary>
-	public BaseAnimation? AnimationType
-	{
-		get => (BaseAnimation?)GetValue(AnimationTypeProperty);
-		set => SetValue(AnimationTypeProperty, value);
-	}
+	[BindableProperty]
+	public partial BaseAnimation? AnimationType { get; set; }
+
+	/// <summary>
+	/// Whether a TapGestureRecognizer is added to the control or not
+	/// </summary>
+	[BindableProperty(PropertyChangedMethodName = nameof(OnAnimateOnTapPropertyChanged))]
+	public partial bool AnimateOnTap { get; set; }
 
 	/// <inheritdoc/>
 	protected override void OnAttachedTo(VisualElement bindable)
 	{
 		base.OnAttachedTo(bindable);
 
-		if (!string.IsNullOrWhiteSpace(EventName))
+		if (AnimateOnTap)
 		{
-			return;
+			AddTapGestureRecognizer();
 		}
-
-		if (bindable is ITextInput)
-		{
-			throw new InvalidOperationException($"Animation Behavior can not be attached to {nameof(ITextInput)} without using the EventName property.");
-		}
-
-		if (bindable is not IGestureRecognizers gestureRecognizers)
-		{
-			throw new InvalidOperationException($"VisualElement does not implement {nameof(IGestureRecognizers)}.");
-		}
-
-		tapGestureRecognizer = new TapGestureRecognizer();
-		tapGestureRecognizer.Tapped += OnTriggerHandled;
-
-		gestureRecognizers.GestureRecognizers.Add(tapGestureRecognizer);
 	}
 
 	/// <inheritdoc/>
@@ -108,6 +80,52 @@ public partial class AnimationBehavior : EventToCommandBehavior
 		await OnAnimate(CancellationToken.None);
 
 		base.OnTriggerHandled(sender, eventArgs);
+	}
+
+	static void OnAnimateOnTapPropertyChanged(BindableObject bindable, object oldValue, object newValue)
+	{
+		if (bindable is not AnimationBehavior behavior)
+		{
+			return;
+		}
+
+		if ((bool)newValue)
+		{
+			behavior.AddTapGestureRecognizer();
+		}
+		else
+		{
+			behavior.RemoveTapGestureRecognizer();
+		}
+	}
+
+	void AddTapGestureRecognizer()
+	{
+		if (View is not IGestureRecognizers gestureRecognizers)
+		{
+			return;
+		}
+
+		tapGestureRecognizer = new TapGestureRecognizer();
+		tapGestureRecognizer.Tapped += OnTriggerHandled;
+		gestureRecognizers.GestureRecognizers.Add(tapGestureRecognizer);
+	}
+
+	void RemoveTapGestureRecognizer()
+	{
+		if (tapGestureRecognizer is null)
+		{
+			return;
+		}
+
+		if (View is not IGestureRecognizers gestureRecognizers)
+		{
+			return;
+		}
+
+		gestureRecognizers.GestureRecognizers.Remove(tapGestureRecognizer);
+		tapGestureRecognizer.Tapped -= OnTriggerHandled;
+		tapGestureRecognizer = null;
 	}
 
 	static Command<CancellationToken> CreateAnimateCommand(BindableObject bindable)

@@ -28,18 +28,14 @@ public sealed partial class OfflineSpeechToTextImplementation
 	public ValueTask DisposeAsync()
 	{
 		InternalStopListening();
-
-		offlineSpeechRecognizer?.Dispose();
-		offlineSpeechRecognizer = null;
 		return ValueTask.CompletedTask;
 	}
 
-	void InternalStartListening(SpeechToTextOptions options)
+	Task InternalStartListening(SpeechToTextOptions options, CancellationToken token = default)
 	{
 		Initialize(options);
 
 		offlineSpeechRecognizer.AudioStateChanged += OfflineSpeechRecognizer_StateChanged;
-		offlineSpeechRecognizer.LoadGrammar(new DictationGrammar());
 
 		offlineSpeechRecognizer.InitialSilenceTimeout = TimeSpan.MaxValue;
 		offlineSpeechRecognizer.BabbleTimeout = TimeSpan.MaxValue;
@@ -48,7 +44,13 @@ public sealed partial class OfflineSpeechToTextImplementation
 
 		offlineSpeechRecognizer.RecognizeCompleted += OnRecognizeCompleted;
 		offlineSpeechRecognizer.SpeechRecognized += OnSpeechRecognized;
-		offlineSpeechRecognizer.RecognizeAsync(RecognizeMode.Multiple);
+
+		if (offlineSpeechRecognizer.AudioState == AudioState.Stopped)
+		{
+			offlineSpeechRecognizer.RecognizeAsync(RecognizeMode.Multiple);
+		}
+
+		return Task.CompletedTask;
 	}
 
 	void OnRecognizeCompleted(object? sender, RecognizeCompletedEventArgs args)
@@ -80,18 +82,25 @@ public sealed partial class OfflineSpeechToTextImplementation
 	{
 		try
 		{
-			if (offlineSpeechRecognizer is not null)
+			if (offlineSpeechRecognizer is not null && offlineSpeechRecognizer.AudioState != AudioState.Stopped)
 			{
 				offlineSpeechRecognizer.RecognizeAsyncStop();
-
-				offlineSpeechRecognizer.AudioStateChanged -= OfflineSpeechRecognizer_StateChanged;
-				offlineSpeechRecognizer.RecognizeCompleted -= OnRecognizeCompleted;
-				offlineSpeechRecognizer.SpeechRecognized -= OnSpeechRecognized;
 			}
 		}
 		catch
 		{
 			// ignored. Recording may be already stopped
+		}
+		finally
+		{
+			if (offlineSpeechRecognizer is not null)
+			{
+				offlineSpeechRecognizer.AudioStateChanged -= OfflineSpeechRecognizer_StateChanged;
+				offlineSpeechRecognizer.RecognizeCompleted -= OnRecognizeCompleted;
+				offlineSpeechRecognizer.SpeechRecognized -= OnSpeechRecognized;
+				offlineSpeechRecognizer?.Dispose();
+				offlineSpeechRecognizer = null;
+			}
 		}
 	}
 
@@ -101,6 +110,7 @@ public sealed partial class OfflineSpeechToTextImplementation
 		speechToTextOptions = options;
 		recognitionText = string.Empty;
 		offlineSpeechRecognizer = new SpeechRecognitionEngine(options.Culture);
+		offlineSpeechRecognizer.LoadGrammarAsync(new DictationGrammar());
 	}
 
 	void OfflineSpeechRecognizer_StateChanged(object? sender, AudioStateChangedEventArgs e)

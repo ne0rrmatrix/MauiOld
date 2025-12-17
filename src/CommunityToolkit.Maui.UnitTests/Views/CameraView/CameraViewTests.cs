@@ -5,7 +5,7 @@ using Xunit;
 
 namespace CommunityToolkit.Maui.UnitTests.Views;
 
-public class CameraViewTests : BaseHandlerTest
+public class CameraViewTests : BaseViewTest
 {
 	readonly CameraView cameraView = new();
 	readonly MockCameraProvider mockCameraProvider;
@@ -21,7 +21,7 @@ public class CameraViewTests : BaseHandlerTest
 	{
 		Assert.Equal(CameraViewDefaults.IsAvailable, cameraView.IsAvailable);
 		Assert.Equal(CameraViewDefaults.IsTorchOn, cameraView.IsTorchOn);
-		Assert.Equal(CameraViewDefaults.IsCameraBusy, cameraView.IsCameraBusy);
+		Assert.Equal(CameraViewDefaults.IsCameraBusy, cameraView.IsBusy);
 		Assert.Equal(CameraViewDefaults.ZoomFactor, cameraView.ZoomFactor);
 		Assert.Equal(CameraViewDefaults.ImageCaptureResolution, cameraView.ImageCaptureResolution);
 		Assert.Equal(CameraViewDefaults.CameraFlashMode, cameraView.CameraFlashMode);
@@ -56,9 +56,25 @@ public class CameraViewTests : BaseHandlerTest
 		cameraView.MediaCaptured += (sender, args) => eventRaised = true;
 
 		var imageData = new MemoryStream();
-		cameraView.OnMediaCaptured(imageData);
+		((ICameraView)cameraView).OnMediaCaptured(imageData);
 
 		Assert.True(eventRaised);
+	}
+
+	[Fact]
+	public async Task StartVideoRecording_ShouldThrowException()
+	{
+		var imageData = new MemoryStream();
+
+		await Assert.ThrowsAsync<InvalidOperationException>(() => cameraView.StartVideoRecording(imageData, TestContext.Current.CancellationToken));
+	}
+
+	[Fact]
+	public async Task StopVideoRecording_ShouldThrowException()
+	{
+		var imageData = new MemoryStream();
+
+		await Assert.ThrowsAsync<InvalidOperationException>(() => cameraView.StopVideoRecording(TestContext.Current.CancellationToken));
 	}
 
 	[Fact(Timeout = (int)TestDuration.Short)]
@@ -70,7 +86,7 @@ public class CameraViewTests : BaseHandlerTest
 		var mediaCaptureFailedTcs = new TaskCompletionSource<MediaCaptureFailedEventArgs>();
 		cameraView.MediaCaptureFailed += HandleMediaCaptureFailed;
 
-		cameraView.OnMediaCapturedFailed(failureMessage);
+		((ICameraView)cameraView).OnMediaCapturedFailed(failureMessage);
 
 		var mediaCaptureFailedEventArgs = await mediaCaptureFailedTcs.Task;
 

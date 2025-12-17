@@ -1,8 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using CommunityToolkit.Maui.ApplicationModel;
+using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Markup;
 using CommunityToolkit.Maui.Media;
-using CommunityToolkit.Maui.Sample.Models;
 using CommunityToolkit.Maui.Sample.Pages;
 using CommunityToolkit.Maui.Sample.Pages.Alerts;
 using CommunityToolkit.Maui.Sample.Pages.Behaviors;
@@ -24,9 +24,9 @@ using CommunityToolkit.Maui.Sample.ViewModels.ImageSources;
 using CommunityToolkit.Maui.Sample.ViewModels.Layouts;
 using CommunityToolkit.Maui.Sample.ViewModels.PlatformSpecific;
 using CommunityToolkit.Maui.Sample.ViewModels.Views;
-using CommunityToolkit.Maui.Sample.ViewModels.Views.AvatarView;
 using CommunityToolkit.Maui.Sample.Views.Popups;
 using CommunityToolkit.Maui.Storage;
+using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.LifecycleEvents;
@@ -47,7 +47,6 @@ namespace CommunityToolkit.Maui.Sample;
 
 public static class MauiProgram
 {
-	[RequiresUnreferencedCode($"{nameof(CommunityToolkit.Maui.Views.Expander)} and  {nameof(TouchBehaviorCollectionViewMultipleSelectionPage)} are not type safe")]
 	public static MauiApp CreateMauiApp()
 	{
 		var builder = MauiApp.CreateBuilder()
@@ -55,6 +54,8 @@ public static class MauiProgram
 								.UseMauiCommunityToolkit(static options =>
 								{
 									options.SetShouldEnableSnackbarOnWindows(true);
+									options.SetPopupDefaults(new DefaultPopupSettings());
+									options.SetPopupOptionsDefaults(new DefaultPopupOptionsSettings());
 								})
 #else
 								.UseMauiCommunityToolkit(static options =>
@@ -69,10 +70,15 @@ public static class MauiProgram
 								.UseMauiCommunityToolkitCamera()
 								.UseMauiCommunityToolkitMediaElement(static options =>
 								{
-									options.SetShouldEnableServiceOnAndroid(true);
+									options.SetDefaultAndroidForegroundServiceEnabled(false);
+									options.SetDefaultAndroidViewType(AndroidViewType.TextureView);
 								})
 
 								.ConfigureMauiHandlers(handlers =>
+								{
+									
+								})
+								.ConfigureMauiHandlers(static handlers =>
 								{
 #if IOS || MACCATALYST
 									handlers.AddHandler<CollectionView, Microsoft.Maui.Controls.Handlers.Items2.CollectionViewHandler2>();
@@ -124,7 +130,6 @@ public static class MauiProgram
 						.AddStandardResilienceHandler(static options => options.Retry = new MobileHttpRetryStrategyOptions());
 
 		builder.Services.AddSingleton<AppShell>();
-		builder.Services.AddSingleton<PopupSizeConstants>();
 
 		RegisterViewsAndViewModels(builder.Services);
 		RegisterEssentials(builder.Services);
@@ -136,7 +141,6 @@ public static class MauiProgram
 		return builder.Build();
 	}
 
-	[RequiresUnreferencedCode("Calls CommunityToolkit.Maui.Sample.MauiProgram.AddTransientWithShellRoute<TPage, TViewModel>()")]
 	static void RegisterViewsAndViewModels(in IServiceCollection services)
 	{
 		// Add Gallery Pages + ViewModels
@@ -249,7 +253,6 @@ public static class MauiProgram
 		// Add Views Pages + ViewModels
 		services.AddTransientWithShellRoute<BasicMapsPage, BasicMapsViewModel>();
 		services.AddTransientWithShellRoute<CameraViewPage, CameraViewViewModel>();
-		services.AddTransientWithShellRoute<CustomSizeAndPositionPopupPage, CustomSizeAndPositionPopupViewModel>();
 		services.AddTransientWithShellRoute<DrawingViewPage, DrawingViewViewModel>();
 		services.AddTransientWithShellRoute<ExpanderPage, ExpanderViewModel>();
 		services.AddTransientWithShellRoute<LazyViewPage, LazyViewViewModel>();
@@ -258,8 +261,7 @@ public static class MauiProgram
 		services.AddTransientWithShellRoute<MediaElementCarouselViewPage, MediaElementCarouselViewViewModel>();
 		services.AddTransientWithShellRoute<MediaElementCollectionViewPage, MediaElementCollectionViewViewModel>();
 		services.AddTransientWithShellRoute<MediaElementMultipleWindowsPage, MediaElementMultipleWindowsViewModel>();
-		services.AddTransientWithShellRoute<MultiplePopupPage, MultiplePopupViewModel>();
-		services.AddTransientWithShellRoute<PopupAnchorPage, PopupAnchorViewModel>();
+		services.AddTransientWithShellRoute<PopupsPage, PopupsViewModel>();
 		services.AddTransientWithShellRoute<PopupLayoutAlignmentPage, PopupLayoutAlignmentViewModel>();
 		services.AddTransientWithShellRoute<PopupPositionPage, PopupPositionViewModel>();
 		services.AddTransientWithShellRoute<RatingViewCsharpPage, RatingViewCsharpViewModel>();
@@ -271,7 +273,26 @@ public static class MauiProgram
 		services.AddTransientWithShellRoute<PopupSizingIssuesPage, PopupSizingIssuesViewModel>();
 
 		// Add Popups
+		services.AddTransientPopup<ApplyToDerivedTypesPopup>();
+		services.AddTransientPopup<ButtonPopup>();
+		services.AddTransientPopup<CollectionViewPopup, CollectionViewPopupViewModel>();
+		services.AddTransientPopup<ComplexPopup, ComplexPopupViewModel>();
 		services.AddTransientPopup<CsharpBindingPopup, CsharpBindingPopupViewModel>();
+		services.AddTransientPopup<DynamicStyleInheritancePopup>();
+		services.AddTransientPopup<DynamicStylePopup>();
+		services.AddTransientPopup<ExplicitStylePopup>();
+		services.AddTransientPopup<ImplicitStylePopup>();
+		services.AddTransientPopup<MultipleButtonPopup>();
+		services.AddTransientPopup<NoOutsideTapDismissPopup>();
+		services.AddTransientPopup<OpenedEventSimplePopup>();
+		services.AddTransientPopup<PopupContentView, PopupContentViewModel>();
+		services.AddTransientPopup<RedBlueBoxPopup>();
+		services.AddTransientPopup<ReturnResultPopup>();
+		services.AddTransientPopup<SimplePopup>();
+		services.AddTransientPopup<StyleClassPopup>();
+		services.AddTransientPopup<StyleInheritancePopup>();
+		services.AddTransientPopup<ToggleSizePopup>();
+		services.AddTransientPopup<TransparentPopup>();
 		services.AddTransientPopup<UpdatingPopup, UpdatingPopupViewModel>();
 		services.AddTransientPopup<XamlBindingPopup, XamlBindingPopupViewModel>();
 	}
