@@ -369,9 +369,8 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 		Player.PlayWhenReady = MediaElement.ShouldAutoPlay;
-		cancellationTokenSource ??= new();
-		// ConfigureAwait(true) is required to prevent crash on startup
-		var result = await SetPlayerData(cancellationTokenSource.Token).ConfigureAwait(true);
+	
+		var result = SetPlayerData();
 		var item = result?.Build();
 
 		if (item?.MediaMetadata is not null)
@@ -537,100 +536,6 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		}
 	}
 
-	static async Task<byte[]> GetBytesFromMetadataArtworkUrl(string url, CancellationToken cancellationToken = default)
-	{
-		if (string.IsNullOrWhiteSpace(url))
-		{
-			return [];
-		}
-
-		Stream? stream = null;
-		Uri.TryCreate(url, UriKind.Absolute, out var uri);
-
-		try
-		{
-			byte[] artworkData = [];
-			long? contentLength = null;
-
-			// HTTP or HTTPS URL
-			if (uri is not null &&
-				(uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
-			{
-				var request = new HttpRequestMessage(HttpMethod.Head, url);
-				var contentLengthResponse = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-				contentLength = contentLengthResponse.Content.Headers.ContentLength ?? 0;
-
-				var response = await client.GetAsync(url, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
-				stream = response.IsSuccessStatusCode ? await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false) : null;
-			}
-			// Absolute File Path
-			else if (uri is not null && uri.Scheme == Uri.UriSchemeFile)
-			{
-				var normalizedFilePath = NormalizeFilePath(url);
-
-				stream = File.Open(normalizedFilePath, FileMode.Create);
-				contentLength = await GetByteCountFromStream(stream, cancellationToken);
-			}
-			// Relative File Path
-			else if (Uri.TryCreate(url, UriKind.Relative, out _))
-			{
-				var normalizedFilePath = NormalizeFilePath(url);
-
-				stream = Platform.AppContext.Assets?.Open(normalizedFilePath) ?? throw new InvalidOperationException("Assets cannot be null");
-				contentLength = await GetByteCountFromStream(stream, cancellationToken);
-			}
-
-			if (stream is not null)
-			{
-				if (!contentLength.HasValue)
-				{
-					throw new InvalidOperationException($"{nameof(contentLength)} must be set when {nameof(stream)} is not null");
-				}
-
-				artworkData = new byte[contentLength.Value];
-				using var memoryStream = new MemoryStream(artworkData);
-				await stream.CopyToAsync(memoryStream, cancellationToken).ConfigureAwait(false);
-			}
-
-			return artworkData;
-		}
-		catch (Exception e)
-		{
-			Trace.WriteLine($"Unable to retrieve {nameof(MediaElement.MetadataArtworkUrl)} for {url}.{e}\n");
-			return [];
-		}
-		finally
-		{
-			if (stream is not null)
-			{
-				stream.Close();
-				await stream.DisposeAsync();
-			}
-		}
-
-		static string NormalizeFilePath(string filePath) => filePath.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
-
-		static async ValueTask<long> GetByteCountFromStream(Stream stream, CancellationToken token)
-		{
-			if (stream.CanSeek)
-			{
-				return stream.Length;
-			}
-
-			long countedStreamBytes = 0;
-
-			var buffer = new byte[8192];
-			int bytesRead;
-
-			while ((bytesRead = await stream.ReadAsync(buffer, token)) > 0)
-			{
-				countedStreamBytes += bytesRead;
-			}
-
-			return countedStreamBytes;
-		}
-	}
-
 	[MemberNotNull(nameof(connection))]
 	void StartService()
 	{
@@ -653,7 +558,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 	void HandleMediaControlsServiceTaskRemoved(object? sender, EventArgs e) => Player?.Stop();
 
-	async Task<MediaItem.Builder?> SetPlayerData(CancellationToken cancellationToken = default)
+	MediaItem.Builder? SetPlayerData()
 	{
 		if (MediaElement.Source is null)
 		{
@@ -667,7 +572,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 					var uri = uriMediaSource.Uri;
 					if (!string.IsNullOrWhiteSpace(uri?.AbsoluteUri))
 					{
-						return await CreateMediaItem(uri.AbsoluteUri, cancellationToken).ConfigureAwait(false);
+						return CreateMediaItem(uri.AbsoluteUri);
 					}
 
 					break;
@@ -677,7 +582,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 					var filePath = fileMediaSource.Path;
 					if (!string.IsNullOrWhiteSpace(filePath))
 					{
-						return await CreateMediaItem(filePath, cancellationToken).ConfigureAwait(false);
+						return CreateMediaItem(filePath);
 					}
 
 					break;
@@ -689,7 +594,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 					if (!string.IsNullOrWhiteSpace(path))
 					{
 						var assetFilePath = $"asset://{package}{Path.PathSeparator}{path}";
-						return await CreateMediaItem(assetFilePath, cancellationToken).ConfigureAwait(false);
+						return CreateMediaItem(assetFilePath);
 					}
 
 					break;
@@ -701,16 +606,12 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		return mediaItem;
 	}
 
-	async Task<MediaItem.Builder> CreateMediaItem(string url, CancellationToken cancellationToken = default)
+	MediaItem.Builder CreateMediaItem(string url)
 	{
 		MediaMetadata.Builder mediaMetaData = new();
 		mediaMetaData.SetArtist(MediaElement.MetadataArtist);
 		mediaMetaData.SetTitle(MediaElement.MetadataTitle);
-		var data = await GetBytesFromMetadataArtworkUrl(MediaElement.MetadataArtworkUrl, cancellationToken).ConfigureAwait(true);
-		if (data is not null && data.Length > 0)
-		{
-			mediaMetaData.SetArtworkData(data, (Java.Lang.Integer)MediaMetadata.PictureTypeFrontCover);
-		}
+		mediaMetaData.SetArtworkUri(Android.Net.Uri.Parse(MediaElement.MetadataArtworkUrl));
 
 		mediaItem = new MediaItem.Builder();
 		mediaItem.SetUri(url);
