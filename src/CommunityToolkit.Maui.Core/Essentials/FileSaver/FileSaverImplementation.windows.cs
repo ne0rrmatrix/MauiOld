@@ -1,31 +1,27 @@
-using Microsoft.Windows.Storage.Pickers;
+using System.Diagnostics;
+using Windows.Storage.Pickers;
 
 namespace CommunityToolkit.Maui.Storage;
 
 /// <inheritdoc />
 public sealed partial class FileSaverImplementation : IFileSaver
 {
-	readonly List<string> allFilesExtension = ["."];
+	readonly List<string> allFilesExtension = new() { "*" };
 
 	async Task<string> InternalSaveAsync(string initialPath, string fileName, Stream stream, IProgress<double>? progress, CancellationToken cancellationToken)
 	{
-		if (IPlatformApplication.Current?.Application.Windows[0].Handler?.PlatformView is not MauiWinUIWindow window)
-		{
-			throw new FileSaveException(
-				"Cannot present file picker: No active window found. Ensure the app is active with a visible window.");
-		}
-
-		var savePicker = new FileSavePicker(window.AppWindow.Id)
+		var savePicker = new FileSavePicker
 		{
 			SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
-			SuggestedFolder = initialPath,
 			SuggestedFileName = Path.GetFileNameWithoutExtension(fileName)
 		};
+
+		WinRT.Interop.InitializeWithWindow.Initialize(savePicker, Process.GetCurrentProcess().MainWindowHandle);
 
 		var extension = Path.GetExtension(fileName);
 		if (!string.IsNullOrEmpty(extension))
 		{
-			savePicker.FileTypeChoices.Add(extension, [extension]);
+			savePicker.FileTypeChoices.Add(extension, new List<string> { extension });
 		}
 
 		savePicker.FileTypeChoices.Add("All files", allFilesExtension);
@@ -33,14 +29,10 @@ public sealed partial class FileSaverImplementation : IFileSaver
 		var filePickerOperation = savePicker.PickSaveFileAsync();
 		await using var _ = cancellationToken.Register(CancelFilePickerOperation);
 		var file = await filePickerOperation;
-		if (file is null)
-		{
-			throw new OperationCanceledException("Operation cancelled.");
-		}
 
-		if (string.IsNullOrEmpty(file.Path))
+		if (string.IsNullOrEmpty(file?.Path))
 		{
-			throw new FileSaveException("Path doesn't exist.");
+			throw new FileSaveException("Operation cancelled or Path doesn't exist.");
 		}
 
 		await WriteStream(stream, file.Path, progress, cancellationToken).ConfigureAwait(false);
