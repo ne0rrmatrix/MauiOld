@@ -77,27 +77,37 @@ partial class PopupPage : ContentPage, IQueryAttributable
 		token.ThrowIfCancellationRequested();
 
 		// Handle edge case where a Popup was pushed inside a custom IPageContainer (e.g. a NavigationPage) on the Modal Stack
-		var customPageContainer = Navigation.ModalStack.OfType<IPageContainer<Page>>().LastOrDefault();
-		if (customPageContainer is not null && customPageContainer.CurrentPage is not PopupPage)
+		var navigationPageOnModalStackContainingPopupPage = Navigation.ModalStack.OfType<IPageContainer<Page>>().LastOrDefault();
+		if (navigationPageOnModalStackContainingPopupPage is not null && navigationPageOnModalStackContainingPopupPage.CurrentPage is not PopupPage)
 		{
-			throw new PopupNotFoundException();
+			navigationPageOnModalStackContainingPopupPage = null;
 		}
 
-		var popupPageToClose = customPageContainer?.CurrentPage as PopupPage
+		var popupPageToClose = navigationPageOnModalStackContainingPopupPage?.CurrentPage as PopupPage
 							   ?? Navigation.ModalStack.OfType<PopupPage>().LastOrDefault()
 							   ?? throw new PopupNotFoundException();
 
 		// PopModalAsync will pop the last (top) page from the ModalStack
 		// Ensure that the PopupPage the user is attempting to close is the last (top) page on the Modal stack before calling Navigation.PopModalAsync
-		if (Navigation.ModalStack[^1] is IPageContainer<Page> { CurrentPage: PopupPage visiblePopupPageInCustomPageContainer }
-			 && visiblePopupPageInCustomPageContainer.Content != Content)
+		switch (Navigation.ModalStack[^1])
 		{
-			throw new PopupBlockedException(visiblePopupPageInCustomPageContainer);
+			// Handle the edge case where the visible modal page is a navigation page containing a Popup that is not the Popup to be closed 
+			case IPageContainer<Page> { CurrentPage: PopupPage visiblePopupPageInCustomPageContainer } when visiblePopupPageInCustomPageContainer.Content != Content:
+				throw new PopupBlockedException(visiblePopupPageInCustomPageContainer);
+
+			// Handle edge case where the top of the modal stack is an IPageContainer whose CurrentPage is NOT a PopupPage
+			// (e.g. a modal NavigationPage pushed after showing a popup).
+			case IPageContainer<Page> { CurrentPage: not PopupPage }:
+				throw new PopupBlockedException(Navigation.ModalStack[^1]);
+
+			// Handle edge case where the visible modal page is not the Popup to be closed 
+			case ContentPage currentVisibleModalPage when currentVisibleModalPage.Content != Content:
+				throw new PopupBlockedException(currentVisibleModalPage);
 		}
-		else if (Navigation.ModalStack[^1] is ContentPage currentVisibleModalPage
-				 && currentVisibleModalPage.Content != Content)
+
+		if (popupPageToClose.Content != Content)
 		{
-			throw new PopupBlockedException(currentVisibleModalPage);
+			throw new PopupBlockedException(popupPageToClose);
 		}
 
 		// We call `.ThrowIfCancellationRequested()` again to avoid a race condition where a developer cancels the CancellationToken after we check for an InvalidOperationException
@@ -282,21 +292,21 @@ partial class PopupPage : ContentPage, IQueryAttributable
 		{
 			public override LayoutOptions DefaultConvertReturnValue { get; set; } = Options.DefaultPopupSettings.HorizontalOptions;
 
-			public override LayoutOptions ConvertFrom(LayoutOptions value, CultureInfo? culture) => value == LayoutOptions.Fill ? Options.DefaultPopupSettings.HorizontalOptions : value;
+			public override LayoutOptions ConvertFrom(LayoutOptions value, CultureInfo? culture) => value == LayoutOptions.Fill ? DefaultConvertReturnValue : value;
 		}
 
 		sealed partial class VerticalOptionsConverter : BaseConverterOneWay<LayoutOptions, LayoutOptions>
 		{
 			public override LayoutOptions DefaultConvertReturnValue { get; set; } = Options.DefaultPopupSettings.VerticalOptions;
 
-			public override LayoutOptions ConvertFrom(LayoutOptions value, CultureInfo? culture) => value == LayoutOptions.Fill ? Options.DefaultPopupSettings.VerticalOptions : value;
+			public override LayoutOptions ConvertFrom(LayoutOptions value, CultureInfo? culture) => value == LayoutOptions.Fill ? DefaultConvertReturnValue : value;
 		}
 
 		sealed partial class BackgroundColorConverter : BaseConverterOneWay<Color?, Color>
 		{
 			public override Color DefaultConvertReturnValue { get; set; } = Options.DefaultPopupSettings.BackgroundColor;
 
-			public override Color ConvertFrom(Color? value, CultureInfo? culture) => value ?? Options.DefaultPopupSettings.BackgroundColor;
+			public override Color ConvertFrom(Color? value, CultureInfo? culture) => value ?? DefaultConvertReturnValue;
 		}
 	}
 
@@ -304,13 +314,13 @@ partial class PopupPage : ContentPage, IQueryAttributable
 	{
 		public override Thickness DefaultConvertReturnValue { get; set; } = Options.DefaultPopupSettings.Padding;
 
-		public override Thickness ConvertFrom(Thickness value, CultureInfo? culture) => value == default ? Options.DefaultPopupSettings.Padding : value;
+		public override Thickness ConvertFrom(Thickness value, CultureInfo? culture) => value.IsEmpty || value.IsNaN ? DefaultConvertReturnValue : value;
 	}
 
 	sealed partial class MarginConverter : BaseConverterOneWay<Thickness, Thickness>
 	{
 		public override Thickness DefaultConvertReturnValue { get; set; } = Options.DefaultPopupSettings.Margin;
 
-		public override Thickness ConvertFrom(Thickness value, CultureInfo? culture) => value == default ? Options.DefaultPopupSettings.Margin : value;
+		public override Thickness ConvertFrom(Thickness value, CultureInfo? culture) => value.IsEmpty || value.IsNaN ? DefaultConvertReturnValue : value;
 	}
 }

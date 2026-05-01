@@ -1,13 +1,17 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using Android.App;
 using Android.Content;
+using Android.Util;
 using Android.Views;
 using Android.Widget;
 using AndroidX.Core.Content;
 using AndroidX.Media3.Common;
 using AndroidX.Media3.Common.Text;
 using AndroidX.Media3.Common.Util;
+using AndroidX.Media3.DataSource;
 using AndroidX.Media3.ExoPlayer;
+using AndroidX.Media3.ExoPlayer.Source;
 using AndroidX.Media3.Session;
 using AndroidX.Media3.UI;
 using CommunityToolkit.Maui.Media.Services;
@@ -30,6 +34,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	const int stateEnded = 4;
 
 	readonly SemaphoreSlim seekToSemaphoreSlim = new(1, 1);
+	bool isAndroidForegroundServiceEnabled = false;
 
 	double? previousSpeed;
 	float volumeBeforeMute = 1;
@@ -161,7 +166,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 			var xmlResource = resources.GetXml(Microsoft.Maui.Resource.Layout.textureview);
 			xmlResource.Read();
 
-			var attributes = Android.Util.Xml.AsAttributeSet(xmlResource)!;
+			var attributes = Xml.AsAttributeSet(xmlResource)!;
 
 			PlayerView = new PlayerView(MauiContext.Context, attributes)
 			{
@@ -418,12 +423,26 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 		if (item?.MediaMetadata is not null)
 		{
-			Player.SetMediaItem(item);
+			if (MediaElement.Source is UriMediaSource uriMediaSource && uriMediaSource.HttpHeaders.Count > 0)
+			{
+				var httpDataSourceFactory = new DefaultHttpDataSource.Factory();
+				httpDataSourceFactory.SetDefaultRequestProperties(uriMediaSource.HttpHeaders);
+
+				var mediaSourceFactory = new DefaultMediaSourceFactory(httpDataSourceFactory);
+				var mediaSource = mediaSourceFactory.CreateMediaSource(item);
+
+				Player.SetMediaSource(mediaSource);
+			}
+			else
+			{
+				Player.SetMediaItem(item);
+			}
+
 			Player.Prepare();
 			hasSetSource = true;
 		}
 
-		if (hasSetSource && Player.PlayerError is null)
+		if (hasSetSource)
 		{
 			MediaElement.MediaOpened();
 		}

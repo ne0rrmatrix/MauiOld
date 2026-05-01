@@ -90,5 +90,43 @@ sealed partial class MediaControlsService : MediaSessionService
 	public override MediaSession? OnGetSession(MediaSession.ControllerInfo? p0)
 	{
 		return mediaSession;
+	[MemberNotNull(nameof(notificationBuilder), nameof(NotificationManager))]
+	void StartForegroundServices()
+	{
+		NotificationManager ??= GetSystemService(NotificationService) as NotificationManager ?? throw new InvalidOperationException($"{nameof(NotificationManager)} cannot be null");
+		notificationBuilder ??= new NotificationCompat.Builder(Platform.AppContext, "1");
+		var pendingIntent = CreateActivityPendingIntent();
+		notificationBuilder.SetSmallIcon(Resource.Drawable.media3_notification_small_icon);
+		notificationBuilder.SetAutoCancel(false);
+		notificationBuilder.SetForegroundServiceBehavior(NotificationCompat.ForegroundServiceImmediate);
+		notificationBuilder.SetVisibility(NotificationCompat.VisibilityPublic);
+		notificationBuilder.SetContentIntent(pendingIntent);
+
+		CreateNotificationChannel(NotificationManager);
+
+		if (OperatingSystem.IsAndroidVersionAtLeast(29))
+		{
+			if (notificationBuilder.Build() is Notification notification)
+			{
+				StartForeground(1, notification, ForegroundService.TypeMediaPlayback);
+			}
+		}
+		else
+		{
+			StartForeground(1, notificationBuilder.Build());
+		}
+	}
+
+	static PendingIntent CreateActivityPendingIntent()
+	{
+		var packageName = Platform.AppContext.PackageName ?? throw new InvalidOperationException("PackageName cannot be null");
+		var packageManager = Platform.AppContext.PackageManager ?? throw new InvalidOperationException("PackageManager cannot be null");
+		var launchIntent = packageManager.GetLaunchIntentForPackage(packageName) ?? throw new InvalidOperationException("Launch intent cannot be null");
+
+		launchIntent.SetFlags(ActivityFlags.ClearTop | ActivityFlags.SingleTop);
+
+		var flags = PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable;
+		return PendingIntent.GetActivity(Platform.AppContext, 0, launchIntent, flags)
+			   ?? throw new InvalidOperationException("PendingIntent cannot be null");
 	}
 }

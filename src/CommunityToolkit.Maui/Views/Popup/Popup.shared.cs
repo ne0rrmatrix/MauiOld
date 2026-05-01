@@ -18,6 +18,7 @@ public partial class Popup : ContentView
 		HorizontalOptions = Options.DefaultPopupSettings.HorizontalOptions;
 		VerticalOptions = Options.DefaultPopupSettings.VerticalOptions;
 		BackgroundColor = Options.DefaultPopupSettings.BackgroundColor;
+		CanBeDismissedByTappingOutsideOfPopup = Options.DefaultPopupSettings.CanBeDismissedByTappingOutsideOfPopup;
 	}
 
 	/// <summary>
@@ -34,25 +35,19 @@ public partial class Popup : ContentView
 	/// Gets or sets the margin between the <see cref="Popup"/> and the edge of the window.
 	/// </summary>
 	[BindableProperty]
-	public new partial Thickness Margin { get; set; } = Options.DefaultPopupSettings.Margin;
-
-	/// <summary>
-	/// Gets or sets the padding between the <see cref="Popup"/> border and the <see cref="Popup"/> content.
-	/// </summary>
-	[BindableProperty]
-	public new partial Thickness Padding { get; set; } = Options.DefaultPopupSettings.Padding;
+	public new partial Thickness Margin { get; set; }
 
 	/// <summary>
 	/// Gets or sets the horizontal position of the <see cref="Popup"/> when displayed on screen.
 	/// </summary>
 	[BindableProperty]
-	public new partial LayoutOptions HorizontalOptions { get; set; } = Options.DefaultPopupSettings.HorizontalOptions;
+	public new partial LayoutOptions HorizontalOptions { get; set; }
 
 	/// <summary>
 	/// Gets or sets the vertical position of the <see cref="Popup"/> when displayed on screen.
 	/// </summary>
 	[BindableProperty]
-	public new partial LayoutOptions VerticalOptions { get; set; } = Options.DefaultPopupSettings.VerticalOptions;
+	public new partial LayoutOptions VerticalOptions { get; set; }
 
 	/// <inheritdoc cref="IPopupOptions.CanBeDismissedByTappingOutsideOfPopup"/> />
 	/// <remarks>
@@ -60,7 +55,16 @@ public partial class Popup : ContentView
 	/// On Android - when false the hardware back button is disabled.
 	/// </remarks>
 	[BindableProperty]
-	public partial bool CanBeDismissedByTappingOutsideOfPopup { get; set; } = Options.DefaultPopupSettings.CanBeDismissedByTappingOutsideOfPopup;
+	public partial bool CanBeDismissedByTappingOutsideOfPopup { get; set; }
+
+	/// <summary>
+	/// Gets or sets the padding between the <see cref="Popup"/> border and the <see cref="Popup"/> content.
+	/// </summary>
+	public new Thickness Padding
+	{
+		get => base.Padding;
+		set => base.Padding = value;
+	}
 
 	/// <summary>
 	/// Close the Popup.
@@ -108,8 +112,17 @@ public partial class Popup<T> : Popup
 	public virtual Task CloseAsync(T result, CancellationToken token = default) => GetPopupPage().CloseAsync(new PopupResult<T>(result, false), token);
 }
 
-sealed class PopupNotFoundException() : InvalidPopupOperationException($"Unable to close popup: could not locate {nameof(PopupPage)}. {nameof(PopupExtensions.ShowPopup)} or {nameof(PopupExtensions.ShowPopupAsync)} must be called before {nameof(Popup.CloseAsync)}. If using a custom implementation of {nameof(Popup)}, override the {nameof(Popup.CloseAsync)} method");
+/// <summary>
+/// An <see cref="InvalidOperationException"/> thrown when attempting to close a <see cref="Popup"/> that cannot locate its associated <see cref="PopupPage"/>.
+/// </summary>
+public sealed class PopupNotFoundException() : InvalidPopupOperationException($"Unable to close popup: could not locate {nameof(PopupPage)}. {nameof(PopupExtensions.ShowPopup)} or {nameof(PopupExtensions.ShowPopupAsync)} must be called before {nameof(Popup.CloseAsync)}. If using a custom implementation of {nameof(Popup)}, override the {nameof(Popup.CloseAsync)} method");
 
-sealed class PopupBlockedException(in Page currentVisibleModalPage) : InvalidPopupOperationException($"Unable to close Popup because it is blocked by the Modal Page {currentVisibleModalPage.GetType().FullName}. Please call `{nameof(Page.Navigation)}.{nameof(Page.Navigation.PopModalAsync)}()` to first remove {currentVisibleModalPage.GetType().FullName} from the {nameof(Page.Navigation.ModalStack)}");
+/// <summary>
+/// An <see cref="InvalidOperationException"/> thrown when attempting to close a <see cref="Popup"/> that is blocked by a visible modal page.
+/// </summary>
+public sealed class PopupBlockedException(in Page currentVisibleModalPage) : InvalidPopupOperationException($"Unable to close Popup because it is blocked by the Modal Page {currentVisibleModalPage.GetType().FullName}. Please call `{nameof(Page.Navigation)}.{nameof(Page.Navigation.PopModalAsync)}()` to first remove {currentVisibleModalPage.GetType().FullName} from the {nameof(Page.Navigation.ModalStack)}");
 
-class InvalidPopupOperationException(in string message) : InvalidOperationException(message);
+/// <summary>
+/// An <see cref="InvalidOperationException"/> thrown when an invalid operation is performed on a <see cref="Popup"/>.
+/// </summary>
+public class InvalidPopupOperationException(in string message) : InvalidOperationException(message);
