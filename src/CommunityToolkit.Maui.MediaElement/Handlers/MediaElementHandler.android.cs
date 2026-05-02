@@ -42,9 +42,9 @@ public partial class MediaElementHandler : ViewHandler<MediaElement, MauiMediaEl
 
 		try
 		{
-          var player = await MediaManager.CreatePlatformPlayer();
+			var player = await MediaManager.CreatePlatformPlayer();
 			platformView.SetView(player);
-          await MediaManager.SynchronizePlayerStateAsync();
+			await MediaManager.SynchronizePlayerStateAsync();
 		}
        catch (Exception exception)
 		{

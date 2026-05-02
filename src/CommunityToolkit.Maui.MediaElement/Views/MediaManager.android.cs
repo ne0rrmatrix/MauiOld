@@ -36,7 +36,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 	readonly SemaphoreSlim seekToSemaphoreSlim = new(1, 1);
 	bool isAndroidForegroundServiceEnabled = false;
-   bool hasPendingSourceUpdate;
+	bool hasPendingSourceUpdate;
 	DefaultTrackSelector? localTrackSelector;
 
 	double? previousSpeed;
@@ -187,12 +187,10 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		return PlayerView;
 	}
 
-    public Task<PlatformMediaElement> CreatePlatformPlayer(CancellationToken cancellationToken = default)
-	{
-      return isAndroidForegroundServiceEnabled
-			? CreateMediaController(cancellationToken).ContinueWith(static task => (PlatformMediaElement)task.Result, cancellationToken)
-			: Task.FromResult<PlatformMediaElement>(CreateLocalPlayer());
-	}
+    public async Task<PlatformMediaElement> CreatePlatformPlayer(CancellationToken cancellationToken = default) 
+		=> isAndroidForegroundServiceEnabled 
+		? await CreateMediaController(cancellationToken) 
+		: CreateLocalPlayer();
 
 	internal ValueTask SynchronizePlayerStateAsync()
 	{

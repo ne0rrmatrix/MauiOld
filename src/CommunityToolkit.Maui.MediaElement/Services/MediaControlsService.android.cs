@@ -42,7 +42,7 @@ sealed partial class MediaControlsService : MediaSessionService
 	
 	public override void OnDestroy()
 	{
-       ReleaseAllPlayers();
+		ReleaseAllPlayers();
 		base.OnDestroy();
 		PauseAllPlayersAndStopSelf();
 	}
