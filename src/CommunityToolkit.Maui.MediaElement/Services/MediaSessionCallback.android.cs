@@ -1,4 +1,5 @@
 ﻿using Android.OS;
+using AndroidX.Concurrent.Futures;
 using AndroidX.Media3.Session;
 using CommunityToolkit.Maui.Media.Services;
 
@@ -24,9 +25,9 @@ sealed partial class MediaSessionCallback(MediaControlsService mediaControlsServ
 			.Build() ?? throw new InvalidOperationException("Failed to build connection result.");
 	}
 
- public global::Google.Common.Util.Concurrent.IListenableFuture? OnCustomCommand(MediaSession? session, MediaSession.ControllerInfo? controller, SessionCommand? customCommand, Bundle? args)
+   public global::Google.Common.Util.Concurrent.IListenableFuture? OnCustomCommand(MediaSession? session, MediaSession.ControllerInfo? controller, SessionCommand? customCommand, Bundle? args)
 	{
-        TaskCompletionSource<SessionResult> taskCompletionSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var future = ResolvableFuture.Create() ?? throw new InvalidOperationException("Failed to create ResolvableFuture.");
 
 		try
 		{
@@ -36,13 +37,13 @@ sealed partial class MediaSessionCallback(MediaControlsService mediaControlsServ
 				mediaControlsService.ReleasePlayer(playerId);
 			}
 
-			taskCompletionSource.SetResult(new SessionResult(SessionResult.ResultSuccess));
+         future.Set(new SessionResult(SessionResult.ResultSuccess));
 		}
-        catch (InvalidOperationException exception)
+     catch (InvalidOperationException exception)
 		{
-         taskCompletionSource.SetException(exception);
+           future.SetException(new Java.Lang.RuntimeException(exception.Message));
 		}
 
-		return new TaskListenableFuture(taskCompletionSource.Task);
+     return future;
 	}
 }
