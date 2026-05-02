@@ -21,13 +21,13 @@ sealed partial class MediaSessionCallback(MediaControlsService mediaControlsServ
 			.Build() ?? throw new InvalidOperationException("Failed to build session commands.");
 
 		return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-          .SetAvailableSessionCommands(sessionCommands)?
+		  .SetAvailableSessionCommands(sessionCommands)?
 			.Build() ?? throw new InvalidOperationException("Failed to build connection result.");
 	}
 
-   public global::Google.Common.Util.Concurrent.IListenableFuture? OnCustomCommand(MediaSession? session, MediaSession.ControllerInfo? controller, SessionCommand? customCommand, Bundle? args)
+	public global::Google.Common.Util.Concurrent.IListenableFuture? OnCustomCommand(MediaSession? session, MediaSession.ControllerInfo? controller, SessionCommand? customCommand, Bundle? args)
 	{
-        var future = ResolvableFuture.Create() ?? throw new InvalidOperationException("Failed to create ResolvableFuture.");
+		var future = ResolvableFuture.Create() ?? throw new InvalidOperationException("Failed to create ResolvableFuture.");
 
 		try
 		{
@@ -41,9 +41,9 @@ sealed partial class MediaSessionCallback(MediaControlsService mediaControlsServ
 		}
 		catch (InvalidOperationException exception)
 		{
-           future.SetException(new Java.Lang.RuntimeException(exception.Message));
+			future.SetException(new Java.Lang.RuntimeException(exception.Message));
 		}
 
-     return future;
+		return future;
 	}
 }

@@ -46,7 +46,7 @@ public partial class MediaElementHandler : ViewHandler<MediaElement, MauiMediaEl
 			platformView.SetView(player);
 			await MediaManager.SynchronizePlayerStateAsync();
 		}
-       catch (Exception exception)
+		catch (Exception exception)
 		{
 			((IMediaElement)VirtualView).MediaFailed(new MediaFailedEventArgs(exception.Message));
 		}

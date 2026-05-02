@@ -16,7 +16,7 @@ namespace CommunityToolkit.Maui.Media.Services;
 [Service(Exported = false, Enabled = true, Name = "communityToolkit.maui.media.services", ForegroundServiceType = ForegroundService.TypeMediaPlayback)]
 sealed partial class MediaControlsService : MediaSessionService
 {
- readonly Dictionary<string, PlayerRegistration> playerRegistrations = [];
+	readonly Dictionary<string, PlayerRegistration> playerRegistrations = [];
 	readonly Lock syncLock = new();
 
 	public override void OnTaskRemoved(Intent? rootIntent)
@@ -35,11 +35,11 @@ sealed partial class MediaControlsService : MediaSessionService
 		if (disposing)
 		{
 			PauseAllPlayersAndStopSelf();
-            ReleaseAllPlayers();
+			ReleaseAllPlayers();
 		}
 		base.Dispose(disposing);
 	}
-	
+
 	public override void OnDestroy()
 	{
 		ReleaseAllPlayers();
@@ -47,9 +47,9 @@ sealed partial class MediaControlsService : MediaSessionService
 		PauseAllPlayersAndStopSelf();
 	}
 
- public override MediaSession? OnGetSession(MediaSession.ControllerInfo? p0)
+	public override MediaSession? OnGetSession(MediaSession.ControllerInfo? p0)
 	{
-        var playerId = p0?.ConnectionHints?.GetString(MediaSessionCallback.PlayerIdKey);
+		var playerId = p0?.ConnectionHints?.GetString(MediaSessionCallback.PlayerIdKey);
 
 		if (string.IsNullOrWhiteSpace(playerId))
 		{

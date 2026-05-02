@@ -81,9 +81,9 @@ public class MauiMediaElement : CoordinatorLayout
 		SetBackgroundResource(Android.Resource.Color.Black);
 	}
 
-    public void SetView(AndroidX.Media3.Common.IPlayer player)
+	public void SetView(AndroidX.Media3.Common.IPlayer player)
 	{
-        playerView.Player = player;
+		playerView.Player = player;
 		relativeLayout.AddView(playerView);
 		AddView(relativeLayout);
 	}
