@@ -1,4 +1,5 @@
-﻿using CommunityToolkit.Maui.Core.Views;
+﻿using CommunityToolkit.Maui.Core;
+using CommunityToolkit.Maui.Core.Views;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Maui.Handlers;
 
@@ -24,7 +25,7 @@ public partial class MediaElementHandler : ViewHandler<MediaElement, MauiMediaEl
 								VirtualView,
 								Dispatcher.GetForCurrentThread() ?? throw new InvalidOperationException($"{nameof(IDispatcher)} cannot be null"));
 
-		var playerView = MediaManager.CreatePlatformView(VirtualView.AndroidViewType);
+		var playerView = MediaManager.CreatePlatformView(VirtualView.AndroidViewType, VirtualView.IsAndroidForegroundServiceEnabled);
 		return new(Context, playerView);
 	}
 	protected override async void ConnectHandler(MauiMediaElement platformView)
@@ -38,9 +39,17 @@ public partial class MediaElementHandler : ViewHandler<MediaElement, MauiMediaEl
 		{
 			throw new InvalidOperationException($"{nameof(MediaManager)} cannot be null");
 		}
-		var mediaController = await MediaManager.CreateMediaController();
-		platformView.SetView(mediaController);
-		await MediaManager.UpdateSource();
+
+		try
+		{
+          var player = await MediaManager.CreatePlatformPlayer();
+			platformView.SetView(player);
+          await MediaManager.SynchronizePlayerStateAsync();
+		}
+       catch (Exception exception)
+		{
+			((IMediaElement)VirtualView).MediaFailed(new MediaFailedEventArgs(exception.Message));
+		}
 	}
 	protected override void DisconnectHandler(MauiMediaElement platformView)
 	{

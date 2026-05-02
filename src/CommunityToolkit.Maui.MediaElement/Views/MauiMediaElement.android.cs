@@ -60,7 +60,6 @@ public class MauiMediaElement : CoordinatorLayout
 	/// <param name="context">The application's <see cref="Context"/>.</param>
 	/// <param name="playerView">The <see cref="PlayerView"/> that acts as the platform media player.</param>
 	[DynamicDependency(DynamicallyAccessedMemberTypes.PublicConstructors, typeof(MediaElement))]
-	/// <param name="playerView">The <see cref="AndroidX.Media3.UI.PlayerView"/> that acts as the platform media player.</param>
 	public MauiMediaElement(Context context, PlayerView playerView) : base(context)
 	{
 		this.playerView = playerView;
@@ -82,9 +81,9 @@ public class MauiMediaElement : CoordinatorLayout
 		SetBackgroundResource(Android.Resource.Color.Black);
 	}
 
-	public void SetView(AndroidX.Media3.Session.MediaController mediaController)
+    public void SetView(AndroidX.Media3.Common.IPlayer player)
 	{
-		playerView.Player = mediaController;
+        playerView.Player = player;
 		relativeLayout.AddView(playerView);
 		AddView(relativeLayout);
 	}

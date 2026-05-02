@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using Android.App;
 using Android.Content;
 using Android.Util;
 using Android.Views;
@@ -12,9 +11,11 @@ using AndroidX.Media3.Common.Util;
 using AndroidX.Media3.DataSource;
 using AndroidX.Media3.ExoPlayer;
 using AndroidX.Media3.ExoPlayer.Source;
+using AndroidX.Media3.ExoPlayer.TrackSelection;
 using AndroidX.Media3.Session;
 using AndroidX.Media3.UI;
 using CommunityToolkit.Maui.Media.Services;
+using CommunityToolkit.Maui.Services;
 using CommunityToolkit.Maui.Views;
 using Java.Lang;
 using Microsoft.Extensions.Logging;
@@ -35,6 +36,8 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 	readonly SemaphoreSlim seekToSemaphoreSlim = new(1, 1);
 	bool isAndroidForegroundServiceEnabled = false;
+   bool hasPendingSourceUpdate;
+	DefaultTrackSelector? localTrackSelector;
 
 	double? previousSpeed;
 	float volumeBeforeMute = 1;
@@ -144,8 +147,9 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	/// <returns>The platform native counterpart of <see cref="MediaElement"/>.</returns>
 	/// <exception cref="NullReferenceException">Thrown when <see cref="Context"/> is <see langword="null"/> or when the platform view could not be created.</exception>
 	[MemberNotNull(nameof(PlayerView))]
-	public PlayerView CreatePlatformView(AndroidViewType androidViewType)
+	public PlayerView CreatePlatformView(AndroidViewType androidViewType, bool isAndroidServiceEnabled)
 	{
+		this.isAndroidForegroundServiceEnabled = isAndroidServiceEnabled;
 		if (androidViewType is AndroidViewType.SurfaceView)
 		{
 			PlayerView = new PlayerView(MauiContext.Context)
@@ -179,30 +183,117 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		{
 			throw new NotSupportedException($"{androidViewType} is not yet supported");
 		}
+
 		return PlayerView;
 	}
 
+    public Task<PlatformMediaElement> CreatePlatformPlayer(CancellationToken cancellationToken = default)
+	{
+      return isAndroidForegroundServiceEnabled
+			? CreateMediaController(cancellationToken).ContinueWith(static task => (PlatformMediaElement)task.Result, cancellationToken)
+			: Task.FromResult<PlatformMediaElement>(CreateLocalPlayer());
+	}
+
+	internal ValueTask SynchronizePlayerStateAsync()
+	{
+		PlatformUpdateAspect();
+		PlatformUpdateShouldShowPlaybackControls();
+		PlatformUpdateShouldKeepScreenOn();
+		PlatformUpdateVolume();
+		PlatformUpdateShouldMute();
+		PlatformUpdateShouldLoopPlayback();
+		PlatformUpdateSpeed();
+
+		if (hasPendingSourceUpdate || MediaElement.Source is not null)
+		{
+			return PlatformUpdateSource();
+		}
+
+		return ValueTask.CompletedTask;
+	}
+
+	IExoPlayer CreateLocalPlayer()
+	{
+		if (Player is IExoPlayer existingPlayer)
+		{
+			return existingPlayer;
+		}
+
+		if (PlayerView is null)
+		{
+			throw new InvalidOperationException($"{nameof(PlayerView)} cannot be null");
+		}
+
+		var audioAttribute = new AndroidX.Media3.Common.AudioAttributes.Builder()?
+			.SetContentType(C.AudioContentTypeMusic)?
+			.SetUsage(C.UsageMedia)?
+			.Build();
+
+		localTrackSelector = new DefaultTrackSelector(Platform.AppContext);
+		var trackSelectionParameters = localTrackSelector.BuildUponParameters()?
+			.SetPreferredAudioLanguage(C.LanguageUndetermined)?
+			.SetPreferredTextLanguage(C.LanguageUndetermined)?
+			.SetIgnoredTextSelectionFlags(C.SelectionFlagAutoselect);
+        localTrackSelector.SetParameters((DefaultTrackSelector.Parameters.Builder?)trackSelectionParameters);
+
+		var loadControlBuilder = new DefaultLoadControl.Builder();
+		loadControlBuilder.SetBufferDurationsMs(
+			minBufferMs: 15000,
+			maxBufferMs: 50000,
+			bufferForPlaybackMs: 2500,
+			bufferForPlaybackAfterRebufferMs: 5000);
+
+		var builder = new ExoPlayerBuilder(Platform.AppContext) ?? throw new InvalidOperationException("ExoPlayerBuilder returned null");
+        builder.SetTrackSelector(localTrackSelector);
+		builder.SetAudioAttributes(audioAttribute, true);
+		builder.SetHandleAudioBecomingNoisy(true);
+		builder.SetLoadControl(loadControlBuilder.Build());
+		var exoPlayer = builder.Build() ?? throw new InvalidOperationException("ExoPlayerBuilder.Build() returned null");
+
+		Player = exoPlayer;
+		Player.AddListener(this);
+		PlayerView.SetBackgroundColor(Android.Graphics.Color.Black);
+		PlayerView.Player = Player;
+
+		return exoPlayer;
+	}
 	public async Task<AndroidX.Media3.Session.MediaController> CreateMediaController(CancellationToken cancellationToken = default)
 	{
-		var tcs = new TaskCompletionSource();
-		var future = new MediaController.Builder(Platform.AppContext, new SessionToken(Platform.AppContext, new ComponentName(Platform.AppContext, Java.Lang.Class.FromType(typeof(MediaControlsService))))).BuildAsync();
+       if (Player is MediaController mediaController)
+		{
+			return mediaController;
+		}
+
+		var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		using var connectionHints = new Android.OS.Bundle();
+		connectionHints.PutString(MediaSessionCallback.PlayerIdKey, MediaElement.AndroidPlayerId);
+
+		var builder = new MediaController.Builder(Platform.AppContext, new SessionToken(Platform.AppContext, new ComponentName(Platform.AppContext, Java.Lang.Class.FromType(typeof(MediaControlsService)))));
+		builder.SetConnectionHints(connectionHints);
+		var future = builder.BuildAsync();
 		future?.AddListener(new Runnable(() =>
 		{
-			try
+            try
 			{
-				var result = future.Get() ?? throw new InvalidOperationException("MediaController.Builder.BuildAsync().Get() returned null");
+               var result = future.Get() ?? throw new InvalidOperationException("MediaController.Builder.BuildAsync().Get() returned null");
 				if (result is MediaController mc)
 				{
-					Player = mc;
+                    Player = mc;
 					Player.AddListener(this);
 					if (PlayerView is null)
 					{
 						throw new InvalidOperationException($"{nameof(PlayerView)} cannot be null");
 					}
+
 					PlayerView.SetBackgroundColor(Android.Graphics.Color.Black);
 					PlayerView.Player = Player;
-					using var intent = new Intent(Android.App.Application.Context, typeof(MediaControlsService));
-					Android.App.Application.Context.StartForegroundService(intent);
+
+                   if (isAndroidForegroundServiceEnabled)
+					{
+						using var intent = new Intent(Android.App.Application.Context, typeof(MediaControlsService));
+						Android.App.Application.Context.StartForegroundService(intent);
+					}
+
 					tcs.SetResult();
 				}
 				else
@@ -216,8 +307,8 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 				tcs.SetException(ex);
 			}
 		}), ContextCompat.GetMainExecutor(Platform.AppContext));
-		await tcs.Task.WaitAsync(cancellationToken);
-		return Player ?? throw new InvalidOperationException("MediaController is null");
+        await tcs.Task.WaitAsync(cancellationToken);
+		return Player as MediaController ?? throw new InvalidOperationException("MediaController is null");
 	}
 
 	/// <summary>
@@ -403,9 +494,12 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 		if (Player is null)
 		{
+         hasPendingSourceUpdate = true;
 			System.Diagnostics.Trace.WriteLine("IExoPlayer is null, cannot update source");
 			return ValueTask.CompletedTask;
 		}
+
+		hasPendingSourceUpdate = false;
 
 		if (MediaElement.Source is null)
 		{
@@ -423,15 +517,14 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 
 		if (item?.MediaMetadata is not null)
 		{
-			if (MediaElement.Source is UriMediaSource uriMediaSource && uriMediaSource.HttpHeaders.Count > 0)
+           if (MediaElement.Source is UriMediaSource uriMediaSource && uriMediaSource.HttpHeaders.Count > 0 && Player is IExoPlayer exoPlayer)
 			{
 				var httpDataSourceFactory = new DefaultHttpDataSource.Factory();
 				httpDataSourceFactory.SetDefaultRequestProperties(uriMediaSource.HttpHeaders);
 
 				var mediaSourceFactory = new DefaultMediaSourceFactory(httpDataSourceFactory);
-				var mediaSource = mediaSourceFactory.CreateMediaSource(item);
-
-				Player.SetMediaSource(mediaSource);
+				var mediaSource = mediaSourceFactory.CreateMediaSource(item) ?? throw new InvalidOperationException("Failed to create media source.");
+				exoPlayer.SetMediaSource(mediaSource);
 			}
 			else
 			{
@@ -580,17 +673,51 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		if (disposing)
 		{
 			seekToSemaphoreSlim?.Dispose();
-			Player?.Stop();
-			Player?.ClearMediaItems();
+			ReleasePlayerRegistration();
 			Player?.RemoveListener(this);
-			Player?.Release();
-			Player?.Dispose();
+
+			if (Player is IExoPlayer exoPlayer)
+			{
+				exoPlayer.Release();
+				exoPlayer.Dispose();
+			}
+			else if (Player is MediaController mediaController)
+			{
+				mediaController.Release();
+				mediaController.Dispose();
+			}
+
 			Player = null;
+			PlayerView?.Player = null;
 			PlayerView?.Dispose();
 			PlayerView = null;
-			using var serviceIntent = new Intent(Platform.AppContext, typeof(MediaControlsService));
-			Android.App.Application.Context.StopService(serviceIntent);
+			localTrackSelector?.Dispose();
+			localTrackSelector = null;
 		}
+	}
+
+	void ReleasePlayerRegistration()
+	{
+     if (!isAndroidForegroundServiceEnabled || Player is not MediaController mediaController)
+		{
+			return;
+		}
+
+		using var args = new Android.OS.Bundle();
+		args.PutString(MediaSessionCallback.PlayerIdKey, MediaElement.AndroidPlayerId);
+
+        var commandResult = mediaController.SendCustomCommand(new SessionCommand(MediaSessionCallback.ReleasePlayer, new Android.OS.Bundle()), args);
+		commandResult?.AddListener(new Runnable(() =>
+		{
+			try
+			{
+				_ = commandResult.Get() ?? throw new InvalidOperationException("MediaController.SendCustomCommand().Get() returned null");
+			}
+			catch (Exception ex)
+			{
+				Trace.WriteLine($"Error releasing Android MediaElement player registration: {ex}");
+			}
+		}), ContextCompat.GetMainExecutor(Platform.AppContext));
 	}
 
 	MediaItem.Builder? SetPlayerData()
