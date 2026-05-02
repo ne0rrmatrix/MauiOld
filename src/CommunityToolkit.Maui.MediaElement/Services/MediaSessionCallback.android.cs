@@ -37,9 +37,9 @@ sealed partial class MediaSessionCallback(MediaControlsService mediaControlsServ
 				mediaControlsService.ReleasePlayer(playerId);
 			}
 
-         future.Set(new SessionResult(SessionResult.ResultSuccess));
+			future.Set(new SessionResult(SessionResult.ResultSuccess));
 		}
-     catch (InvalidOperationException exception)
+		catch (InvalidOperationException exception)
 		{
            future.SetException(new Java.Lang.RuntimeException(exception.Message));
 		}
