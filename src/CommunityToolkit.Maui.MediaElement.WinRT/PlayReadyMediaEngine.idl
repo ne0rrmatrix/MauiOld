@@ -1,0 +1,158 @@
+namespace CommunityToolkit.Maui.Media.WinRT
+{
+    /// <summary>
+    /// Configuration for PlayReady DRM license acquisition.
+    /// </summary>
+    runtimeclass PlayReadyDrmConfiguration
+    {
+        PlayReadyDrmConfiguration();
+        String LicenseServerUrl;
+        Windows.Foundation.Collections.IMap<String, String> CustomHeaders;
+    }
+
+    /// <summary>
+    /// Event arguments for media engine state changes.
+    /// </summary>
+    runtimeclass MediaEngineStateChangedEventArgs
+    {
+        MediaEngineStateChangedEventArgs(Int32 oldState, Int32 newState);
+        Int32 OldState { get; };
+        Int32 NewState { get; };
+    }
+
+    /// <summary>
+    /// Event arguments for media engine time updates.
+    /// </summary>
+    runtimeclass MediaEngineTimeChangedEventArgs
+    {
+        MediaEngineTimeChangedEventArgs(Double positionSeconds, Double durationSeconds);
+        Double PositionSeconds { get; };
+        Double DurationSeconds { get; };
+    }
+
+    /// <summary>
+    /// Event arguments for media engine errors.
+    /// </summary>
+    runtimeclass MediaEngineErrorEventArgs
+    {
+        MediaEngineErrorEventArgs(Int32 errorCode, String errorMessage);
+        Int32 ErrorCode { get; };
+        String ErrorMessage { get; };
+    }
+
+    /// <summary>
+    /// Event arguments for media engine video size changes.
+    /// </summary>
+    runtimeclass MediaEngineSizeChangedEventArgs
+    {
+        MediaEngineSizeChangedEventArgs(UInt32 width, UInt32 height);
+        UInt32 Width { get; };
+        UInt32 Height { get; };
+    }
+
+    /// <summary>
+    /// Event arguments for DRM license acquisition results.
+    /// </summary>
+    runtimeclass DrmLicenseAcquiredEventArgs
+    {
+        DrmLicenseAcquiredEventArgs(Boolean success, String errorMessage);
+        Boolean Success { get; };
+        String ErrorMessage { get; };
+    }
+
+    /// <summary>
+    /// Low-level media engine wrapping IMFMediaEngine for PlayReady-protected
+    /// video playback with DirectX swapchain rendering.
+    /// </summary>
+    runtimeclass PlayReadyMediaEngine
+    {
+        PlayReadyMediaEngine();
+
+/// <summary>Initializes the media engine with a SwapChainPanel handle for video output.</summary>
+void Initialize(Int64 swapChainPanelHandle);
+
+/// <summary>Sets the source URL and DRM configuration.</summary>
+void SetSource(String url, PlayReadyDrmConfiguration drmConfig);
+
+/// <summary>
+/// Sets the source from raw manifest bytes and an original HTTP URL.
+/// </summary>
+void SetSourceFromManifestBytes(Windows.Foundation.Collections.IVectorView<UInt8> manifestData, String originalUrl, PlayReadyDrmConfiguration drmConfig);
+
+/// <summary>
+/// Diagnostics only: probes the CDM (IMFContentDecryptionModule) license-request
+/// flow end-to-end — factory, session, GenerateRequest on the file's PlayReady
+/// PSSH, license POST with the given header, session Update. Returns a summary.
+/// </summary>
+String TestCdmGenerateRequest(String mp4Path, String licenseUrl, String licenseHeaderName, String licenseHeaderValue);
+
+/// <summary>Starts or resumes playback.</summary>
+void Play();
+
+/// <summary>Pauses playback.</summary>
+void Pause();
+
+/// <summary>Seeks to the specified position in seconds.</summary>
+void Seek(Double positionSeconds);
+
+/// <summary>Sets the playback volume (0.0 to 1.0).</summary>
+void SetVolume(Double volume);
+
+/// <summary>Sets whether audio is muted.</summary>
+void SetMuted(Boolean muted);
+
+/// <summary>Sets the playback rate (1.0 = normal speed).</summary>
+void SetPlaybackRate(Double rate);
+
+/// <summary>Sets whether playback loops.</summary>
+void SetLooping(Boolean looping);
+
+/// <summary>Sets the stretch mode for video rendering.</summary>
+void SetStretch(Int32 stretchMode);
+
+/// <summary>Resizes the internal swap chain buffers to match a new panel size.</summary>
+void ResizeSwapChain(UInt32 width, UInt32 height);
+
+/// <summary>Closes the media engine and releases resources.</summary>
+void Close();
+
+/// <summary>Gets the current playback position in seconds.</summary>
+Double CurrentPositionSeconds { get; };
+
+/// <summary>Gets the media duration in seconds.</summary>
+Double DurationSeconds { get; };
+
+/// <summary>Gets the natural video width in pixels.</summary>
+UInt32 NaturalVideoWidth { get; };
+
+/// <summary>Gets the natural video height in pixels.</summary>
+UInt32 NaturalVideoHeight { get; };
+
+/// <summary>Gets whether the engine is currently buffering.</summary>
+Boolean IsBuffering { get; };
+
+/// <summary>Fires when media has been opened and is ready to play.</summary>
+event Windows.Foundation.TypedEventHandler<PlayReadyMediaEngine, Object> MediaOpened;
+
+/// <summary>Fires when a media error occurs.</summary>
+event Windows.Foundation.TypedEventHandler<PlayReadyMediaEngine, MediaEngineErrorEventArgs> MediaFailed;
+
+/// <summary>Fires when media playback reaches the end.</summary>
+event Windows.Foundation.TypedEventHandler<PlayReadyMediaEngine, Object> MediaEnded;
+
+/// <summary>Fires periodically with the current playback position and duration.</summary>
+event Windows.Foundation.TypedEventHandler<PlayReadyMediaEngine, MediaEngineTimeChangedEventArgs> TimeChanged;
+
+/// <summary>Fires when the buffering state changes.</summary>
+event Windows.Foundation.TypedEventHandler<PlayReadyMediaEngine, Boolean> BufferingChanged;
+
+/// <summary>Fires when the video dimensions change.</summary>
+event Windows.Foundation.TypedEventHandler<PlayReadyMediaEngine, MediaEngineSizeChangedEventArgs> SizeChanged;
+
+/// <summary>Fires when a DRM license acquisition completes (successfully or with error).</summary>
+event Windows.Foundation.TypedEventHandler<PlayReadyMediaEngine, DrmLicenseAcquiredEventArgs> LicenseAcquired;
+
+/// <summary>Fires when playback state changes.</summary>
+event Windows.Foundation.TypedEventHandler<PlayReadyMediaEngine, MediaEngineStateChangedEventArgs> StateChanged;
+}
+}

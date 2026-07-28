@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
+using CommunityToolkit.Maui.Core;
 using Microsoft.Maui.Controls;
 using UriTypeConverter = Microsoft.Maui.Controls.UriTypeConverter;
 
@@ -34,6 +35,32 @@ public sealed partial class UriMediaSource : MediaSource
 	/// Not supported on Tizen.
 	/// </remarks>
 	public IDictionary<string, string> HttpHeaders { get; } = new ObservableDictionary<string, string>();
+
+	/// <summary>
+	/// Gets or sets the DRM configuration for this URI media source.
+	/// </summary>
+	/// <remarks>
+	/// <para>When set to a non-<see langword="null"/> value with a <see cref="DrmConfiguration.Scheme"/>
+	/// other than <see cref="DrmScheme.Unknown"/>, the platform media player will configure
+	/// Digital Rights Management (DRM) protection using the specified scheme, license server URL,
+	/// and request headers.</para>
+	/// <para>Setting this property triggers a source update on all platforms that support DRM.</para>
+	/// <para><b>Platform support:</b></para>
+	/// <list type="bullet">
+	/// <item><description><b>Windows:</b> <see cref="DrmScheme.PlayReady"/></description></item>
+	/// <item><description><b>Android:</b> <see cref="DrmScheme.Widevine"/>, <see cref="DrmScheme.PlayReady"/></description></item>
+	/// <item><description><b>iOS / macOS:</b> <see cref="DrmScheme.FairPlay"/></description></item>
+	/// </list>
+	/// </remarks>
+	public DrmConfiguration? DrmConfiguration
+	{
+		get;
+		set
+		{
+			field = value;
+			OnSourceChanged();
+		}
+	}
 
 	/// <summary>
 	/// Gets or sets the URI to use as a media source.

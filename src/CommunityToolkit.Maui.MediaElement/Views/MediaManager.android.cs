@@ -674,6 +674,17 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		Player.RepeatMode = MediaElement.ShouldLoopPlayback ? RepeatModeUtil.RepeatToggleModeOne : RepeatModeUtil.RepeatToggleModeNone;
 	}
 
+	protected virtual partial void PlatformUpdateDrmConfiguration()
+	{
+		// On Android, DRM configuration is embedded in the MediaItem at source-set time.
+		// If DRM configuration changes while the same source is playing,
+		// re-run PlatformUpdateSource to rebuild the MediaItem with the new DRM settings.
+		if (Player is not null && MediaElement.Source is UriMediaSource)
+		{
+			_ = PlatformUpdateSource();
+		}
+	}
+
 	protected override void Dispose(bool disposing)
 	{
 		base.Dispose(disposing);
@@ -897,6 +908,30 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		mediaItem = new MediaItem.Builder();
 		mediaItem.SetUri(url);
 		mediaItem.SetMediaId(url);
+
+		// Configure DRM if the source has a DrmConfiguration
+		if (MediaElement.Source is UriMediaSource { DrmConfiguration: { } drmConfig, DrmConfiguration.Scheme: not DrmScheme.Unknown })
+		{
+			var schemeUuid = DrmHelper.ToMedia3Uuid(drmConfig.Scheme);
+			if (schemeUuid is not null)
+			{
+				var drmConfigBuilder = new MediaItem.DrmConfiguration.Builder(schemeUuid);
+
+				if (drmConfig.LicenseServerUrl is not null)
+				{
+					drmConfigBuilder.SetLicenseUri(drmConfig.LicenseServerUrl.AbsoluteUri);
+				}
+
+				if (drmConfig.LicenseRequestHeaders.Count > 0)
+				{
+					drmConfigBuilder.SetLicenseRequestHeaders(
+						new Dictionary<string, string>(drmConfig.LicenseRequestHeaders));
+				}
+
+				mediaItem.SetDrmConfiguration(drmConfigBuilder.Build());
+			}
+		}
+
 		mediaItem.SetMediaMetadata(mediaMetaData.Build());
 
 		return mediaItem;

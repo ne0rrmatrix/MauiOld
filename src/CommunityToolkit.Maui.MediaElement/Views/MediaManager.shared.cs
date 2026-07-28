@@ -127,6 +127,19 @@ public partial class MediaManager
 	public ValueTask UpdateSource() => PlatformUpdateSource();
 
 	/// <summary>
+	/// Update the DRM configuration on the platform player.
+	/// </summary>
+	/// <remarks>
+	/// This is called when UriMediaSource.DrmConfiguration is changed
+	/// while a source is already playing, allowing dynamic DRM configuration updates
+	/// without re-assigning the entire source.
+	/// </remarks>
+	public void UpdateDrmConfiguration()
+	{
+		PlatformUpdateDrmConfiguration();
+	}
+
+	/// <summary>
 	/// Update the media playback speed.
 	/// </summary>
 	public void UpdateSpeed()
@@ -216,6 +229,16 @@ public partial class MediaManager
 	protected virtual partial ValueTask PlatformUpdateSource();
 
 	/// <summary>
+	/// Invokes the platform functionality to update the DRM configuration.
+	/// </summary>
+	/// <remarks>
+	/// Platform implementations should read UriMediaSource.DrmConfiguration
+	/// from the current <see cref="IMediaElement.Source"/> and configure the platform
+	/// DRM subsystem accordingly.
+	/// </remarks>
+	protected virtual partial void PlatformUpdateDrmConfiguration();
+
+	/// <summary>
 	/// Invokes the platform functionality to update the media playback speed.
 	/// </summary>
 	protected virtual partial void PlatformUpdateSpeed();
@@ -272,5 +295,6 @@ partial class MediaManager
 	protected virtual partial void PlatformUpdateShouldKeepScreenOn() { }
 	protected virtual partial void PlatformUpdateShouldMute() { }
 	protected virtual partial void PlatformUpdateShouldLoopPlayback() { }
+		protected virtual partial void PlatformUpdateDrmConfiguration() { }
 }
 #endif

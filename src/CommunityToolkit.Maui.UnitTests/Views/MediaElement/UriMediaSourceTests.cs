@@ -38,10 +38,10 @@ public class UriMediaSourceTests : BaseViewTest
 		var source = new UriMediaSource();
 		var sourceChangedFired = false;
 
-		var mediaElement = new MediaElement { Source = source };
+		var mediaElement = new global::CommunityToolkit.Maui.Views.MediaElement { Source = source };
 		mediaElement.PropertyChanged += (s, e) =>
 		{
-			if (e.PropertyName == nameof(MediaElement.Source))
+			if (e.PropertyName == nameof(global::CommunityToolkit.Maui.Views.MediaElement.Source))
 			{
 				sourceChangedFired = true;
 			}
@@ -58,10 +58,10 @@ public class UriMediaSourceTests : BaseViewTest
 		var source = new UriMediaSource();
 		var sourceChangedCount = 0;
 
-		var mediaElement = new MediaElement { Source = source };
+		var mediaElement = new global::CommunityToolkit.Maui.Views.MediaElement { Source = source };
 		mediaElement.PropertyChanged += (s, e) =>
 		{
-			if (e.PropertyName == nameof(MediaElement.Source))
+			if (e.PropertyName == nameof(global::CommunityToolkit.Maui.Views.MediaElement.Source))
 			{
 				sourceChangedCount++;
 			}

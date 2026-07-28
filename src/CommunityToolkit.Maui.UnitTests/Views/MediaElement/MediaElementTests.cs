@@ -9,14 +9,14 @@ public class MediaElementTests : BaseViewTest
 {
 	public MediaElementTests()
 	{
-		Assert.IsType<IMediaElement>(new MediaElement(), exactMatch: false);
+		Assert.IsType<IMediaElement>(new global::CommunityToolkit.Maui.Views.MediaElement(), exactMatch: false);
 	}
 
 	[Fact]
 	public void VerifyDefaults()
 	{
 		// Arrange
-		MediaElement mediaElement = new();
+		global::CommunityToolkit.Maui.Views.MediaElement mediaElement = new();
 
 		// Act 
 
@@ -42,7 +42,7 @@ public class MediaElementTests : BaseViewTest
 	[Fact]
 	public void PosterIsNotStringEmptyOrNull()
 	{
-		MediaElement mediaElement = new();
+		global::CommunityToolkit.Maui.Views.MediaElement mediaElement = new();
 		mediaElement.MetadataArtworkUrl = "https://www.example.com/image.jpg";
 		Assert.False(string.IsNullOrEmpty(mediaElement.MetadataArtworkUrl));
 	}
@@ -50,7 +50,7 @@ public class MediaElementTests : BaseViewTest
 	[Fact]
 	public void PosterIsStringEmptyDoesNotThrow()
 	{
-		MediaElement mediaElement = new();
+		global::CommunityToolkit.Maui.Views.MediaElement mediaElement = new();
 		mediaElement.MetadataArtworkUrl = string.Empty;
 		Assert.True(string.IsNullOrEmpty(mediaElement.MetadataArtworkUrl));
 		Assert.True(mediaElement.MetadataArtworkUrl == string.Empty);
@@ -60,7 +60,7 @@ public class MediaElementTests : BaseViewTest
 	public void BindingContextPropagation()
 	{
 		object context = new();
-		MediaElement mediaElement = new();
+		global::CommunityToolkit.Maui.Views.MediaElement mediaElement = new();
 		FileMediaSource mediaSource = new();
 
 		mediaElement.Source = mediaSource;
@@ -73,7 +73,7 @@ public class MediaElementTests : BaseViewTest
 	[Fact]
 	public void CorrectDimensionsForVideoTest()
 	{
-		MediaElement mediaElement = new();
+		global::CommunityToolkit.Maui.Views.MediaElement mediaElement = new();
 		var mediaSource = MediaSource.FromUri("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4");
 
 		mediaElement.MediaOpened += (_, _) =>
@@ -89,7 +89,7 @@ public class MediaElementTests : BaseViewTest
 	public void CorrectDimensionsForNullTest()
 	{
 		object context = new();
-		MediaElement mediaElement = new();
+		global::CommunityToolkit.Maui.Views.MediaElement mediaElement = new();
 		var mediaSource = MediaSource.FromUri("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4");
 
 		mediaElement.MediaOpened += (_, _) =>
@@ -119,7 +119,7 @@ public class MediaElementTests : BaseViewTest
 	[Fact]
 	public void MediaElementShouldBeAssignedToIMediaElement()
 	{
-		new MediaElement().Should().BeAssignableTo<IMediaElement>();
+		new global::CommunityToolkit.Maui.Views.MediaElement().Should().BeAssignableTo<IMediaElement>();
 	}
 
 	[Fact]
@@ -127,7 +127,7 @@ public class MediaElementTests : BaseViewTest
 	{
 		Assert.Throws<ArgumentOutOfRangeException>(() =>
 		{
-			MediaElement mediaElement = new()
+			global::CommunityToolkit.Maui.Views.MediaElement mediaElement = new()
 			{
 				Volume = 1 + Math.Pow(10, -15)
 			};
@@ -139,7 +139,7 @@ public class MediaElementTests : BaseViewTest
 	{
 		Assert.Throws<ArgumentOutOfRangeException>(() =>
 		{
-			MediaElement mediaElement = new()
+			global::CommunityToolkit.Maui.Views.MediaElement mediaElement = new()
 			{
 				Volume = -double.Epsilon
 			};

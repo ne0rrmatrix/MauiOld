@@ -48,7 +48,7 @@ public class MediaElementOptionsTests : BaseViewTest
 		options.SetDefaultAndroidViewType(AndroidViewType.TextureView);
 		options.SetIsAndroidForegroundServiceEnabled(false);
 
-		var mediaElement = new MediaElement();
+		var mediaElement = new global::CommunityToolkit.Maui.Views.MediaElement();
 
 		mediaElement.AndroidViewType.Should().Be(AndroidViewType.TextureView);
 		mediaElement.IsAndroidForegroundServiceEnabled.Should().BeFalse();
@@ -64,7 +64,7 @@ public class MediaElementOptionsTests : BaseViewTest
 		options.SetIsAndroidForegroundServiceEnabled(false);
 		options.UpdateIsAndroidForegroundServiceEnabledWithUseMauiCommunityToolkitMediaElementParameter(true);
 
-		var mediaElement = new MediaElement();
+		var mediaElement = new global::CommunityToolkit.Maui.Views.MediaElement();
 
 		mediaElement.AndroidViewType.Should().Be(AndroidViewType.TextureView);
 		mediaElement.IsAndroidForegroundServiceEnabled.Should().BeTrue();
@@ -80,7 +80,7 @@ public class MediaElementOptionsTests : BaseViewTest
 		options.SetIsAndroidForegroundServiceEnabled(true);
 		options.UpdateIsAndroidForegroundServiceEnabledWithUseMauiCommunityToolkitMediaElementParameter(false);
 
-		var mediaElement = new MediaElement();
+		var mediaElement = new global::CommunityToolkit.Maui.Views.MediaElement();
 
 		mediaElement.AndroidViewType.Should().Be(AndroidViewType.TextureView);
 		mediaElement.IsAndroidForegroundServiceEnabled.Should().BeTrue();
@@ -96,7 +96,7 @@ public class MediaElementOptionsTests : BaseViewTest
 		options.SetIsAndroidForegroundServiceEnabled(false);
 		options.UpdateIsAndroidForegroundServiceEnabledWithUseMauiCommunityToolkitMediaElementParameter(false);
 
-		var mediaElement = new MediaElement();
+		var mediaElement = new global::CommunityToolkit.Maui.Views.MediaElement();
 
 		mediaElement.AndroidViewType.Should().Be(AndroidViewType.TextureView);
 		mediaElement.IsAndroidForegroundServiceEnabled.Should().BeFalse();

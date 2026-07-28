@@ -39,30 +39,29 @@ partial class MediaManager : IDisposable
 	SystemMediaTransportControls? systemMediaControls;
 	HttpClient? headerHttpClient;
 	AdaptiveMediaSource? adaptiveMediaSource;
+	MauiMediaElement? mauiMediaElement;
 
-	// The requests to keep display active are cumulative, this bool makes sure it only gets requested once
+	// The requests to keep display active are cumulative
 	bool displayActiveRequested;
+
+	// Guards against late-arriving platform callbacks after Stop() / disconnect
+	volatile bool isDisposed;
 
 	/// <summary>
 	/// The <see cref="DisplayRequest"/> is used to enable the <see cref="MediaElement.ShouldKeepScreenOn"/> functionality.
 	/// </summary>
-	/// <remarks>
-	/// Calls to <see cref="DisplayRequest.RequestActive"/> and <see cref="DisplayRequest.RequestRelease"/> should be in balance.
-	/// Not doing so will result in the screen staying on and negatively impacting the environment :(
-	/// </remarks>
 	protected DisplayRequest DisplayRequest { get; } = new();
 
 	/// <summary>
 	/// Creates the corresponding platform view of <see cref="MediaElement"/> on Windows.
 	/// </summary>
-	/// <returns>The platform native counterpart of <see cref="MediaElement"/>.</returns>
 	public PlatformMediaElement CreatePlatformView()
 	{
 		Player = new();
-		WindowsMediaElement MediaElement = new();
-		MediaElement.MediaOpened += OnMediaElementMediaOpened;
+		WindowsMediaElement mediaPlayer = new();
+		mediaPlayer.MediaOpened += OnMediaElementMediaOpened;
 
-		Player.SetMediaPlayer(MediaElement);
+		Player.SetMediaPlayer(mediaPlayer);
 		Player.MediaPlayer.PlaybackSession.NaturalVideoSizeChanged += OnNaturalVideoSizeChanged;
 		Player.MediaPlayer.PlaybackSession.PlaybackRateChanged += OnPlaybackSessionPlaybackRateChanged;
 		Player.MediaPlayer.PlaybackSession.PlaybackStateChanged += OnPlaybackSessionPlaybackStateChanged;
@@ -77,6 +76,8 @@ partial class MediaManager : IDisposable
 
 		return Player;
 	}
+
+	internal void SetMauiMediaElement(MauiMediaElement mediaElement) => mauiMediaElement = mediaElement;
 
 	/// <summary>
 	/// Releases the managed and unmanaged resources used by the <see cref="MediaManager"/>.
@@ -256,10 +257,10 @@ partial class MediaManager : IDisposable
 		{
 			if (displayActiveRequested)
 			{
-				DisplayRequest.RequestRelease();
-				displayActiveRequested = false;
-			}
+			DisplayRequest.RequestRelease();
+			displayActiveRequested = false;
 		}
+	}
 	}
 
 	protected virtual partial void PlatformUpdateShouldMute()
@@ -268,8 +269,8 @@ partial class MediaManager : IDisposable
 		{
 			return;
 		}
-		Dispatcher.Dispatch(() => Player.MediaPlayer.IsMuted = MediaElement.ShouldMute);
-	}
+			Dispatcher.Dispatch(() => Player.MediaPlayer.IsMuted = MediaElement.ShouldMute);
+		}
 
 	protected virtual async partial ValueTask PlatformUpdateSource()
 	{
@@ -277,6 +278,9 @@ partial class MediaManager : IDisposable
 		{
 			return;
 		}
+
+		CleanupPlayReadyEngine();
+		mauiMediaElement?.RestoreMediaPlayerView();
 
 		adaptiveMediaSource?.DownloadRequested -= OnAdaptiveMediaSourceDownloadRequested;
 		adaptiveMediaSource = null;
@@ -302,7 +306,27 @@ partial class MediaManager : IDisposable
 			var uri = uriMediaSource.Uri?.AbsoluteUri;
 			if (!string.IsNullOrWhiteSpace(uri))
 			{
+				var drm = uriMediaSource.DrmConfiguration;
+				var drmInfo = drm is { Scheme: not DrmScheme.Unknown }
+					? $"DRM={drm.Scheme}, LicenseUrl={drm.LicenseServerUrl}, HW={drm.RequiresHardwareSecurity}"
+					: "DRM=None";
+				Trace.WriteLine($"[MediaElement.Windows] PlatformUpdateSource — URI={uri}, {drmInfo}");
+				Logger.LogDebug("[MediaElement.Windows] PlatformUpdateSource — URI={Uri}, {DrmInfo}", uri, drmInfo);
+
 				var headers = uriMediaSource.HttpHeaders;
+
+				if (drm is { Scheme: DrmScheme.PlayReady, LicenseServerUrl: not null })
+				{
+					// PlayReady path: WinUI 3's MediaPlayer has no protected media
+					// path, so playback runs through the native PlayReadyMediaEngine
+					// (IMFMediaEngine + SwapChainPanel). The license is acquired
+					// out-of-band beforehand via the WinRT PlayReady API so custom
+					// license headers (e.g. X-AxDRM-Message) are honored.
+					Trace.WriteLine("[MediaElement.Windows] PlatformUpdateSource — PlayReady path (native engine + proactive license)");
+					await SetUriSourceWithPlayReadyAsync(new Uri(uri), headers, drm);
+					return;
+				}
+
 				if (headers.Count > 0)
 				{
 					await SetUriSourceWithHeaders(new Uri(uri), headers);
@@ -357,13 +381,18 @@ partial class MediaManager : IDisposable
 	}
 
 	/// <summary>
-	/// Releases the unmanaged resources used by the <see cref="MediaManager"/> and optionally releases the managed resources.
+	/// Releases unmanaged resources.
 	/// </summary>
-	/// <param name="disposing"><see langword="true"/> to release both managed and unmanaged resources; <see langword="false"/> to release only unmanaged resources.</param>
 	protected virtual void Dispose(bool disposing)
 	{
 		if (disposing)
 		{
+			Trace.WriteLine($"[MediaElement.Windows] Dispose — state={MediaElement.CurrentState}");
+			isDisposed = true;
+
+			CleanupPlayReady();
+			mauiMediaElement = null;
+
 			adaptiveMediaSource?.DownloadRequested -= OnAdaptiveMediaSourceDownloadRequested;
 			adaptiveMediaSource = null;
 
@@ -514,8 +543,9 @@ partial class MediaManager : IDisposable
 
 	async void OnMediaElementMediaOpened(WindowsMediaElement sender, object args)
 	{
-		if (Player is null)
+		if (isDisposed || Player is null)
 		{
+			Trace.WriteLine($"[MediaElement.Windows] OnMediaOpened — BLOCKED: isDisposed={isDisposed}");
 			return;
 		}
 
@@ -538,12 +568,12 @@ partial class MediaManager : IDisposable
 				? TimeSpan.Zero
 				: mediaPlayerElement.MediaPlayer.NaturalDuration;
 		}
-	}
+		}
 
 	void OnMediaElementMediaEnded(WindowsMediaElement sender, object args)
-	{
-		MediaElement?.MediaEnded();
-	}
+		{
+			MediaElement?.MediaEnded();
+		}
 
 	void OnMediaElementMediaFailed(WindowsMediaElement sender, MediaPlayerFailedEventArgs args)
 	{
@@ -559,16 +589,16 @@ partial class MediaManager : IDisposable
 		if (args.ExtendedErrorCode != null)
 		{
 			errorCode = $"Error code: {args.ExtendedErrorCode.Message}";
-		}
+				}
 
 		var message = string.Join(", ",
 			new[] { error, errorCode, errorMessage }
 			.Where(s => !string.IsNullOrEmpty(s)));
 
-		MediaElement?.MediaFailed(new MediaFailedEventArgs(message));
+			MediaElement?.MediaFailed(new MediaFailedEventArgs(message));
 
 		Logger?.LogError("{LogMessage}", message);
-	}
+		}
 
 	void OnMediaElementIsMutedChanged(WindowsMediaElement sender, object args)
 	{
@@ -584,9 +614,9 @@ partial class MediaManager : IDisposable
 	{
 		if (MediaElement is not null)
 		{
-			MediaElement.MediaWidth = (int)sender.NaturalVideoWidth;
-			MediaElement.MediaHeight = (int)sender.NaturalVideoHeight;
-		}
+		MediaElement.MediaWidth = (int)sender.NaturalVideoWidth;
+		MediaElement.MediaHeight = (int)sender.NaturalVideoHeight;
+	}
 	}
 
 	void OnPlaybackSessionPlaybackRateChanged(MediaPlaybackSession sender, object args)

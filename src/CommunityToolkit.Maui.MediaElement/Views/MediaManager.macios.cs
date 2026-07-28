@@ -15,6 +15,8 @@ public partial class MediaManager : IDisposable
 {
 	Metadata? metaData;
 	StreamAssetResourceLoader? streamResourceLoader;
+	FairPlayContentKeySessionDelegate? fairPlayKeyDelegate;
+	AVContentKeySession? fairPlayKeySession;
 
 	// Media would still start playing when Speed was set although ShouldAutoPlay=False
 	// This field was added to overcome that.
@@ -216,6 +218,7 @@ public partial class MediaManager : IDisposable
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 
 		AVAsset? asset = null;
+		DrmConfiguration? pendingDrmConfig = null;
 		if (Player is null)
 		{
 			return;
@@ -239,6 +242,14 @@ public partial class MediaManager : IDisposable
 			{
 				var nsUrl = new NSUrl(uri.AbsoluteUri);
 				var headers = uriMediaSource.HttpHeaders;
+
+				// Check for FairPlay DRM configuration.
+				// DRM is set up later (via AVContentKeySession) when the AVPlayerItem is created.
+				if (uriMediaSource.DrmConfiguration is { Scheme: DrmScheme.FairPlay } drmConfig)
+				{
+					pendingDrmConfig = drmConfig;
+				}
+
 				if (headers.Count > 0)
 				{
 					var pairs = headers.ToArray();
@@ -254,6 +265,7 @@ public partial class MediaManager : IDisposable
 				}
 			}
 		}
+
 		else if (MediaElement.Source is FileMediaSource fileMediaSource)
 		{
 			var uri = fileMediaSource.Path;
@@ -307,6 +319,24 @@ public partial class MediaManager : IDisposable
 		PlayerItem = asset is not null
 			? new AVPlayerItem(asset)
 			: null;
+
+		// Configure FairPlay DRM via AVContentKeySession if needed.
+		// The session is associated with the URL asset via its resource loader,
+		// which bridges skd:// requests to the AVContentKeySession delegate.
+		if (asset is AVUrlAsset fairPlayAsset && pendingDrmConfig is not null)
+		{
+			fairPlayKeyDelegate?.Dispose();
+			fairPlayKeyDelegate = null;
+			fairPlayKeySession?.Dispose();
+			fairPlayKeySession = null;
+
+			fairPlayKeySession = FairPlayHelper.CreateFairPlayKeySession(
+				pendingDrmConfig.LicenseServerUrl!,
+				pendingDrmConfig.LicenseRequestHeaders,
+				out fairPlayKeyDelegate);
+
+			FairPlayHelper.ApplyToAsset(fairPlayKeySession, fairPlayAsset);
+		}
 
 		metaData.SetMetadata(PlayerItem, MediaElement);
 		CurrentItemErrorObserver?.Dispose();
@@ -452,6 +482,17 @@ public partial class MediaManager : IDisposable
 		// no-op we loop through using the PlayedToEndObserver
 	}
 
+		protected virtual partial void PlatformUpdateDrmConfiguration()
+		{
+			// On Apple platforms, DRM configuration is applied at source creation time.
+			// If DRM config changes dynamically, re-run PlatformUpdateSource to rebuild
+			// the AVAsset with the new FairPlay resource loader delegate.
+			if (Player is not null && MediaElement.Source is UriMediaSource)
+			{
+				_ = PlatformUpdateSource();
+			}
+		}
+
 	/// <summary>
 	/// Releases the unmanaged resources used by the <see cref="MediaManager"/> and optionally releases the managed resources.
 	/// </summary>
@@ -497,6 +538,10 @@ public partial class MediaManager : IDisposable
 			}
 
 			streamResourceLoader?.Dispose();
+			fairPlayKeyDelegate?.Dispose();
+			fairPlayKeyDelegate = null;
+			fairPlayKeySession?.Dispose();
+			fairPlayKeySession = null;
 			streamResourceLoader = null;
 
 			PlayerViewController?.Dispose();

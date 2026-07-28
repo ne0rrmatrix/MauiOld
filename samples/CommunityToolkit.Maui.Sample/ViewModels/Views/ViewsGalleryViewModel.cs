@@ -22,6 +22,7 @@ public sealed partial class ViewsGalleryViewModel() : BaseGalleryViewModel(
 	SectionModel.Create<LazyViewViewModel>("LazyView", Colors.Red, "LazyView is a view that allows you to load its children in a delayed manner."),
 	SectionModel.Create<MapsPinsViewModel>("Maps Pins Page", Colors.Red, "A page demonstrating .NET MAUI Maps with Pins."),
 	SectionModel.Create<MediaElementViewModel>("MediaElement", Colors.Red, "MediaElement is a view for playing video and audio"),
+	SectionModel.Create<MediaElementDrmViewModel>("MediaElement with DRM", Colors.Red, "MediaElement can play DRM protected media"),
 	SectionModel.Create<MediaElementFromStreamViewModel>("MediaElement from Stream", Colors.Red, "MediaElement can load media from a Stream source"),
 	SectionModel.Create<MediaElementCarouselViewViewModel>("MediaElement in CarouselView", Colors.Red, "MediaElement can be used inside a DataTemplate in a CarouselView"),
 	SectionModel.Create<MediaElementCollectionViewViewModel>("MediaElement in CollectionView", Colors.Red, "MediaElement can be used inside a DataTemplate in a CollectionView"),
