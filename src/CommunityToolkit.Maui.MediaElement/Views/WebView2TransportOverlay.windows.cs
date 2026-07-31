@@ -31,6 +31,10 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 	SymbolIcon? audioMuteSymbol;
 	WinSlider? volumeSlider;
 	AppBarButton? fullWindowButton;
+	AppBarButton? stopButton;
+	AppBarButton? zoomButton;
+	AppBarButton? skipBackwardButton;
+	AppBarButton? skipForwardButton;
 
 	bool isSeeking;
 	bool isPlaying;
@@ -56,6 +60,18 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 	/// <summary>Raised when the user requests fullscreen toggle.</summary>
 	public event EventHandler? FullScreenRequested;
 
+	/// <summary>Raised when the user requests playback to stop.</summary>
+	public event EventHandler? StopRequested;
+
+	/// <summary>Raised when the user requests an aspect ratio / zoom toggle.</summary>
+	public event EventHandler? ZoomRequested;
+
+	/// <summary>Raised when the user requests skipping backward. The value is the number of seconds to skip.</summary>
+	public event EventHandler<double>? SkipBackwardRequested;
+
+	/// <summary>Raised when the user requests skipping forward. The value is the number of seconds to skip.</summary>
+	public event EventHandler<double>? SkipForwardRequested;
+
 	/// <summary>
 	/// Initializes a new instance of the <see cref="WebView2TransportOverlay"/> class.
 	/// The <c>customTransportcontrols</c> style is applied externally by
@@ -63,19 +79,20 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 	/// </summary>
 	public WebView2TransportOverlay()
 	{
-		// Show only the controls relevant to WebView2 DRM playback
+		// Show the controls relevant to WebView2 DRM playback,
+		// matching the buttons available in the customTransportcontrols template
 		IsVolumeButtonVisible = true;
 		IsSeekBarVisible = true;
-		IsZoomButtonVisible = false;
+		IsZoomButtonVisible = true;
+		IsStopButtonVisible = true;
+		IsSkipBackwardButtonVisible = true;
+		IsSkipForwardButtonVisible = true;
 		IsRepeatButtonVisible = false;
 		IsNextTrackButtonVisible = false;
 		IsPreviousTrackButtonVisible = false;
 		IsFastForwardButtonVisible = false;
 		IsFastRewindButtonVisible = false;
 		IsPlaybackRateButtonVisible = false;
-		IsStopButtonVisible = false;
-		IsSkipBackwardButtonVisible = false;
-		IsSkipForwardButtonVisible = false;
 		IsCompact = false;
 
 		// Auto-hide timer (3 seconds of inactivity while playing)
@@ -120,6 +137,10 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		audioMuteSymbol = GetTemplateChild("AudioMuteSymbol") as SymbolIcon;
 		volumeSlider = GetTemplateChild("VolumeSlider") as WinSlider;
 		fullWindowButton = GetTemplateChild("FullWindowButton") as AppBarButton;
+		stopButton = GetTemplateChild("StopButton") as AppBarButton;
+		zoomButton = GetTemplateChild("ZoomButton") as AppBarButton;
+		skipBackwardButton = GetTemplateChild("SkipBackwardButton") as AppBarButton;
+		skipForwardButton = GetTemplateChild("SkipForwardButton") as AppBarButton;
 
 		if (playPauseButton is not null)
 		{
@@ -152,6 +173,31 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		{
 			fullWindowButton.Click += OnFullWindowClick;
 		}
+
+		if (stopButton is not null)
+		{
+			stopButton.Click += OnStopClick;
+		}
+
+		if (zoomButton is not null)
+		{
+			zoomButton.Click += OnZoomClick;
+		}
+
+		if (skipBackwardButton is not null)
+		{
+			skipBackwardButton.Click += OnSkipBackwardClick;
+		}
+
+		if (skipForwardButton is not null)
+		{
+			skipForwardButton.Click += OnSkipForwardClick;
+		}
+
+		// The base MediaTransportControls disables buttons that it considers
+		// inapplicable when no MediaPlayer is attached. Since this overlay
+		// drives a WebView2 JS bridge instead, force-enable all wired buttons.
+		ForceEnableButtons();
 
 		// Apply current state to the freshly loaded template parts
 		UpdatePlayPauseVisual();
@@ -277,6 +323,30 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		FullScreenRequested?.Invoke(this, EventArgs.Empty);
 	}
 
+	void OnStopClick(object sender, RoutedEventArgs e)
+	{
+		StopRequested?.Invoke(this, EventArgs.Empty);
+		ResetAutoHide();
+	}
+
+	void OnZoomClick(object sender, RoutedEventArgs e)
+	{
+		ZoomRequested?.Invoke(this, EventArgs.Empty);
+		ResetAutoHide();
+	}
+
+	void OnSkipBackwardClick(object sender, RoutedEventArgs e)
+	{
+		SkipBackwardRequested?.Invoke(this, 10.0);
+		ResetAutoHide();
+	}
+
+	void OnSkipForwardClick(object sender, RoutedEventArgs e)
+	{
+		SkipForwardRequested?.Invoke(this, 10.0);
+		ResetAutoHide();
+	}
+
 	// ─── Visual state helpers ───────────────────────────────────────
 
 	void UpdatePlayPauseVisual()
@@ -337,6 +407,26 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		{
 			fullWindowButton.Click -= OnFullWindowClick;
 		}
+
+		if (stopButton is not null)
+		{
+			stopButton.Click -= OnStopClick;
+		}
+
+		if (zoomButton is not null)
+		{
+			zoomButton.Click -= OnZoomClick;
+		}
+
+		if (skipBackwardButton is not null)
+		{
+			skipBackwardButton.Click -= OnSkipBackwardClick;
+		}
+
+		if (skipForwardButton is not null)
+		{
+			skipForwardButton.Click -= OnSkipForwardClick;
+		}
 	}
 
 	// ─── Auto-hide logic ─────────────────────────────────────────────
@@ -351,6 +441,54 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 	}
 
 	// ─── Helpers ─────────────────────────────────────────────────────
+
+	/// <summary>
+	/// Force-enables all template buttons. The base <see cref="MediaTransportControls"/>
+	/// disables buttons it considers inapplicable when no <c>MediaPlayer</c> is attached.
+	/// Since this overlay drives a WebView2 JS bridge, all buttons must remain enabled.
+	/// </summary>
+	void ForceEnableButtons()
+	{
+		if (stopButton is not null)
+		{
+			stopButton.IsEnabled = true;
+		}
+
+		if (zoomButton is not null)
+		{
+			zoomButton.IsEnabled = true;
+		}
+
+		if (skipBackwardButton is not null)
+		{
+			skipBackwardButton.IsEnabled = true;
+		}
+
+		if (skipForwardButton is not null)
+		{
+			skipForwardButton.IsEnabled = true;
+		}
+
+		if (fullWindowButton is not null)
+		{
+			fullWindowButton.IsEnabled = true;
+		}
+
+		if (playPauseButton is not null)
+		{
+			playPauseButton.IsEnabled = true;
+		}
+
+		if (volumeMuteButton is not null)
+		{
+			volumeMuteButton.IsEnabled = true;
+		}
+
+		if (progressSlider is not null)
+		{
+			progressSlider.IsEnabled = true;
+		}
+	}
 
 	static string FormatTime(TimeSpan time)
 	{

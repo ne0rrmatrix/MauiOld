@@ -241,10 +241,13 @@ partial class MediaManager
 
 	Task WebView2Play() => WebView2ExecuteScriptAsync("bridgePlay();");
 	Task WebView2Pause() => WebView2ExecuteScriptAsync("bridgePause();");
+	Task WebView2Stop() => WebView2ExecuteScriptAsync("bridgeStop();");
 	Task WebView2Seek(double seconds) => WebView2ExecuteScriptAsync($"bridgeSeek({seconds.ToString(System.Globalization.CultureInfo.InvariantCulture)});");
+	Task WebView2Skip(double seconds) => WebView2ExecuteScriptAsync($"bridgeSkip({seconds.ToString(System.Globalization.CultureInfo.InvariantCulture)});");
 	Task WebView2SetVolume(double volume) => WebView2ExecuteScriptAsync($"bridgeSetVolume({volume.ToString(System.Globalization.CultureInfo.InvariantCulture)});");
 	Task WebView2SetMuted(bool muted) => WebView2ExecuteScriptAsync($"bridgeSetMuted({muted.ToString().ToLowerInvariant()});");
 	Task WebView2SetPlaybackRate(double rate) => WebView2ExecuteScriptAsync($"bridgeSetPlaybackRate({rate.ToString(System.Globalization.CultureInfo.InvariantCulture)});");
+	Task WebView2ToggleAspect() => WebView2ExecuteScriptAsync("bridgeToggleAspect();");
 
 	void CleanupWebView2Drm()
 	{
@@ -285,6 +288,14 @@ partial class MediaManager
 			MediaElement.ShouldMute = muted;
 		};
 		overlay.FullScreenRequested += (s, e) => mauiMediaElement?.ToggleFullScreen();
+		overlay.StopRequested += (s, e) =>
+		{
+			_ = WebView2Stop();
+			MediaElement.CurrentStateChanged(MediaElementState.Stopped);
+		};
+		overlay.ZoomRequested += (s, e) => _ = WebView2ToggleAspect();
+		overlay.SkipBackwardRequested += (s, seconds) => _ = WebView2Skip(-seconds);
+		overlay.SkipForwardRequested += (s, seconds) => _ = WebView2Skip(seconds);
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
@@ -381,7 +392,8 @@ partial class MediaManager
     try {
       player = dashjs.MediaPlayer().create();
 
-      // Protection data for PlayReady
+      // Protection data for PlayReady — must be set BEFORE initialize
+      // so the license acquisition is configured before autoplay begins
       const protectionData = {
         'com.microsoft.playready': {
           serverURL: LICENSE_URL,
@@ -392,10 +404,8 @@ partial class MediaManager
         }
       };
 
-      player.initialize(video, MANIFEST_URL, AUTOPLAY);
-
-      // Set protection data after initialization
       player.setProtectionData(protectionData);
+      player.initialize(video, MANIFEST_URL, AUTOPLAY);
 
       // ─── Video element events → C# ──────────────────────────────
       video.addEventListener('play', () => {
@@ -514,6 +524,23 @@ partial class MediaManager
 
   window.bridgeSetPlaybackRate = function(rate) {
     video.playbackRate = rate;
+  };
+
+  window.bridgeStop = function() {
+    video.pause();
+    video.currentTime = 0;
+    postToCSharp({ type: 'state', state: 'paused' });
+  };
+
+  window.bridgeSkip = function(seconds) {
+    video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + seconds));
+  };
+
+  window.bridgeToggleAspect = function() {
+    const fits = ['contain', 'cover', 'fill'];
+    const current = video.style.objectFit || 'contain';
+    const idx = fits.indexOf(current);
+    video.style.objectFit = fits[(idx + 1) % fits.length];
   };
 
   window.bridgeSetAspect = function(fit) {
