@@ -482,14 +482,14 @@ public partial class MediaManager : IDisposable
 		// no-op we loop through using the PlayedToEndObserver
 	}
 
-	protected virtual partial void PlatformUpdateDrmConfiguration()
+	protected virtual async partial void PlatformUpdateDrmConfiguration()
 	{
 		// On Apple platforms, DRM configuration is applied at source creation time.
 		// If DRM config changes dynamically, re-run PlatformUpdateSource to rebuild
 		// the AVAsset with the new FairPlay resource loader delegate.
 		if (Player is not null && MediaElement.Source is UriMediaSource)
 		{
-			_ = PlatformUpdateSource();
+			await PlatformUpdateSource();
 		}
 	}
 
