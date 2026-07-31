@@ -17,7 +17,7 @@
 	<ScrollView>
 		<Grid RowSpacing="8" Padding="12">
 			<Grid.RowDefinitions>
-				<RowDefinition Height="320" />
+				<RowDefinition Height="*" />
 				<RowDefinition Height="Auto" />
 				<RowDefinition Height="Auto" />
 				<RowDefinition Height="Auto" />
@@ -27,8 +27,6 @@
 
 			<!-- Media Player -->
 			<toolkit:MediaElement
-				WidthRequest="300"
-				HeightRequest="300"
 				x:Name="MediaElement"
 				ShouldAutoPlay="True"
 				ShouldShowPlaybackControls="True"

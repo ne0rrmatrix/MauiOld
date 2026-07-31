@@ -307,7 +307,7 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 
 	void OnSkipForwardClick(object sender, RoutedEventArgs e)
 	{
-		SkipForwardRequested?.Invoke(this, 10.0);
+		SkipForwardRequested?.Invoke(this, 30.0);
 		ResetAutoHide();
 	}
 
