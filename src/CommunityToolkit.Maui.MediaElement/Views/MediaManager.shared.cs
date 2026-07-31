@@ -295,6 +295,6 @@ partial class MediaManager
 	protected virtual partial void PlatformUpdateShouldKeepScreenOn() { }
 	protected virtual partial void PlatformUpdateShouldMute() { }
 	protected virtual partial void PlatformUpdateShouldLoopPlayback() { }
-		protected virtual partial void PlatformUpdateDrmConfiguration() { }
+	protected virtual partial void PlatformUpdateDrmConfiguration() { }
 }
 #endif

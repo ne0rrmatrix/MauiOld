@@ -321,10 +321,10 @@ partial class MediaManager : IDisposable
 		{
 			if (displayActiveRequested)
 			{
-			DisplayRequest.RequestRelease();
-			displayActiveRequested = false;
+				DisplayRequest.RequestRelease();
+				displayActiveRequested = false;
+			}
 		}
-	}
 	}
 
 	protected virtual async partial void PlatformUpdateShouldMute()
@@ -339,8 +339,8 @@ partial class MediaManager : IDisposable
 		{
 			return;
 		}
-			Dispatcher.Dispatch(() => Player.MediaPlayer.IsMuted = MediaElement.ShouldMute);
-		}
+		Dispatcher.Dispatch(() => Player.MediaPlayer.IsMuted = MediaElement.ShouldMute);
+	}
 
 	protected virtual async partial ValueTask PlatformUpdateSource()
 	{
@@ -354,7 +354,7 @@ partial class MediaManager : IDisposable
 		adaptiveMediaSource = null;
 
 		await Dispatcher.DispatchAsync(() => Player.PosterSource = new BitmapImage());
-		
+
 		if (MediaElement.Source is null)
 		{
 			Player.Source = null;
@@ -624,12 +624,12 @@ partial class MediaManager : IDisposable
 				? TimeSpan.Zero
 				: mediaPlayerElement.MediaPlayer.NaturalDuration;
 		}
-		}
+	}
 
 	void OnMediaElementMediaEnded(WindowsMediaElement sender, object args)
-		{
-			MediaElement?.MediaEnded();
-		}
+	{
+		MediaElement?.MediaEnded();
+	}
 
 	void OnMediaElementMediaFailed(WindowsMediaElement sender, MediaPlayerFailedEventArgs args)
 	{
@@ -645,16 +645,16 @@ partial class MediaManager : IDisposable
 		if (args.ExtendedErrorCode != null)
 		{
 			errorCode = $"Error code: {args.ExtendedErrorCode.Message}";
-				}
+		}
 
 		var message = string.Join(", ",
 			new[] { error, errorCode, errorMessage }
 			.Where(s => !string.IsNullOrEmpty(s)));
 
-			MediaElement?.MediaFailed(new MediaFailedEventArgs(message));
+		MediaElement?.MediaFailed(new MediaFailedEventArgs(message));
 
 		Logger?.LogError("{LogMessage}", message);
-		}
+	}
 
 	void OnMediaElementIsMutedChanged(WindowsMediaElement sender, object args)
 	{
@@ -670,9 +670,9 @@ partial class MediaManager : IDisposable
 	{
 		if (MediaElement is not null)
 		{
-		MediaElement.MediaWidth = (int)sender.NaturalVideoWidth;
-		MediaElement.MediaHeight = (int)sender.NaturalVideoHeight;
-	}
+			MediaElement.MediaWidth = (int)sender.NaturalVideoWidth;
+			MediaElement.MediaHeight = (int)sender.NaturalVideoHeight;
+		}
 	}
 
 	void OnPlaybackSessionPlaybackRateChanged(MediaPlaybackSession sender, object args)

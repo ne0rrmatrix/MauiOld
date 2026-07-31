@@ -1,5 +1,5 @@
-using Xunit;
 using CommunityToolkit.Maui.Core;
+using Xunit;
 
 namespace CommunityToolkit.Maui.UnitTests.Views.MediaElement;
 
