@@ -18,13 +18,13 @@ partial class MediaManager
 	/// full EME + PlayReady CDM support. A JS bridge synchronizes state between
 	/// the dash.js player in the browser and the MAUI MediaElement API surface.
 	/// </summary>
-	async Task SetUriSourceWithPlayReadyAsync(string manifestUrl, DrmConfiguration drmConfig)
+	async Task SetUriSourceWithPlayReadyAsync(string manifestUrl, DrmConfiguration drmConfig, bool autoplay)
 	{
 		// Clean up any previous WebView2 DRM session
 		CleanupWebView2Drm();
 
 		// Set up WebView2 + dash.js with PlayReady EME
-		MainThread.BeginInvokeOnMainThread(async () => await SetupWebView2DrmAsync(manifestUrl, drmConfig));
+		MainThread.BeginInvokeOnMainThread(async () => await SetupWebView2DrmAsync(manifestUrl, drmConfig, autoplay));
 	}
 
 	/// <summary>

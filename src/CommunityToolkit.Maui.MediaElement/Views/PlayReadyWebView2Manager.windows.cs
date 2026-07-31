@@ -24,7 +24,7 @@ partial class MediaManager
 	/// loads an HTML page with dash.js configured for PlayReady EME, and swaps it
 	/// into the view tree in place of the MediaPlayerElement.
 	/// </summary>
-	async Task SetupWebView2DrmAsync(string manifestUrl, DrmConfiguration drmConfig)
+	async Task SetupWebView2DrmAsync(string manifestUrl, DrmConfiguration drmConfig, bool autoplay)
 	{
 		webViewReadyTcs = new TaskCompletionSource<bool>();
 
@@ -64,7 +64,7 @@ partial class MediaManager
 			// NavigateToString uses a non-secure virtual origin where MediaKeys
 			// is unavailable. Instead, write the HTML to a temp folder and serve
 			// it via a virtual HTTPS host mapping.
-			var html = BuildDrmPlayerHtml(manifestUrl, drmConfig);
+			var html = BuildDrmPlayerHtml(manifestUrl, drmConfig, autoplay);
 			var tempDir = Path.Combine(Path.GetTempPath(), "maui-drm-player");
 			Directory.CreateDirectory(tempDir);
 			await File.WriteAllTextAsync(Path.Combine(tempDir, "player.html"), html);
@@ -270,10 +270,10 @@ partial class MediaManager
 	/// <c>window.chrome.webview.postMessage()</c> and exposes functions callable
 	/// from C# via <c>ExecuteScriptAsync</c>.
 	/// </summary>
-	static string BuildDrmPlayerHtml(string manifestUrl, DrmConfiguration drmConfig)
+	static string BuildDrmPlayerHtml(string manifestUrl, DrmConfiguration drmConfig, bool autoplay)
 	{
 		var licenseUrl = drmConfig.LicenseServerUrl?.AbsoluteUri ?? "";
-		var autoplay = "true";
+		var autoplayStr = autoplay ? "true" : "false";
 
 		// Build custom headers JSON for the license request
 		var headersJson = new JsonObject();
@@ -329,7 +329,7 @@ partial class MediaManager
   const MANIFEST_URL = "{{manifestUrlJs}}";
   const LICENSE_URL = "{{licenseUrlJs}}";
   const LICENSE_HEADERS = {{headersStr}};
-  const AUTOPLAY = {{autoplay}};
+  const AUTOPLAY = {{autoplayStr}};
 
   const video = document.getElementById('videoPlayer');
   const errorOverlay = document.getElementById('error-overlay');

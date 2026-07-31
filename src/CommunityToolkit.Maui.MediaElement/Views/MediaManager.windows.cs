@@ -375,7 +375,7 @@ partial class MediaManager : IDisposable
 
 				if (drm is { Scheme: DrmScheme.PlayReady, LicenseServerUrl: not null })
 				{
-					await SetUriSourceWithPlayReadyAsync(uri, drm);
+					await SetUriSourceWithPlayReadyAsync(uri, drm, MediaElement.ShouldAutoPlay);
 					return;
 				}
 
