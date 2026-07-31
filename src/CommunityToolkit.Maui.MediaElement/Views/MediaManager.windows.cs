@@ -88,11 +88,11 @@ partial class MediaManager : IDisposable
 		GC.SuppressFinalize(this);
 	}
 
-	protected virtual partial void PlatformPlay()
+	protected virtual async partial void PlatformPlay()
 	{
 		if (isUsingWebView2Drm)
 		{
-			_ = WebView2Play();
+			await WebView2Play();
 		}
 		else
 		{
@@ -107,11 +107,11 @@ partial class MediaManager : IDisposable
 		}
 	}
 
-	protected virtual partial void PlatformPause()
+	protected virtual async partial void PlatformPause()
 	{
 		if (isUsingWebView2Drm)
 		{
-			_ = WebView2Pause();
+			await WebView2Pause();
 		}
 		else
 		{
@@ -149,12 +149,12 @@ partial class MediaManager : IDisposable
 		static void UpdatePosition(in MediaPlayerElement mediaPlayerElement, in TimeSpan position) => mediaPlayerElement.MediaPlayer.Position = position;
 	}
 
-	protected virtual partial void PlatformStop()
+	protected virtual async partial void PlatformStop()
 	{
 		if (isUsingWebView2Drm)
 		{
-			_ = WebView2Pause();
-			_ = WebView2Seek(0);
+			await WebView2Pause();
+			await WebView2Seek(0);
 			MediaElement.CurrentStateChanged(MediaElementState.Stopped);
 
 			if (displayActiveRequested)
@@ -183,7 +183,7 @@ partial class MediaManager : IDisposable
 		}
 	}
 
-	protected virtual partial void PlatformUpdateAspect()
+	protected virtual async partial void PlatformUpdateAspect()
 	{
 		if (isUsingWebView2Drm)
 		{
@@ -193,7 +193,7 @@ partial class MediaManager : IDisposable
 				Aspect.AspectFill => "cover",
 				_ => "contain",
 			};
-			_ = WebView2ExecuteScriptAsync($"bridgeSetAspect('{objectFit}');");
+			await WebView2ExecuteScriptAsync($"bridgeSetAspect('{objectFit}');");
 			return;
 		}
 
@@ -210,11 +210,11 @@ partial class MediaManager : IDisposable
 		};
 	}
 
-	protected virtual partial void PlatformUpdateSpeed()
+	protected virtual async partial void PlatformUpdateSpeed()
 	{
 		if (isUsingWebView2Drm)
 		{
-			_ = WebView2SetPlaybackRate(MediaElement.Speed);
+			await WebView2SetPlaybackRate(MediaElement.Speed);
 			return;
 		}
 
@@ -275,11 +275,11 @@ partial class MediaManager : IDisposable
 		}
 	}
 
-	protected virtual partial void PlatformUpdateVolume()
+	protected virtual async partial void PlatformUpdateVolume()
 	{
 		if (isUsingWebView2Drm)
 		{
-			_ = WebView2SetVolume(MediaElement.Volume);
+			await WebView2SetVolume(MediaElement.Volume);
 			return;
 		}
 
@@ -327,11 +327,11 @@ partial class MediaManager : IDisposable
 	}
 	}
 
-	protected virtual partial void PlatformUpdateShouldMute()
+	protected virtual async partial void PlatformUpdateShouldMute()
 	{
 		if (isUsingWebView2Drm)
 		{
-			_ = WebView2SetMuted(MediaElement.ShouldMute);
+			await WebView2SetMuted(MediaElement.ShouldMute);
 			return;
 		}
 

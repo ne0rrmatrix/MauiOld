@@ -674,14 +674,14 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		Player.RepeatMode = MediaElement.ShouldLoopPlayback ? RepeatModeUtil.RepeatToggleModeOne : RepeatModeUtil.RepeatToggleModeNone;
 	}
 
-	protected virtual partial void PlatformUpdateDrmConfiguration()
+	protected virtual async partial void PlatformUpdateDrmConfiguration()
 	{
 		// On Android, DRM configuration is embedded in the MediaItem at source-set time.
 		// If DRM configuration changes while the same source is playing,
 		// re-run PlatformUpdateSource to rebuild the MediaItem with the new DRM settings.
 		if (Player is not null && MediaElement.Source is UriMediaSource)
 		{
-			_ = PlatformUpdateSource();
+			await PlatformUpdateSource();
 		}
 	}
 
@@ -902,7 +902,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		var data = await GetBytesFromMetadataArtworkUrl(MediaElement.MetadataArtworkUrl, cancellationToken).ConfigureAwait(true);
 		if (data is not null && data.Length > 0)
 		{
-			mediaMetaData.SetArtworkData(data, (Java.Lang.Integer)MediaMetadata.PictureTypeFrontCover);
+			mediaMetaData.SetArtworkData(data, (Java.Lang.Integer)(Java.Lang.Object)MediaMetadata.PictureTypeFrontCover);
 		}
 
 		mediaItem = new MediaItem.Builder();
@@ -945,7 +945,7 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 		var data = await GetBytesFromMetadataArtworkUrl(MediaElement.MetadataArtworkUrl, cancellationToken).ConfigureAwait(true);
 		if (data is not null && data.Length > 0)
 		{
-			mediaMetaData.SetArtworkData(data, (Java.Lang.Integer)MediaMetadata.PictureTypeFrontCover);
+			mediaMetaData.SetArtworkData(data, (Java.Lang.Integer)(Java.Lang.Object)MediaMetadata.PictureTypeFrontCover);
 		}
 
 		// Create MediaItem with metadata

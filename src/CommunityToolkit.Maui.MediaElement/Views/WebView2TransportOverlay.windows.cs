@@ -142,10 +142,7 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		skipBackwardButton = GetTemplateChild("SkipBackwardButton") as AppBarButton;
 		skipForwardButton = GetTemplateChild("SkipForwardButton") as AppBarButton;
 
-		if (playPauseButton is not null)
-		{
-			playPauseButton.Click += OnPlayPauseClick;
-		}
+		playPauseButton?.Click += OnPlayPauseClick;
 
 		if (progressSlider is not null)
 		{
@@ -154,45 +151,21 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 			progressSlider.ValueChanged += OnProgressSliderValueChanged;
 		}
 
-		if (volumeMuteButton is not null)
-		{
-			volumeMuteButton.Click += OnMuteToggleClick;
-		}
+		volumeMuteButton?.Click += OnMuteToggleClick;
 
-		if (audioMuteButton is not null)
-		{
-			audioMuteButton.Click += OnMuteToggleClick;
-		}
+		audioMuteButton?.Click += OnMuteToggleClick;
 
-		if (volumeSlider is not null)
-		{
-			volumeSlider.ValueChanged += OnVolumeSliderChanged;
-		}
+		volumeSlider?.ValueChanged += OnVolumeSliderChanged;
 
-		if (fullWindowButton is not null)
-		{
-			fullWindowButton.Click += OnFullWindowClick;
-		}
+		fullWindowButton?.Click += OnFullWindowClick;
 
-		if (stopButton is not null)
-		{
-			stopButton.Click += OnStopClick;
-		}
+		stopButton?.Click += OnStopClick;
 
-		if (zoomButton is not null)
-		{
-			zoomButton.Click += OnZoomClick;
-		}
+		zoomButton?.Click += OnZoomClick;
 
-		if (skipBackwardButton is not null)
-		{
-			skipBackwardButton.Click += OnSkipBackwardClick;
-		}
+		skipBackwardButton?.Click += OnSkipBackwardClick;
 
-		if (skipForwardButton is not null)
-		{
-			skipForwardButton.Click += OnSkipForwardClick;
-		}
+		skipForwardButton?.Click += OnSkipForwardClick;
 
 		// The base MediaTransportControls disables buttons that it considers
 		// inapplicable when no MediaPlayer is attached. Since this overlay
@@ -209,10 +182,7 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 	/// <summary>Updates the current playback position displayed in the overlay.</summary>
 	public void UpdatePosition(TimeSpan pos)
 	{
-		if (timeElapsedElement is not null)
-		{
-			timeElapsedElement.Text = FormatTime(pos);
-		}
+		timeElapsedElement?.Text = FormatTime(pos);
 
 		if (!isSeeking && progressSlider is not null && duration.TotalSeconds > 0)
 		{
@@ -224,10 +194,7 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 	public void UpdateDuration(TimeSpan dur)
 	{
 		duration = dur;
-		if (timeRemainingElement is not null)
-		{
-			timeRemainingElement.Text = FormatTime(dur);
-		}
+		timeRemainingElement?.Text = FormatTime(dur);
 	}
 
 	/// <summary>Updates the play/pause button state and control panel visibility.</summary>
@@ -251,10 +218,7 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 	public void UpdateVolume(double volume)
 	{
 		currentVolume = volume;
-		if (volumeSlider is not null)
-		{
-			volumeSlider.Value = volume * 100;
-		}
+		volumeSlider?.Value = volume * 100;
 
 		UpdateVolumeVisual();
 	}
@@ -351,10 +315,7 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 
 	void UpdatePlayPauseVisual()
 	{
-		if (playPauseSymbol is not null)
-		{
-			playPauseSymbol.Symbol = isPlaying ? Symbol.Pause : Symbol.Play;
-		}
+		playPauseSymbol?.Symbol = isPlaying ? Symbol.Pause : Symbol.Play;
 
 		WinVisualStateManager.GoToState(this, isPlaying ? "PauseState" : "PlayState", true);
 	}
@@ -363,70 +324,34 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 	{
 		var muted = isMuted || currentVolume == 0;
 
-		if (audioMuteSymbol is not null)
-		{
-			audioMuteSymbol.Symbol = muted ? Symbol.Mute : Symbol.Volume;
-		}
+		audioMuteSymbol?.Symbol = muted ? Symbol.Mute : Symbol.Volume;
 
-		if (volumeMuteSymbol is not null)
-		{
-			volumeMuteSymbol.Symbol = muted ? Symbol.Mute : Symbol.Volume;
-		}
+		volumeMuteSymbol?.Symbol = muted ? Symbol.Mute : Symbol.Volume;
 
 		WinVisualStateManager.GoToState(this, muted ? "MuteState" : "VolumeState", true);
 	}
 
 	void UnhookTemplateParts()
 	{
-		if (playPauseButton is not null)
-		{
-			playPauseButton.Click -= OnPlayPauseClick;
-		}
+		playPauseButton?.Click -= OnPlayPauseClick;
 
-		if (progressSlider is not null)
-		{
-			progressSlider.ValueChanged -= OnProgressSliderValueChanged;
-		}
+		progressSlider?.ValueChanged -= OnProgressSliderValueChanged;
 
-		if (volumeMuteButton is not null)
-		{
-			volumeMuteButton.Click -= OnMuteToggleClick;
-		}
+		volumeMuteButton?.Click -= OnMuteToggleClick;
 
-		if (audioMuteButton is not null)
-		{
-			audioMuteButton.Click -= OnMuteToggleClick;
-		}
+		audioMuteButton?.Click -= OnMuteToggleClick;
 
-		if (volumeSlider is not null)
-		{
-			volumeSlider.ValueChanged -= OnVolumeSliderChanged;
-		}
+		volumeSlider?.ValueChanged -= OnVolumeSliderChanged;
 
-		if (fullWindowButton is not null)
-		{
-			fullWindowButton.Click -= OnFullWindowClick;
-		}
+		fullWindowButton?.Click -= OnFullWindowClick;
 
-		if (stopButton is not null)
-		{
-			stopButton.Click -= OnStopClick;
-		}
+		stopButton?.Click -= OnStopClick;
 
-		if (zoomButton is not null)
-		{
-			zoomButton.Click -= OnZoomClick;
-		}
+		zoomButton?.Click -= OnZoomClick;
 
-		if (skipBackwardButton is not null)
-		{
-			skipBackwardButton.Click -= OnSkipBackwardClick;
-		}
+		skipBackwardButton?.Click -= OnSkipBackwardClick;
 
-		if (skipForwardButton is not null)
-		{
-			skipForwardButton.Click -= OnSkipForwardClick;
-		}
+		skipForwardButton?.Click -= OnSkipForwardClick;
 	}
 
 	// ─── Auto-hide logic ─────────────────────────────────────────────
@@ -449,45 +374,21 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 	/// </summary>
 	void ForceEnableButtons()
 	{
-		if (stopButton is not null)
-		{
-			stopButton.IsEnabled = true;
-		}
+		stopButton?.IsEnabled = true;
 
-		if (zoomButton is not null)
-		{
-			zoomButton.IsEnabled = true;
-		}
+		zoomButton?.IsEnabled = true;
 
-		if (skipBackwardButton is not null)
-		{
-			skipBackwardButton.IsEnabled = true;
-		}
+		skipBackwardButton?.IsEnabled = true;
 
-		if (skipForwardButton is not null)
-		{
-			skipForwardButton.IsEnabled = true;
-		}
+		skipForwardButton?.IsEnabled = true;
 
-		if (fullWindowButton is not null)
-		{
-			fullWindowButton.IsEnabled = true;
-		}
+		fullWindowButton?.IsEnabled = true;
 
-		if (playPauseButton is not null)
-		{
-			playPauseButton.IsEnabled = true;
-		}
+		playPauseButton?.IsEnabled = true;
 
-		if (volumeMuteButton is not null)
-		{
-			volumeMuteButton.IsEnabled = true;
-		}
+		volumeMuteButton?.IsEnabled = true;
 
-		if (progressSlider is not null)
-		{
-			progressSlider.IsEnabled = true;
-		}
+		progressSlider?.IsEnabled = true;
 	}
 
 	static string FormatTime(TimeSpan time)

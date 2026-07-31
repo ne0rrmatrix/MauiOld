@@ -254,8 +254,8 @@ public partial class MediaManager : IDisposable
 				{
 					var pairs = headers.ToArray();
 					var nativeHeaders = NSDictionary.FromObjectsAndKeys(
-						pairs.Select(p => p.Value).ToArray<object>(),
-						pairs.Select(p => p.Key).ToArray<object>());
+						[.. pairs.Select(p => p.Value)],
+						[.. pairs.Select(p => p.Key)]);
 					var options = new NSDictionary("AVURLAssetHTTPHeaderFieldsKey", nativeHeaders);
 					asset = new AVUrlAsset(nsUrl, new AVUrlAssetOptions(options));
 				}
@@ -344,7 +344,7 @@ public partial class MediaManager : IDisposable
 		Player.ReplaceCurrentItemWithPlayerItem(PlayerItem);
 
 		CurrentItemErrorObserver = PlayerItem?.AddObserver("error",
-			ValueObserverOptions, (NSObservedChange change) =>
+			ValueObserverOptions, change =>
 			{
 				if (Player.CurrentItem?.Error is null)
 				{
