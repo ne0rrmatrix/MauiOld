@@ -16,8 +16,8 @@
     </Properties>
 
     <Dependencies>
-        <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
-        <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
+        <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+        <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
     </Dependencies>
 
     <Resources>
@@ -54,22 +54,6 @@
             </Extensions>
         </Application>
     </Applications>
-
-    <Extensions>
-        <!--PlayReady WinRT component activation-->
-        <Extension Category="windows.activatableClass.inProcessServer">
-            <InProcessServer>
-                <Path>CommunityToolkit.Maui.Media.WinRT.dll</Path>
-                <ActivatableClass ActivatableClassId="CommunityToolkit.Maui.Media.WinRT.PlayReadyMediaEngine" ThreadingModel="both" />
-                <ActivatableClass ActivatableClassId="CommunityToolkit.Maui.Media.WinRT.PlayReadyDrmConfiguration" ThreadingModel="both" />
-                <ActivatableClass ActivatableClassId="CommunityToolkit.Maui.Media.WinRT.DrmLicenseAcquiredEventArgs" ThreadingModel="both" />
-                <ActivatableClass ActivatableClassId="CommunityToolkit.Maui.Media.WinRT.MediaEngineErrorEventArgs" ThreadingModel="both" />
-                <ActivatableClass ActivatableClassId="CommunityToolkit.Maui.Media.WinRT.MediaEngineTimeChangedEventArgs" ThreadingModel="both" />
-                <ActivatableClass ActivatableClassId="CommunityToolkit.Maui.Media.WinRT.MediaEngineSizeChangedEventArgs" ThreadingModel="both" />
-                <ActivatableClass ActivatableClassId="CommunityToolkit.Maui.Media.WinRT.MediaEngineStateChangedEventArgs" ThreadingModel="both" />
-            </InProcessServer>
-        </Extension>
-    </Extensions>
 
     <Capabilities>
         <rescap:Capability Name="runFullTrust" />

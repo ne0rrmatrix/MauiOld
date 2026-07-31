@@ -8,7 +8,7 @@ namespace CommunityToolkit.Maui.Core;
 /// <para>Assign an instance of this class to UriMediaSource.DrmConfiguration
 /// to enable DRM-protected playback on all supported platforms:</para>
 /// <list type="bullet">
-/// <item><description><b>Windows:</b> PlayReady via <c>Windows.Media.Protection.PlayReady</c> (<c>MediaProtectionManager</c>)</description></item>
+/// <item><description><b>Windows:</b> PlayReady via WebView2 + dash.js (EME with the PlayReady CDM)</description></item>
 /// <item><description><b>Android:</b> Widevine / PlayReady via ExoPlayer <c>MediaItem.DrmConfiguration</c></description></item>
 /// <item><description><b>iOS / macOS:</b> FairPlay Streaming via <c>AVAssetResourceLoaderDelegate</c></description></item>
 /// </list>

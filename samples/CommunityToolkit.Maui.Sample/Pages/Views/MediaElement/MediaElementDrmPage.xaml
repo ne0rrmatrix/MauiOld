@@ -28,6 +28,8 @@
 				<RowDefinition Height="Auto" />
 				<RowDefinition Height="Auto" />
 				<RowDefinition Height="Auto" />
+				<RowDefinition Height="Auto" />
+				<RowDefinition Height="Auto" />
 			</Grid.RowDefinitions>
 
 			<!-- Media Player: Axinom Clear Test Stream (no DRM) for immediate playback -->
@@ -86,8 +88,34 @@
 			<Label Grid.Row="5" Text="DRM Configuration" FontSize="18" FontAttributes="Bold"
 				   Padding="0,12,0,4" />
 
-			<!-- DRM Scheme -->
+			<!-- Test Vector Selection -->
 			<Grid Grid.Row="6" ColumnDefinitions="120,*" ColumnSpacing="8" Padding="0,4">
+				<Label Grid.Column="0" Text="Test Vector:" VerticalOptions="Center" />
+				<HorizontalStackLayout Grid.Column="1" Spacing="8">
+					<Picker x:Name="TestVectorPicker" SelectedIndexChanged="OnTestVectorChanged" WidthRequest="280">
+						<Picker.ItemsSource>
+							<x:Array Type="{x:Type x:String}">
+								<x:String>CMAF H.264 Single Key</x:String>
+								<x:String>CMAF H.264 Multi Key</x:String>
+								<x:String>CMAF H.265 Single Key</x:String>
+								<x:String>CMAF H.265 Multi Key</x:String>
+								<x:String>DASH H.264 Single Key</x:String>
+								<x:String>DASH H.264 Multi Key</x:String>
+								<x:String>DASH H.265 Single Key</x:String>
+								<x:String>DASH H.265 Multi Key</x:String>
+								<x:String>HLS H.264 Single Key</x:String>
+								<x:String>HLS H.264 Multi Key</x:String>
+								<x:String>HLS H.265 Single Key</x:String>
+								<x:String>HLS H.265 Multi Key</x:String>
+						<x:String>Clear DASH (no DRM)</x:String>
+							</x:Array>
+						</Picker.ItemsSource>
+					</Picker>
+				</HorizontalStackLayout>
+			</Grid>
+
+			<!-- DRM Scheme -->
+			<Grid Grid.Row="7" ColumnDefinitions="120,*" ColumnSpacing="8" Padding="0,4">
 				<Label Grid.Column="0" Text="DRM Scheme:" VerticalOptions="Center" />
 				<HorizontalStackLayout Grid.Column="1" Spacing="8">
 					<Picker x:Name="DrmSchemePicker" SelectedIndexChanged="OnDrmSchemeChanged" WidthRequest="160">
@@ -104,36 +132,44 @@
 				</HorizontalStackLayout>
 			</Grid>
 
-			<!-- Source URL: Axinom CMAF H.264 Single Key (Widevine + PlayReady via MPD, FairPlay via M3U8) -->
-			<Grid Grid.Row="7" ColumnDefinitions="120,*" ColumnSpacing="8" Padding="0,4">
+			<!-- Source URL -->
+			<Grid Grid.Row="8" ColumnDefinitions="120,*" ColumnSpacing="8" Padding="0,4">
 				<Label Grid.Column="0" Text="Source URL:" VerticalOptions="Center" />
 				<Entry x:Name="SourceUrlEntry" Grid.Column="1"
 					   Text="https://media.axprod.net/TestVectors/Cmaf/protected_1080p_h264_cbcs/manifest.mpd" />
 			</Grid>
 
 			<!-- License Server URL: Auto-populated based on DRM scheme -->
-			<Grid Grid.Row="8" ColumnDefinitions="120,*" ColumnSpacing="8" Padding="0,4">
+			<Grid Grid.Row="9" ColumnDefinitions="120,*" ColumnSpacing="8" Padding="0,4">
 				<Label Grid.Column="0" Text="License Server:" VerticalOptions="Center" />
 				<Entry x:Name="LicenseServerEntry" Grid.Column="1"
 					   Text="https://drm-playready-licensing.axprod.net/AcquireLicense" />
 			</Grid>
 
 			<!-- License Request Headers -->
-			<VerticalStackLayout Grid.Row="9" Spacing="4" Padding="0,8,0,0">
+			<VerticalStackLayout Grid.Row="10" Spacing="4" Padding="0,8,0,0">
 				<Label Text="License Request Headers:" FontAttributes="Bold" Padding="0,0,0,4" />
 				<Grid ColumnDefinitions="*,*,40" ColumnSpacing="5">
 					<Entry x:Name="HeaderNameEntry" Grid.Column="0" Text="X-AxDRM-Message" Placeholder="Header name" />
-					<Entry x:Name="HeaderValueEntry" Grid.Column="1" Text="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJ2ZXJzaW9uIjogMSwKICAiY29tX2tleV9pZCI6ICI2OWU1NDA4OC1lOWUwLTQ1MzAtOGMxYS0xZWI2ZGNkMGQxNGUiLAogICJtZXNzYWdlIjogewogICAgInR5cGUiOiAiZW50aXRsZW1lbnRfbWVzc2FnZSIsCiAgICAidmVyc2lvbiI6IDIsCiAgICAibGljZW5zZSI6IHsKICAgICAgImFsbG93X3BlcnNpc3RlbmNlIjogdHJ1ZQogICAgfSwKICAgICJjb250ZW50X2tleXNfc291cmNlIjogewogICAgICAiaW5saW5lIjogWwogICAgICAgIHsKICAgICAgICAgICJpZCI6ICIzMDJmODBkZC00MTFlLTQ4ODYtYmNhNS1iYjFmODAxOGEwMjQiLAogICAgICAgICAgImVuY3J5cHRlZF9rZXkiOiAicm9LQWcwdDdKaTFpNDNmd3YremZ0UT09IiwKICAgICAgICAgICJ1c2FnZV9wb2xpY3kiOiAiUG9saWN5IEEiCiAgICAgICAgfQogICAgICBdCiAgICB9LAogICAgImNvbnRlbnRfa2V5X3VzYWdlX3BvbGljaWVzIjogWwogICAgICB7CiAgICAgICAgIm5hbWUiOiAiUG9saWN5IEEiLAogICAgICAgICJwbGF5cmVhZHkiOiB7CiAgICAgICAgICAibWluX2RldmljZV9zZWN1cml0eV9sZXZlbCI6IDE1MCwKICAgICAgICAgICJwbGF5X2VuYWJsZXJzIjogWwogICAgICAgICAgICAiNzg2NjI3RDgtQzJBNi00NEJFLThGODgtMDhBRTI1NUIwMUE3IgogICAgICAgICAgXQogICAgICAgIH0KICAgICAgfQogICAgXQogIH0KfQ.l8PnZznspJ6lnNmfAE9UQV532Ypzt1JXQkvrk8gFSRw" Placeholder="Header value" />
+					<Entry x:Name="HeaderValueEntry" Grid.Column="1" Placeholder="Header value" />
 				</Grid>
-				<Label x:Name="DrmHeadersSummaryLabel" Text="1 header predefined (X-AxDRM-Message)" FontSize="12" TextColor="Gray" />
+				<Label x:Name="DrmHeadersSummaryLabel" Text="No headers defined" FontSize="12" TextColor="Gray" />
 				<Button Text="Clear Headers" Clicked="ClearDrmHeadersClicked" HeightRequest="36" FontSize="12" />
 			</VerticalStackLayout>
 
-			<!-- Hardware Security + Load -->
-			<Grid Grid.Row="10" ColumnDefinitions="*,*" ColumnSpacing="8" Padding="0,12,0,0">
-				<HorizontalStackLayout Grid.Column="0" Spacing="5">
-					<Switch x:Name="HardwareSecuritySwitch" ThumbColor="White" OnColor="LimeGreen" />
-					<Label Text="Hardware DRM" VerticalOptions="Center" />
+			<!-- DRM Security Level + Load -->
+			<Grid Grid.Row="11" ColumnDefinitions="*,*" ColumnSpacing="8" Padding="0,12,0,0">
+				<HorizontalStackLayout Grid.Column="0" Spacing="8">
+					<Picker x:Name="DrmSecurityLevelPicker" WidthRequest="180">
+						<Picker.ItemsSource>
+							<x:Array Type="{x:Type x:String}">
+								<x:String>Software DRM</x:String>
+								<x:String>Hardware DRM</x:String>
+							</x:Array>
+						</Picker.ItemsSource>
+					</Picker>
+					<Label x:Name="DrmSecurityHintLabel" Text="(default)" VerticalOptions="Center"
+						   FontSize="12" TextColor="Gray" />
 				</HorizontalStackLayout>
 				<Button Grid.Column="1" Text="Load DRM Source" Clicked="OnLoadDrmSourceClicked"
 						BackgroundColor="{StaticResource Primary}" TextColor="White"

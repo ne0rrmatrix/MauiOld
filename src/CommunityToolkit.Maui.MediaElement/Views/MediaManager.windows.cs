@@ -90,7 +90,14 @@ partial class MediaManager : IDisposable
 
 	protected virtual partial void PlatformPlay()
 	{
-		Player?.MediaPlayer.Play();
+		if (isUsingWebView2Drm)
+		{
+			_ = WebView2Play();
+		}
+		else
+		{
+			Player?.MediaPlayer.Play();
+		}
 
 		if (MediaElement.ShouldKeepScreenOn
 			&& !displayActiveRequested)
@@ -102,7 +109,14 @@ partial class MediaManager : IDisposable
 
 	protected virtual partial void PlatformPause()
 	{
-		Player?.MediaPlayer.Pause();
+		if (isUsingWebView2Drm)
+		{
+			_ = WebView2Pause();
+		}
+		else
+		{
+			Player?.MediaPlayer.Pause();
+		}
 
 		if (displayActiveRequested)
 		{
@@ -113,6 +127,12 @@ partial class MediaManager : IDisposable
 
 	protected virtual async partial Task PlatformSeek(TimeSpan position, CancellationToken token)
 	{
+		if (isUsingWebView2Drm)
+		{
+			await WebView2Seek(position.TotalSeconds);
+			return;
+		}
+
 		if (Player?.MediaPlayer.CanSeek is true)
 		{
 			if (Dispatcher.IsDispatchRequired)
@@ -131,6 +151,20 @@ partial class MediaManager : IDisposable
 
 	protected virtual partial void PlatformStop()
 	{
+		if (isUsingWebView2Drm)
+		{
+			_ = WebView2Pause();
+			_ = WebView2Seek(0);
+			MediaElement.CurrentStateChanged(MediaElementState.Stopped);
+
+			if (displayActiveRequested)
+			{
+				DisplayRequest.RequestRelease();
+				displayActiveRequested = false;
+			}
+			return;
+		}
+
 		if (Player is null)
 		{
 			return;
@@ -151,6 +185,18 @@ partial class MediaManager : IDisposable
 
 	protected virtual partial void PlatformUpdateAspect()
 	{
+		if (isUsingWebView2Drm)
+		{
+			var objectFit = MediaElement.Aspect switch
+			{
+				Aspect.Fill => "fill",
+				Aspect.AspectFill => "cover",
+				_ => "contain",
+			};
+			_ = WebView2ExecuteScriptAsync($"bridgeSetAspect('{objectFit}');");
+			return;
+		}
+
 		if (Player is null)
 		{
 			return;
@@ -166,6 +212,12 @@ partial class MediaManager : IDisposable
 
 	protected virtual partial void PlatformUpdateSpeed()
 	{
+		if (isUsingWebView2Drm)
+		{
+			_ = WebView2SetPlaybackRate(MediaElement.Speed);
+			return;
+		}
+
 		if (Player is null)
 		{
 			return;
@@ -199,6 +251,12 @@ partial class MediaManager : IDisposable
 
 	protected virtual partial void PlatformUpdatePosition()
 	{
+		// In WebView2 DRM mode, position updates come from JS via the bridge
+		if (isUsingWebView2Drm)
+		{
+			return;
+		}
+
 		if (Application.Current?.Windows is null || Application.Current.Windows.Count == 0)
 		{
 			return;
@@ -219,6 +277,12 @@ partial class MediaManager : IDisposable
 
 	protected virtual partial void PlatformUpdateVolume()
 	{
+		if (isUsingWebView2Drm)
+		{
+			_ = WebView2SetVolume(MediaElement.Volume);
+			return;
+		}
+
 		if (Player is null)
 		{
 			return;
@@ -265,6 +329,12 @@ partial class MediaManager : IDisposable
 
 	protected virtual partial void PlatformUpdateShouldMute()
 	{
+		if (isUsingWebView2Drm)
+		{
+			_ = WebView2SetMuted(MediaElement.ShouldMute);
+			return;
+		}
+
 		if (Player is null)
 		{
 			return;
@@ -279,13 +349,16 @@ partial class MediaManager : IDisposable
 			return;
 		}
 
-		CleanupPlayReadyEngine();
+		Trace.WriteLine("[MediaElement.Windows] PlatformUpdateSource — entered");
+		CleanupWebView2Drm();
+		Trace.WriteLine("[MediaElement.Windows] PlatformUpdateSource — after CleanupWebView2Drm");
 		mauiMediaElement?.RestoreMediaPlayerView();
 
 		adaptiveMediaSource?.DownloadRequested -= OnAdaptiveMediaSourceDownloadRequested;
 		adaptiveMediaSource = null;
 
 		await Dispatcher.DispatchAsync(() => Player.PosterSource = new BitmapImage());
+		Trace.WriteLine("[MediaElement.Windows] PlatformUpdateSource — after PosterSource reset");
 
 		if (MediaElement.Source is null)
 		{
@@ -317,13 +390,8 @@ partial class MediaManager : IDisposable
 
 				if (drm is { Scheme: DrmScheme.PlayReady, LicenseServerUrl: not null })
 				{
-					// PlayReady path: WinUI 3's MediaPlayer has no protected media
-					// path, so playback runs through the native PlayReadyMediaEngine
-					// (IMFMediaEngine + SwapChainPanel). The license is acquired
-					// out-of-band beforehand via the WinRT PlayReady API so custom
-					// license headers (e.g. X-AxDRM-Message) are honored.
-					Trace.WriteLine("[MediaElement.Windows] PlatformUpdateSource — PlayReady path (native engine + proactive license)");
-					await SetUriSourceWithPlayReadyAsync(new Uri(uri), headers, drm);
+					Trace.WriteLine("[MediaElement.Windows] PlatformUpdateSource — PlayReady path (WebView2 + dash.js)");
+					await SetUriSourceWithPlayReadyAsync(uri, headers, drm);
 					return;
 				}
 
@@ -390,7 +458,7 @@ partial class MediaManager : IDisposable
 			Trace.WriteLine($"[MediaElement.Windows] Dispose — state={MediaElement.CurrentState}");
 			isDisposed = true;
 
-			CleanupPlayReady();
+			CleanupWebView2Drm();
 			mauiMediaElement = null;
 
 			adaptiveMediaSource?.DownloadRequested -= OnAdaptiveMediaSourceDownloadRequested;
