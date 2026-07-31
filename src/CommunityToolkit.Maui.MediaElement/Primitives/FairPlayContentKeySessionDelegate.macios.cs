@@ -7,20 +7,13 @@ namespace CommunityToolkit.Maui.Core;
 /// Delegate for <see cref="AVContentKeySession"/> that handles FairPlay Streaming
 /// SPC/CKC key exchange using the modern <c>AVContentKeySession</c> API (iOS 11.2+).
 /// </summary>
-sealed class FairPlayContentKeySessionDelegate : AVContentKeySessionDelegate
+sealed class FairPlayContentKeySessionDelegate(
+	Uri licenseServerUri,
+	IDictionary<string, string> licenseRequestHeaders) : AVContentKeySessionDelegate
 {
-	readonly Uri licenseServerUri;
-	readonly IDictionary<string, string> licenseRequestHeaders;
-	readonly HttpClient httpClient;
-
-	public FairPlayContentKeySessionDelegate(
-		Uri licenseServerUri,
-		IDictionary<string, string> licenseRequestHeaders)
-	{
-		this.licenseServerUri = licenseServerUri;
-		this.licenseRequestHeaders = licenseRequestHeaders;
-		httpClient = new HttpClient();
-	}
+	readonly Uri licenseServerUri = licenseServerUri;
+	readonly IDictionary<string, string> licenseRequestHeaders = licenseRequestHeaders;
+	readonly HttpClient httpClient = new();
 
 	/// <summary>
 	/// Called when the content key session needs a new content key.

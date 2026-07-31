@@ -5,16 +5,12 @@ using CommunityToolkit.Maui.Core.Primitives;
 using CommunityToolkit.Maui.Extensions;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
-using Microsoft.Maui;
-using Microsoft.Maui.Controls;
-using Microsoft.Maui.Dispatching;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Media;
 using Windows.Media.Playback;
 using Windows.Media.Streaming.Adaptive;
 using Windows.Storage;
-using Windows.Storage.Streams;
 using Windows.System.Display;
 using HttpClient = Windows.Web.Http.HttpClient;
 using HttpMethod = Windows.Web.Http.HttpMethod;
@@ -379,7 +375,7 @@ partial class MediaManager : IDisposable
 
 				if (drm is { Scheme: DrmScheme.PlayReady, LicenseServerUrl: not null })
 				{
-					await SetUriSourceWithPlayReadyAsync(uri, headers, drm);
+					await SetUriSourceWithPlayReadyAsync(uri, drm);
 					return;
 				}
 

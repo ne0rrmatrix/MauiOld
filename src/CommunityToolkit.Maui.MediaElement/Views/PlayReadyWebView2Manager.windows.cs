@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Text.Json.Nodes;
-using Microsoft.Maui.ApplicationModel;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 
@@ -27,36 +26,28 @@ partial class MediaManager
 	/// </summary>
 	async Task SetupWebView2DrmAsync(string manifestUrl, DrmConfiguration drmConfig)
 	{
-		Trace.WriteLine($"[MediaElement.Windows.PlayReady.WebView2] Setting up WebView2 DRM — URI={manifestUrl}");
-
 		webViewReadyTcs = new TaskCompletionSource<bool>();
 
 		try
 		{
 			// Create WebView2 control and transport overlay on the UI thread
-			await MainThread.InvokeOnMainThreadAsync(() =>
+			drmWebView = new WebView2
 			{
-				drmWebView = new WebView2
-				{
-					HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Stretch,
-					VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Stretch,
-				};
+				HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Stretch,
+				VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Stretch,
+			};
 
-				drmTransportOverlay = new WebView2TransportOverlay();
-				WireTransportOverlayEvents(drmTransportOverlay);
+			drmTransportOverlay = new WebView2TransportOverlay();
+			WireTransportOverlayEvents(drmTransportOverlay);
 
-				// Swap into the view tree (replaces MediaPlayerElement)
-				mauiMediaElement?.SwapToWebView2(drmWebView, drmTransportOverlay);
-			});
+			// Swap into the view tree (replaces MediaPlayerElement)
+			mauiMediaElement?.SwapToWebView2(drmWebView, drmTransportOverlay);
 
 			// EnsureCoreWebView2Async must be called before NavigateToString.
 			// It initializes the underlying Edge browser engine. This must run
 			// on the UI thread and the WebView2 must already be in the visual tree.
-			await MainThread.InvokeOnMainThreadAsync(async () =>
-			{
-				ArgumentNullException.ThrowIfNull(drmWebView);
-				await drmWebView.EnsureCoreWebView2Async();
-			});
+			ArgumentNullException.ThrowIfNull(drmWebView);
+			await drmWebView.EnsureCoreWebView2Async();
 
 			if (drmWebView?.CoreWebView2 is null)
 			{
@@ -69,8 +60,6 @@ partial class MediaManager
 			drmWebView.CoreWebView2.Settings.IsWebMessageEnabled = true;
 			drmWebView.CoreWebView2.Settings.AreDefaultScriptDialogsEnabled = true;
 
-			Trace.WriteLine("[MediaElement.Windows.PlayReady.WebView2] CoreWebView2 initialized, message bridge wired");
-
 			// EME (Encrypted Media Extensions) requires a secure context (HTTPS).
 			// NavigateToString uses a non-secure virtual origin where MediaKeys
 			// is unavailable. Instead, write the HTML to a temp folder and serve
@@ -80,43 +69,21 @@ partial class MediaManager
 			Directory.CreateDirectory(tempDir);
 			await File.WriteAllTextAsync(Path.Combine(tempDir, "player.html"), html);
 
-			await MainThread.InvokeOnMainThreadAsync(() =>
+			if (drmWebView?.CoreWebView2 is null)
 			{
-				if (drmWebView?.CoreWebView2 is null)
-				{
-					return;
-				}
+				return;
+			}
 
-				// Map a virtual HTTPS host to the temp folder
-				drmWebView.CoreWebView2.SetVirtualHostNameToFolderMapping(
-					"drmplayer.local", tempDir, CoreWebView2HostResourceAccessKind.Allow);
+			// Map a virtual HTTPS host to the temp folder
+			drmWebView.CoreWebView2.SetVirtualHostNameToFolderMapping(
+				"drmplayer.local", tempDir, CoreWebView2HostResourceAccessKind.Allow);
 
-				// Navigate to the virtual HTTPS URL — EME works here
-				drmWebView.CoreWebView2.Navigate("https://drmplayer.local/player.html");
-			});
-
-			Trace.WriteLine("[MediaElement.Windows.PlayReady.WebView2] WebView2 created, HTML served via virtual HTTPS host");
+			// Navigate to the virtual HTTPS URL — EME works here
+			drmWebView.CoreWebView2.Navigate("https://drmplayer.local/player.html");
 		}
 		catch (Exception ex)
 		{
-			Trace.WriteLine($"[MediaElement.Windows.PlayReady.WebView2] Setup failed: {ex}");
 			ReportMediaFailed($"WebView2 DRM setup failed: {ex.Message}");
-			return;
-		}
-
-		// Wait for the JS player to signal ready (with timeout)
-		if (webViewReadyTcs is not null)
-		{
-			using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-			try
-			{
-				await Task.WhenAny(webViewReadyTcs.Task, Task.Delay(Timeout.Infinite, cts.Token))
-					.ConfigureAwait(ConfigureAwaitOptions.ForceYielding);
-			}
-			catch (OperationCanceledException)
-			{
-				Trace.WriteLine("[MediaElement.Windows.PlayReady.WebView2] Timeout waiting for player ready");
-			}
 		}
 	}
 
@@ -128,7 +95,6 @@ partial class MediaManager
 	{
 		// TryGetWebMessageAsString returns the raw string without JSON double-encoding
 		var json = args.TryGetWebMessageAsString();
-		Trace.WriteLine($"[MediaElement.Windows.PlayReady.WebView2] JS message: {json}");
 
 		try
 		{
@@ -143,7 +109,6 @@ partial class MediaManager
 			switch (type)
 			{
 				case "ready":
-					Trace.WriteLine("[MediaElement.Windows.PlayReady.WebView2] Player ready");
 					isUsingWebView2Drm = true;
 					webViewReadyTcs?.TrySetResult(true);
 					break;
@@ -166,7 +131,6 @@ partial class MediaManager
 					break;
 
 				case "ended":
-					Trace.WriteLine("[MediaElement.Windows.PlayReady.WebView2] Playback ended");
 					MediaElement.CurrentStateChanged(MediaElementState.Stopped);
 					break;
 
@@ -174,7 +138,6 @@ partial class MediaManager
 					var metaDuration = msg["duration"]?.GetValue<double>() ?? 0;
 					var width = msg["width"]?.GetValue<int>() ?? 0;
 					var height = msg["height"]?.GetValue<int>() ?? 0;
-					Trace.WriteLine($"[MediaElement.Windows.PlayReady.WebView2] Metadata loaded — duration={metaDuration}s, {width}x{height}");
 					MediaElement.Duration = TimeSpan.FromSeconds(metaDuration);
 					MediaElement.MediaWidth = width;
 					MediaElement.MediaHeight = height;
@@ -265,7 +228,6 @@ partial class MediaManager
 		drmTransportOverlay = null;
 		isUsingWebView2Drm = false;
 		webViewReadyTcs = null;
-		Trace.WriteLine("[MediaElement.Windows.PlayReady.WebView2] Cleaned up");
 	}
 
 	// ─────────────────────────────────────────────────────────────────────

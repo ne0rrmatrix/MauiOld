@@ -18,23 +18,13 @@ partial class MediaManager
 	/// full EME + PlayReady CDM support. A JS bridge synchronizes state between
 	/// the dash.js player in the browser and the MAUI MediaElement API surface.
 	/// </summary>
-	async Task SetUriSourceWithPlayReadyAsync(string manifestUrl, IDictionary<string, string> headers, DrmConfiguration drmConfig)
+	async Task SetUriSourceWithPlayReadyAsync(string manifestUrl, DrmConfiguration drmConfig)
 	{
-		Trace.WriteLine($"[MediaElement.Windows.PlayReady] SetUriSourceWithPlayReadyAsync (WebView2) — URI={manifestUrl}");
+		// Clean up any previous WebView2 DRM session
+		CleanupWebView2Drm();
 
-		try
-		{
-			// Clean up any previous WebView2 DRM session
-			CleanupWebView2Drm();
-
-			// Set up WebView2 + dash.js with PlayReady EME
-			await SetupWebView2DrmAsync(manifestUrl, drmConfig);
-		}
-		catch (Exception ex)
-		{
-			Trace.WriteLine($"[MediaElement.Windows.PlayReady] SetUriSourceWithPlayReadyAsync exception: {ex}");
-			ReportMediaFailed($"PlayReady WebView2 playback setup failed: {ex.Message}");
-		}
+		// Set up WebView2 + dash.js with PlayReady EME
+		MainThread.BeginInvokeOnMainThread(async () => await SetupWebView2DrmAsync(manifestUrl, drmConfig));
 	}
 
 	/// <summary>
@@ -69,6 +59,5 @@ partial class MediaManager
 	{
 		// DRM routing is handled by PlatformUpdateSource in MediaManager.windows.cs.
 		// This partial exists for MAUI lifecycle wiring only.
-		Trace.WriteLine("[MediaElement.Windows.PlayReady] PlatformUpdateDrmConfiguration (no-op — handled by PlatformUpdateSource)");
 	}
 }

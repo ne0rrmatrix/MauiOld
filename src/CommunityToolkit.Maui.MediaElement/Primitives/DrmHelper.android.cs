@@ -1,5 +1,4 @@
 using AndroidX.Media3.Common;
-using CommunityToolkit.Maui.Core;
 
 namespace CommunityToolkit.Maui.Core;
 
