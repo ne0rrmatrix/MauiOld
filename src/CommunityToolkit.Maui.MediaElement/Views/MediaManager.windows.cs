@@ -375,7 +375,8 @@ partial class MediaManager : IDisposable
 
 				if (drm is { Scheme: DrmScheme.PlayReady, LicenseServerUrl: not null })
 				{
-					await SetUriSourceWithPlayReadyAsync(uri, drm, MediaElement.ShouldAutoPlay);
+					CleanupWebView2Drm();
+					MainThread.BeginInvokeOnMainThread(async () => await SetupWebView2DrmAsync(uri, drm, MediaElement.ShouldAutoPlay));
 					return;
 				}
 
@@ -419,6 +420,17 @@ partial class MediaManager : IDisposable
 				var randomAccessStream = streamMediaSource.Stream.AsRandomAccessStream();
 				Player.Source = WinMediaSource.CreateFromStream(randomAccessStream, streamMediaSource.Stream.GetMimeType());
 			}
+		}
+	}
+
+	protected virtual partial void PlatformUpdateDrmConfiguration()
+	{
+		// On Apple platforms, DRM configuration is applied at source creation time.
+		// If DRM config changes dynamically, re-run PlatformUpdateSource to rebuild
+		// the AVAsset with the new FairPlay resource loader delegate.
+		if (Player is not null && MediaElement.Source is UriMediaSource)
+		{
+			PlatformUpdateSource();
 		}
 	}
 

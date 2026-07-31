@@ -51,7 +51,7 @@ partial class MediaManager
 
 			if (drmWebView?.CoreWebView2 is null)
 			{
-				ReportMediaFailed("WebView2 CoreWebView2 initialization returned null");
+				Trace.WriteLine("WebView2 CoreWebView2 initialization returned null");
 				return;
 			}
 
@@ -83,7 +83,7 @@ partial class MediaManager
 		}
 		catch (Exception ex)
 		{
-			ReportMediaFailed($"WebView2 DRM setup failed: {ex.Message}");
+			Trace.WriteLine($"WebView2 DRM setup failed: {ex.Message}");
 		}
 	}
 
@@ -127,7 +127,6 @@ partial class MediaManager
 				case "error":
 					var errorMessage = msg["message"]?.GetValue<string>() ?? "Unknown error";
 					Trace.WriteLine($"[MediaElement.Windows.PlayReady.WebView2] Player error: {errorMessage}");
-					ReportMediaFailed(errorMessage);
 					break;
 
 				case "ended":
@@ -180,10 +179,6 @@ partial class MediaManager
 		drmTransportOverlay?.UpdateDuration(TimeSpan.FromSeconds(duration));
 	}
 
-	// ─────────────────────────────────────────────────────────────────────
-	// C# → JS bridge commands
-	// ─────────────────────────────────────────────────────────────────────
-
 	async Task WebView2ExecuteScriptAsync(string script)
 	{
 		if (drmWebView?.CoreWebView2 is null)
@@ -193,8 +188,7 @@ partial class MediaManager
 
 		try
 		{
-			await drmWebView.CoreWebView2.ExecuteScriptAsync(script)
-				.AsTask().ConfigureAwait(ConfigureAwaitOptions.ForceYielding);
+			await drmWebView.CoreWebView2.ExecuteScriptAsync(script);
 		}
 		catch (Exception ex)
 		{
@@ -230,10 +224,6 @@ partial class MediaManager
 		webViewReadyTcs = null;
 	}
 
-	// ─────────────────────────────────────────────────────────────────────
-	// Transport overlay wiring
-	// ─────────────────────────────────────────────────────────────────────
-
 	void WireTransportOverlayEvents(WebView2TransportOverlay overlay)
 	{
 		overlay.PlayRequested += (s, e) => _ = WebView2Play();
@@ -259,10 +249,6 @@ partial class MediaManager
 		overlay.SkipBackwardRequested += (s, seconds) => _ = WebView2Skip(-seconds);
 		overlay.SkipForwardRequested += (s, seconds) => _ = WebView2Skip(seconds);
 	}
-
-	// ─────────────────────────────────────────────────────────────────────
-	// HTML page generation
-	// ─────────────────────────────────────────────────────────────────────
 
 	/// <summary>
 	/// Builds the HTML page containing dash.js with PlayReady EME configuration.
