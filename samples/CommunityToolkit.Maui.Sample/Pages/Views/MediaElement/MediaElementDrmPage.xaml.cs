@@ -18,10 +18,6 @@ public partial class MediaElementDrmPage : BasePage<MediaElementDrmViewModel>
 	// DASH / HLS H.264 Single Key
 	const string tokenDashH264SingleKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJ2ZXJzaW9uIjogMSwKICAiY29tX2tleV9pZCI6ICI2OWU1NDA4OC1lOWUwLTQ1MzAtOGMxYS0xZWI2ZGNkMGQxNGUiLAogICJtZXNzYWdlIjogewogICAgInR5cGUiOiAiZW50aXRsZW1lbnRfbWVzc2FnZSIsCiAgICAidmVyc2lvbiI6IDIsCiAgICAibGljZW5zZSI6IHsKICAgICAgImFsbG93X3BlcnNpc3RlbmNlIjogdHJ1ZQogICAgfSwKICAgICJjb250ZW50X2tleXNfc291cmNlIjogewogICAgICAiaW5saW5lIjogWwogICAgICAgIHsKICAgICAgICAgICJpZCI6ICI0MDYwYTg2NS04ODc4LTQyNjctOWNiZi05MWFlNWJhZTFlNzIiLAogICAgICAgICAgImVuY3J5cHRlZF9rZXkiOiAid3QzRW51dVI1UkFybjZBRGYxNkNCQT09IiwKICAgICAgICAgICJ1c2FnZV9wb2xpY3kiOiAiUG9saWN5IEEiCiAgICAgICAgfQogICAgICBdCiAgICB9LAogICAgImNvbnRlbnRfa2V5X3VzYWdlX3BvbGljaWVzIjogWwogICAgICB7CiAgICAgICAgIm5hbWUiOiAiUG9saWN5IEEiLAogICAgICAgICJwbGF5cmVhZHkiOiB7CiAgICAgICAgICAibWluX2RldmljZV9zZWN1cml0eV9sZXZlbCI6IDE1MCwKICAgICAgICAgICJwbGF5X2VuYWJsZXJzIjogWwogICAgICAgICAgICAiNzg2NjI3RDgtQzJBNi00NEJFLThGODgtMDhBRTI1NUIwMUE3IgogICAgICAgICAgXQogICAgICAgIH0KICAgICAgfQogICAgXQogIH0KfQ.l8PnZznspJ6lnNmfAE9UQV532Ypzt1JXQkvrk8gFSRw";
 
-	// ──────────────────────────────────────────────
-	//  Device-specific DRM test vectors
-	// ──────────────────────────────────────────────
-
 	// Windows: PlayReady + DASH (PlayReady does not support CMAF cbcs)
 	static readonly DrmTestVector windowsTestVector = new(
 		"DASH H.264 Single Key",
@@ -48,19 +44,6 @@ public partial class MediaElementDrmPage : BasePage<MediaElementDrmViewModel>
 		"",
 		"https://media.axprod.net/TestVectors/Hls/protected_hls_1080p_h264_singlekey/manifest.m3u8",
 		tokenDashH264SingleKey);
-
-	// Fallback: clear content (no DRM) for unsupported platforms
-	static readonly DrmTestVector fallbackTestVector = new(
-		"Clear DASH (no DRM)",
-		"Clear",
-		"H.264 | AAC | No encryption | DASH-IF reference",
-		"https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd",
-		"",
-		"");
-
-	// ──────────────────────────────────────────────
-	//  State
-	// ──────────────────────────────────────────────
 
 	readonly ILogger logger;
 
@@ -92,14 +75,15 @@ public partial class MediaElementDrmPage : BasePage<MediaElementDrmViewModel>
 		MediaElement.Handler?.DisconnectHandler();
 	}
 
-	// ──────────────────────────────────────────────
-	//  Device-specific DRM content loading
-	// ──────────────────────────────────────────────
-
 	void LoadDeviceSpecificDrmContent()
 	{
 		var (testVector, scheme) = GetDeviceSpecificContent();
-
+		if(testVector is null)
+		{
+			logger.LogWarning("No DRM test vector available for this platform: {Platform}", DeviceInfo.Platform);
+			DrmInfoLabel.Text = "Error: No DRM test vector available for this platform.";
+			return;
+		}
 		// Determine the manifest URL based on the DRM scheme
 		var sourceUrl = scheme switch
 		{
@@ -163,7 +147,7 @@ public partial class MediaElementDrmPage : BasePage<MediaElementDrmViewModel>
 		MediaElement.Source = uriMediaSource;
 	}
 
-	static (DrmTestVector TestVector, DrmScheme Scheme) GetDeviceSpecificContent()
+	static (DrmTestVector? TestVector, DrmScheme Scheme) GetDeviceSpecificContent()
 	{
 		if (DeviceInfo.Platform == DevicePlatform.WinUI)
 		{
@@ -182,12 +166,8 @@ public partial class MediaElementDrmPage : BasePage<MediaElementDrmViewModel>
 		}
 
 		// Unsupported platform — fall back to clear content
-		return (fallbackTestVector, DrmScheme.Unknown);
+		return (null, DrmScheme.Unknown);
 	}
-
-	// ──────────────────────────────────────────────
-	//  Media event handlers
-	// ──────────────────────────────────────────────
 
 	void MediaElement_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
