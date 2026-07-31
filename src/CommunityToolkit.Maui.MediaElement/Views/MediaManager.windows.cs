@@ -349,17 +349,12 @@ partial class MediaManager : IDisposable
 			return;
 		}
 
-		Trace.WriteLine("[MediaElement.Windows] PlatformUpdateSource — entered");
 		CleanupWebView2Drm();
-		Trace.WriteLine("[MediaElement.Windows] PlatformUpdateSource — after CleanupWebView2Drm");
-		mauiMediaElement?.RestoreMediaPlayerView();
-
 		adaptiveMediaSource?.DownloadRequested -= OnAdaptiveMediaSourceDownloadRequested;
 		adaptiveMediaSource = null;
 
 		await Dispatcher.DispatchAsync(() => Player.PosterSource = new BitmapImage());
-		Trace.WriteLine("[MediaElement.Windows] PlatformUpdateSource — after PosterSource reset");
-
+		
 		if (MediaElement.Source is null)
 		{
 			Player.Source = null;
@@ -380,17 +375,10 @@ partial class MediaManager : IDisposable
 			if (!string.IsNullOrWhiteSpace(uri))
 			{
 				var drm = uriMediaSource.DrmConfiguration;
-				var drmInfo = drm is { Scheme: not DrmScheme.Unknown }
-					? $"DRM={drm.Scheme}, LicenseUrl={drm.LicenseServerUrl}, HW={drm.RequiresHardwareSecurity}"
-					: "DRM=None";
-				Trace.WriteLine($"[MediaElement.Windows] PlatformUpdateSource — URI={uri}, {drmInfo}");
-				Logger.LogDebug("[MediaElement.Windows] PlatformUpdateSource — URI={Uri}, {DrmInfo}", uri, drmInfo);
-
 				var headers = uriMediaSource.HttpHeaders;
 
 				if (drm is { Scheme: DrmScheme.PlayReady, LicenseServerUrl: not null })
 				{
-					Trace.WriteLine("[MediaElement.Windows] PlatformUpdateSource — PlayReady path (WebView2 + dash.js)");
 					await SetUriSourceWithPlayReadyAsync(uri, headers, drm);
 					return;
 				}

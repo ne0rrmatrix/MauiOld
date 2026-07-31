@@ -1,17 +1,15 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Diagnostics;
 using CommunityToolkit.Maui.Extensions;
 using CommunityToolkit.Maui.Primitives;
 using CommunityToolkit.Maui.Views;
-using Microsoft.Maui.Controls;
-using Microsoft.Maui.Devices;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Markup;
+using Microsoft.UI.Xaml.Media;
 using Application = Microsoft.Maui.Controls.Application;
 using Grid = Microsoft.UI.Xaml.Controls.Grid;
 using Page = Microsoft.Maui.Controls.Page;
@@ -23,15 +21,14 @@ namespace CommunityToolkit.Maui.Core.Views;
 /// </summary>
 public partial class MauiMediaElement : Grid, IDisposable
 {
-	readonly Popup popup = new();
 	readonly Grid fullScreenGrid = new();
 	readonly MediaPlayerElement mediaPlayerElement;
 	readonly CustomTransportControls? customTransportControls;
-	UIElement activeMediaView;
 	WebView2? drmWebView;
 	WebView2TransportOverlay? drmOverlay;
 	bool doesNavigationBarExistBeforeFullScreen;
 	bool isDisposed;
+
 	/// <summary>
 	/// Initializes a new instance of the <see cref="MauiMediaElement"/> class.
 	/// </summary>
@@ -39,13 +36,10 @@ public partial class MauiMediaElement : Grid, IDisposable
 	public MauiMediaElement(MediaPlayerElement mediaPlayerElement)
 	{
 		ArgumentNullException.ThrowIfNull(mediaPlayerElement);
-		Trace.WriteLine("[MediaElement.Windows.View] Creating MauiMediaElement");
 		LoadResourceDictionary();
 		this.mediaPlayerElement = mediaPlayerElement;
-		activeMediaView = mediaPlayerElement;
 		customTransportControls = SetTransportControls();
 		Children.Add(this.mediaPlayerElement);
-		Trace.WriteLine($"[MediaElement.Windows.View] Standard MediaPlayerElement attached — Children={Children.Count}, Width={Width}, Height={Height}");
 	}
 
 	/// <summary>
@@ -67,11 +61,11 @@ public partial class MauiMediaElement : Grid, IDisposable
 	/// </summary>
 	public void SwapToWebView2(WebView2 webView2, WebView2TransportOverlay transportOverlay)
 	{
-		Trace.WriteLine($"[MediaElement.Windows.View] SwapToWebView2 — active={activeMediaView.GetType().Name}, childrenBefore={Children.Count}");
+		this.drmWebView = webView2;
+		this.drmOverlay = transportOverlay;
+
 		webView2.HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Stretch;
 		webView2.VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Stretch;
-		webView2.Width = double.NaN;
-		webView2.Height = double.NaN;
 
 		// Apply the custom transport controls style from the resource dictionary
 		if (this.Resources.TryGetValue("customTransportcontrols", out object styleObj) &&
@@ -80,42 +74,10 @@ public partial class MauiMediaElement : Grid, IDisposable
 			transportOverlay.Style = customStyle;
 		}
 
-		Children.Remove(activeMediaView);
-		fullScreenGrid.Children.Remove(activeMediaView);
-		Children.Add(webView2);
-		Children.Add(transportOverlay);
-		activeMediaView = webView2;
-		drmWebView = webView2;
-		drmOverlay = transportOverlay;
-		Trace.WriteLine($"[MediaElement.Windows.View] WebView2 DRM view attached with transport overlay — childrenAfter={Children.Count}");
-	}
-
-	internal void RestoreMediaPlayerView()
-	{
-		Trace.WriteLine($"[MediaElement.Windows.View] RestoreMediaPlayerView — active={activeMediaView.GetType().Name}, childrenBefore={Children.Count}, fullscreenChildrenBefore={fullScreenGrid.Children.Count}");
-		if (ReferenceEquals(activeMediaView, mediaPlayerElement))
-		{
-			Trace.WriteLine("[MediaElement.Windows.View] Standard MediaPlayerElement is already active");
-			return;
-		}
-
-		Children.Remove(activeMediaView);
-		fullScreenGrid.Children.Remove(activeMediaView);
-
-		// Remove the DRM transport overlay if present
-		if (drmOverlay is not null)
-		{
-			Children.Remove(drmOverlay);
-			fullScreenGrid.Children.Remove(drmOverlay);
-			drmOverlay = null;
-		}
-
-		drmWebView = null;
-
 		Children.Remove(mediaPlayerElement);
-		Children.Add(mediaPlayerElement);
-		activeMediaView = mediaPlayerElement;
-		Trace.WriteLine($"[MediaElement.Windows.View] Standard MediaPlayerElement restored — childrenAfter={Children.Count}");
+		fullScreenGrid.Children.Remove(mediaPlayerElement);
+		Children.Add(drmWebView);
+		Children.Add(drmOverlay);
 	}
 
 	/// <summary>
@@ -250,38 +212,34 @@ public partial class MauiMediaElement : Grid, IDisposable
 	{
 		var currentPage = CurrentPage;
 		var appWindow = GetAppWindowForCurrentWindow();
-
+		var rootPanel = GetRootPanel() ?? throw new InvalidOperationException("Could not locate the window's root layout panel.");
 		if (appWindow.Presenter.Kind is AppWindowPresenterKind.FullScreen)
 		{
 			appWindow.SetPresenter(AppWindowPresenterKind.Default);
 			Shell.SetNavBarIsVisible(CurrentPage, doesNavigationBarExistBeforeFullScreen);
 
-			if (popup.IsOpen)
+			// Remove the overlay grid from the window's root tree
+			if (rootPanel.Children.Contains(fullScreenGrid))
 			{
-				popup.IsOpen = false;
-				popup.Child = null;
-				fullScreenGrid.Children.Clear();
+				rootPanel.Children.Remove(fullScreenGrid);
 			}
+			fullScreenGrid.Children.Clear();
 
-			if (drmWebView is not null)
+			if (drmWebView is not null && drmOverlay is not null)
 			{
 				Children.Add(drmWebView);
-				if (drmOverlay is not null)
-				{
-					Children.Add(drmOverlay);
-				}
+				Children.Add(drmOverlay);
 
-				var parent = drmWebView.Parent as FrameworkElement;
-				drmWebView.Width = parent?.Width ?? drmWebView.Width;
-				drmWebView.Height = parent?.Height ?? drmWebView.Height;
+				// Clear explicit fullscreen dimensions so it conforms back to its original layout
+				drmWebView.ClearValue(FrameworkElement.WidthProperty);
+				drmWebView.ClearValue(FrameworkElement.HeightProperty);
 			}
 			else
 			{
 				Children.Add(mediaPlayerElement);
 
-				var parent = mediaPlayerElement.Parent as FrameworkElement;
-				mediaPlayerElement.Width = parent?.Width ?? mediaPlayerElement.Width;
-				mediaPlayerElement.Height = parent?.Height ?? mediaPlayerElement.Height;
+				mediaPlayerElement.ClearValue(FrameworkElement.WidthProperty);
+				mediaPlayerElement.ClearValue(FrameworkElement.HeightProperty);
 			}
 		}
 		else
@@ -290,44 +248,59 @@ public partial class MauiMediaElement : Grid, IDisposable
 			doesNavigationBarExistBeforeFullScreen = Shell.GetNavBarIsVisible(currentPage);
 			Shell.SetNavBarIsVisible(CurrentPage, false);
 
-			var displayInfo = DeviceDisplay.Current.MainDisplayInfo;
+			// Remove from the standard layout structure
+			Children.Clear();
 
-			if (drmWebView is not null)
+			// Configure the overlay grid to fill the entire application space automatically
+			fullScreenGrid.HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Stretch;
+			fullScreenGrid.VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Stretch;
+
+			if (drmWebView is not null && drmOverlay is not null)
 			{
-				drmWebView.Width = displayInfo.Width / displayInfo.Density;
-				drmWebView.Height = displayInfo.Height / displayInfo.Density;
+				drmWebView.ClearValue(FrameworkElement.WidthProperty);
+				drmWebView.ClearValue(FrameworkElement.HeightProperty);
 
-				Children.Clear();
 				fullScreenGrid.Children.Add(drmWebView);
-				if (drmOverlay is not null)
-				{
-					fullScreenGrid.Children.Add(drmOverlay);
-				}
-
-				popup.XamlRoot = drmWebView.XamlRoot;
+				fullScreenGrid.Children.Add(drmOverlay);
 			}
 			else
 			{
-				mediaPlayerElement.Width = displayInfo.Width / displayInfo.Density;
-				mediaPlayerElement.Height = displayInfo.Height / displayInfo.Density;
+				mediaPlayerElement.ClearValue(FrameworkElement.WidthProperty);
+				mediaPlayerElement.ClearValue(FrameworkElement.HeightProperty);
 
-				Children.Clear();
 				fullScreenGrid.Children.Add(mediaPlayerElement);
-
-				popup.XamlRoot = mediaPlayerElement.XamlRoot;
 			}
 
-			popup.HorizontalOffset = 0;
-			popup.VerticalOffset = 0;
-			popup.ShouldConstrainToRootBounds = false;
-			popup.VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center;
-			popup.HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Center;
-			popup.Child = fullScreenGrid;
+			rootPanel.Children.Add(fullScreenGrid);
 
-			if (!popup.IsOpen)
-			{
-				popup.IsOpen = true;
-			}
+			// Nudge WebView2 to redraw inside its new tree context
+			drmWebView?.UpdateLayout();
 		}
+	}
+
+	/// <summary>
+	/// Safely traverses up to locate the absolute topmost layout Panel within the window.
+	/// </summary>
+	Panel? GetRootPanel()
+	{
+		if (this.XamlRoot?.Content is Panel panel)
+		{
+			return panel;
+		}
+
+		// Fallback tree walk for complex MAUI layouts
+		DependencyObject current = this;
+		Panel? topmostPanel = null;
+
+		while (current is not null)
+		{
+			if (current is Panel p)
+			{
+				topmostPanel = p;
+			}
+			current = VisualTreeHelper.GetParent(current);
+		}
+
+		return topmostPanel;
 	}
 }

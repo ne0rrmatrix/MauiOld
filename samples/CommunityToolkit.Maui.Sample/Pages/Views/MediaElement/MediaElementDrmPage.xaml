@@ -23,16 +23,9 @@
 				<RowDefinition Height="Auto" />
 				<RowDefinition Height="Auto" />
 				<RowDefinition Height="Auto" />
-				<RowDefinition Height="Auto" />
-				<RowDefinition Height="Auto" />
-				<RowDefinition Height="Auto" />
-				<RowDefinition Height="Auto" />
-				<RowDefinition Height="Auto" />
-				<RowDefinition Height="Auto" />
-				<RowDefinition Height="Auto" />
 			</Grid.RowDefinitions>
 
-			<!-- Media Player: Axinom Clear Test Stream (no DRM) for immediate playback -->
+			<!-- Media Player -->
 			<toolkit:MediaElement
 				WidthRequest="600"
 				HeightRequest="300"
@@ -84,97 +77,12 @@
 					   Text="{Binding Duration, Source={x:Reference MediaElement}, Converter={StaticResource SecondsToStringConverter}}" />
 			</Grid>
 
-			<!-- DRM Configuration Section Header -->
-			<Label Grid.Row="5" Text="DRM Configuration" FontSize="18" FontAttributes="Bold"
-				   Padding="0,12,0,4" />
-
-			<!-- Test Vector Selection -->
-			<Grid Grid.Row="6" ColumnDefinitions="120,*" ColumnSpacing="8" Padding="0,4">
-				<Label Grid.Column="0" Text="Test Vector:" VerticalOptions="Center" />
-				<HorizontalStackLayout Grid.Column="1" Spacing="8">
-					<Picker x:Name="TestVectorPicker" SelectedIndexChanged="OnTestVectorChanged" WidthRequest="280">
-						<Picker.ItemsSource>
-							<x:Array Type="{x:Type x:String}">
-								<x:String>CMAF H.264 Single Key</x:String>
-								<x:String>CMAF H.264 Multi Key</x:String>
-								<x:String>CMAF H.265 Single Key</x:String>
-								<x:String>CMAF H.265 Multi Key</x:String>
-								<x:String>DASH H.264 Single Key</x:String>
-								<x:String>DASH H.264 Multi Key</x:String>
-								<x:String>DASH H.265 Single Key</x:String>
-								<x:String>DASH H.265 Multi Key</x:String>
-								<x:String>HLS H.264 Single Key</x:String>
-								<x:String>HLS H.264 Multi Key</x:String>
-								<x:String>HLS H.265 Single Key</x:String>
-								<x:String>HLS H.265 Multi Key</x:String>
-						<x:String>Clear DASH (no DRM)</x:String>
-							</x:Array>
-						</Picker.ItemsSource>
-					</Picker>
-				</HorizontalStackLayout>
-			</Grid>
-
-			<!-- DRM Scheme -->
-			<Grid Grid.Row="7" ColumnDefinitions="120,*" ColumnSpacing="8" Padding="0,4">
-				<Label Grid.Column="0" Text="DRM Scheme:" VerticalOptions="Center" />
-				<HorizontalStackLayout Grid.Column="1" Spacing="8">
-					<Picker x:Name="DrmSchemePicker" SelectedIndexChanged="OnDrmSchemeChanged" WidthRequest="160">
-						<Picker.ItemsSource>
-							<x:Array Type="{x:Type x:String}">
-								<x:String>Widevine</x:String>
-								<x:String>PlayReady</x:String>
-								<x:String>FairPlay</x:String>
-							</x:Array>
-						</Picker.ItemsSource>
-					</Picker>
-					<Label x:Name="PlatformHintLabel" Text="" VerticalOptions="Center"
-						   FontSize="12" TextColor="Gray" />
-				</HorizontalStackLayout>
-			</Grid>
-
-			<!-- Source URL -->
-			<Grid Grid.Row="8" ColumnDefinitions="120,*" ColumnSpacing="8" Padding="0,4">
-				<Label Grid.Column="0" Text="Source URL:" VerticalOptions="Center" />
-				<Entry x:Name="SourceUrlEntry" Grid.Column="1"
-					   Text="https://media.axprod.net/TestVectors/Cmaf/protected_1080p_h264_cbcs/manifest.mpd" />
-			</Grid>
-
-			<!-- License Server URL: Auto-populated based on DRM scheme -->
-			<Grid Grid.Row="9" ColumnDefinitions="120,*" ColumnSpacing="8" Padding="0,4">
-				<Label Grid.Column="0" Text="License Server:" VerticalOptions="Center" />
-				<Entry x:Name="LicenseServerEntry" Grid.Column="1"
-					   Text="https://drm-playready-licensing.axprod.net/AcquireLicense" />
-			</Grid>
-
-			<!-- License Request Headers -->
-			<VerticalStackLayout Grid.Row="10" Spacing="4" Padding="0,8,0,0">
-				<Label Text="License Request Headers:" FontAttributes="Bold" Padding="0,0,0,4" />
-				<Grid ColumnDefinitions="*,*,40" ColumnSpacing="5">
-					<Entry x:Name="HeaderNameEntry" Grid.Column="0" Text="X-AxDRM-Message" Placeholder="Header name" />
-					<Entry x:Name="HeaderValueEntry" Grid.Column="1" Placeholder="Header value" />
-				</Grid>
-				<Label x:Name="DrmHeadersSummaryLabel" Text="No headers defined" FontSize="12" TextColor="Gray" />
-				<Button Text="Clear Headers" Clicked="ClearDrmHeadersClicked" HeightRequest="36" FontSize="12" />
+			<!-- DRM Playback Info -->
+			<VerticalStackLayout Grid.Row="5" Spacing="4" Padding="0,12,0,0">
+				<Label Text="DRM Playback Info" FontSize="18" FontAttributes="Bold" />
+				<Label x:Name="DrmInfoLabel" FontSize="14" TextColor="Gray"
+					   Text="Loading device-specific DRM content…" />
 			</VerticalStackLayout>
-
-			<!-- DRM Security Level + Load -->
-			<Grid Grid.Row="11" ColumnDefinitions="*,*" ColumnSpacing="8" Padding="0,12,0,0">
-				<HorizontalStackLayout Grid.Column="0" Spacing="8">
-					<Picker x:Name="DrmSecurityLevelPicker" WidthRequest="180">
-						<Picker.ItemsSource>
-							<x:Array Type="{x:Type x:String}">
-								<x:String>Software DRM</x:String>
-								<x:String>Hardware DRM</x:String>
-							</x:Array>
-						</Picker.ItemsSource>
-					</Picker>
-					<Label x:Name="DrmSecurityHintLabel" Text="(default)" VerticalOptions="Center"
-						   FontSize="12" TextColor="Gray" />
-				</HorizontalStackLayout>
-				<Button Grid.Column="1" Text="Load DRM Source" Clicked="OnLoadDrmSourceClicked"
-						BackgroundColor="{StaticResource Primary}" TextColor="White"
-						FontAttributes="Bold" />
-			</Grid>
 		</Grid>
 	</ScrollView>
 </pages:BasePage>
