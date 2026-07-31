@@ -77,14 +77,9 @@ static class FairPlayHelper
 	/// A minimal <see cref="AVAssetResourceLoaderDelegate"/> that bridges
 	/// FairPlay <c>skd://</c> requests to the <see cref="AVContentKeySession"/>.
 	/// </summary>
-	sealed class FairPlayResourceLoaderBridge : AVAssetResourceLoaderDelegate
+	sealed class FairPlayResourceLoaderBridge(AVContentKeySession keySession) : AVAssetResourceLoaderDelegate
 	{
-		readonly AVContentKeySession keySession;
-
-		public FairPlayResourceLoaderBridge(AVContentKeySession keySession)
-		{
-			this.keySession = keySession;
-		}
+		readonly AVContentKeySession keySession = keySession;
 
 		public override bool ShouldWaitForLoadingOfRequestedResource(
 			AVAssetResourceLoader resourceLoader,

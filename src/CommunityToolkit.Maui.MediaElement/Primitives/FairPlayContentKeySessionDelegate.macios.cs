@@ -26,21 +26,21 @@ sealed class FairPlayContentKeySessionDelegate : AVContentKeySessionDelegate
 	/// Called when the content key session needs a new content key.
 	/// Performs the SPC/CKC handshake.
 	/// </summary>
-	public override void DidProvideContentKeyRequest(
+	public override async void DidProvideContentKeyRequest(
 		AVContentKeySession session,
 		AVContentKeyRequest keyRequest)
 	{
-		_ = HandleKeyRequestAsync(session, keyRequest);
+		await HandleKeyRequestAsync(session, keyRequest);
 	}
 
 	/// <summary>
 	/// Called when a content key needs to be renewed.
 	/// </summary>
-	public override void DidProvideRenewingContentKeyRequest(
+	public override async void DidProvideRenewingContentKeyRequest(
 		AVContentKeySession session,
 		AVContentKeyRequest keyRequest)
 	{
-		_ = HandleKeyRequestAsync(session, keyRequest);
+		await HandleKeyRequestAsync(session, keyRequest);
 	}
 
 	async Task HandleKeyRequestAsync(
