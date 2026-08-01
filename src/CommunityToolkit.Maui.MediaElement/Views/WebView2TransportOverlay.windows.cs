@@ -164,7 +164,6 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		skipForwardButton?.Click += OnSkipForwardClick;
 
 		ForceEnableButtons();
-
 		UpdatePlayPauseVisual();
 		UpdateVolumeVisual();
 	}
@@ -260,13 +259,17 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 
 	void OnMuteToggleClick(object sender, RoutedEventArgs e)
 	{
-		MuteChanged?.Invoke(this, !isMuted);
+		isMuted = !isMuted;
+		UpdateVolumeVisual();
+		MuteChanged?.Invoke(this, isMuted);
 		ResetAutoHide();
 	}
 
 	void OnVolumeSliderChanged(object sender, RangeBaseValueChangedEventArgs e)
 	{
-		VolumeChanged?.Invoke(this, e.NewValue / 100);
+		currentVolume = e.NewValue / 100;
+		UpdateVolumeVisual();
+		VolumeChanged?.Invoke(this, currentVolume);
 		ResetAutoHide();
 	}
 
