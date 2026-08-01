@@ -79,8 +79,6 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 	/// </summary>
 	public WebView2TransportOverlay()
 	{
-		// Show the controls relevant to WebView2 DRM playback,
-		// matching the buttons available in the customTransportcontrols template
 		IsVolumeButtonVisible = true;
 		IsSeekBarVisible = true;
 		IsZoomButtonVisible = true;
@@ -95,7 +93,6 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		IsPlaybackRateButtonVisible = false;
 		IsCompact = false;
 
-		// Auto-hide timer (3 seconds of inactivity while playing)
 		autoHideTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
 		autoHideTimer.Tick += (s, e) =>
 		{
@@ -105,7 +102,6 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 			}
 		};
 
-		// Show controls on pointer interaction
 		PointerMoved += (s, e) =>
 		{
 			WinVisualStateManager.GoToState(this, "ControlPanelFadeIn", true);
@@ -167,17 +163,11 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 
 		skipForwardButton?.Click += OnSkipForwardClick;
 
-		// The base MediaTransportControls disables buttons that it considers
-		// inapplicable when no MediaPlayer is attached. Since this overlay
-		// drives a WebView2 JS bridge instead, force-enable all wired buttons.
 		ForceEnableButtons();
 
-		// Apply current state to the freshly loaded template parts
 		UpdatePlayPauseVisual();
 		UpdateVolumeVisual();
 	}
-
-	// ─── Public state update methods (called by MediaManager) ────────
 
 	/// <summary>Updates the current playback position displayed in the overlay.</summary>
 	public void UpdatePosition(TimeSpan pos)
@@ -229,8 +219,6 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		isMuted = muted;
 		UpdateVolumeVisual();
 	}
-
-	// ─── Event handlers ──────────────────────────────────────────────
 
 	void OnPlayPauseClick(object sender, RoutedEventArgs e)
 	{
@@ -311,8 +299,6 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		ResetAutoHide();
 	}
 
-	// ─── Visual state helpers ───────────────────────────────────────
-
 	void UpdatePlayPauseVisual()
 	{
 		playPauseSymbol?.Symbol = isPlaying ? Symbol.Pause : Symbol.Play;
@@ -354,8 +340,6 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		skipForwardButton?.Click -= OnSkipForwardClick;
 	}
 
-	// ─── Auto-hide logic ─────────────────────────────────────────────
-
 	void ResetAutoHide()
 	{
 		autoHideTimer.Stop();
@@ -365,13 +349,6 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		}
 	}
 
-	// ─── Helpers ─────────────────────────────────────────────────────
-
-	/// <summary>
-	/// Force-enables all template buttons. The base <see cref="MediaTransportControls"/>
-	/// disables buttons it considers inapplicable when no <c>MediaPlayer</c> is attached.
-	/// Since this overlay drives a WebView2 JS bridge, all buttons must remain enabled.
-	/// </summary>
 	void ForceEnableButtons()
 	{
 		stopButton?.IsEnabled = true;

@@ -25,12 +25,12 @@ namespace CommunityToolkit.Maui.Core.Views;
 
 partial class MediaManager : IDisposable
 {
+	bool isUsingWebView2Drm;
 	string? manifestUrl;
 	DrmConfiguration? drmConfig;
 	
 	WebView2? drmWebView;
 	WebView2TransportOverlay? drmTransportOverlay;
-	bool isUsingWebView2Drm;
 
 	// States that allow changing position
 	readonly IReadOnlyList<MediaElementState> allowUpdatePositionStates =
@@ -882,20 +882,20 @@ partial class MediaManager : IDisposable
 		overlay.PlayRequested += (s, e) => _ = WebView2Play();
 		overlay.PauseRequested += (s, e) => _ = WebView2Pause();
 		overlay.SeekRequested += (s, seconds) => _ = WebView2Seek(seconds);
-		overlay.VolumeChanged += (s, vol) =>
+		overlay.VolumeChanged += async (s, vol) =>
 		{
-			_ = WebView2SetVolume(vol);
+			await WebView2SetVolume(vol);
 			MediaElement.Volume = vol;
 		};
-		overlay.MuteChanged += (s, muted) =>
+		overlay.MuteChanged += async (s, muted) =>
 		{
-			_ = WebView2SetMuted(muted);
+			await WebView2SetMuted(muted);
 			MediaElement.ShouldMute = muted;
 		};
 		overlay.FullScreenRequested += (s, e) => mauiMediaElement?.ToggleFullScreen();
-		overlay.StopRequested += (s, e) =>
+		overlay.StopRequested += async (s, e) =>
 		{
-			_ = WebView2Stop();
+			await WebView2Stop();
 			MediaElement.CurrentStateChanged(MediaElementState.Stopped);
 		};
 		overlay.ZoomRequested += (s, e) => _ = WebView2ToggleAspect();
