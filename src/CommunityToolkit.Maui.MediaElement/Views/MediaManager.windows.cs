@@ -747,7 +747,7 @@ partial class MediaManager : IDisposable
 		};
 
 		drmTransportOverlay = new WebView2TransportOverlay();
-		WireTransportOverlayEvents(drmTransportOverlay);
+		await WireTransportOverlayEvents(drmTransportOverlay);
 
 		mauiMediaElement?.SwapToWebView2(drmWebView, drmTransportOverlay);
 		drmWebView.CoreWebView2Initialized += DrmWebView_CoreWebView2Initialized;
@@ -877,11 +877,11 @@ partial class MediaManager : IDisposable
 		isUsingWebView2Drm = false;
 	}
 
-	void WireTransportOverlayEvents(WebView2TransportOverlay overlay)
+	async Task WireTransportOverlayEvents(WebView2TransportOverlay overlay)
 	{
-		overlay.PlayRequested += (s, e) => _ = WebView2Play();
-		overlay.PauseRequested += (s, e) => _ = WebView2Pause();
-		overlay.SeekRequested += (s, seconds) => _ = WebView2Seek(seconds);
+		overlay.PlayRequested += async (s, e) => await WebView2Play();
+		overlay.PauseRequested += async (s, e) => await WebView2Pause();
+		overlay.SeekRequested += async (s, seconds) => await WebView2Seek(seconds);
 		overlay.VolumeChanged += async (s, vol) =>
 		{
 			await WebView2SetVolume(vol);
@@ -898,9 +898,9 @@ partial class MediaManager : IDisposable
 			await WebView2Stop();
 			MediaElement.CurrentStateChanged(MediaElementState.Stopped);
 		};
-		overlay.ZoomRequested += (s, e) => _ = WebView2ToggleAspect();
-		overlay.SkipBackwardRequested += (s, seconds) => _ = WebView2Skip(-seconds);
-		overlay.SkipForwardRequested += (s, seconds) => _ = WebView2Skip(seconds);
+		overlay.ZoomRequested += async (s, e) => await WebView2ToggleAspect();
+		overlay.SkipBackwardRequested += async (s, seconds) => await WebView2Skip(-seconds);
+		overlay.SkipForwardRequested += async (s, seconds) => await WebView2Skip(seconds);
 	}
 
 	string BuildDrmPlayerHtml(string manifestUrl, DrmConfiguration drmConfig)
