@@ -821,6 +821,12 @@ partial class MediaManager : IDisposable
 				MediaElement.MediaWidth = width;
 				MediaElement.MediaHeight = height;
 				break;
+
+			case "tracks":
+				var captionTracks = msg["captionTracks"] as JsonArray;
+				var audioTracks = msg["audioTracks"] as JsonArray;
+				drmTransportOverlay?.UpdateTracks(captionTracks, audioTracks);
+				break;
 		}
 	}
 
@@ -856,13 +862,13 @@ partial class MediaManager : IDisposable
 
 	async Task WebView2Play() => await drmWebView?.CoreWebView2.ExecuteScriptAsync("bridgePlay();");
 	async Task WebView2Pause() => await drmWebView?.CoreWebView2.ExecuteScriptAsync("bridgePause();");
-	async Task WebView2Stop() => await drmWebView?.CoreWebView2.ExecuteScriptAsync("bridgeStop();");
 	async Task WebView2Seek(double seconds) => await drmWebView?.CoreWebView2.ExecuteScriptAsync($"bridgeSeek({seconds.ToString(System.Globalization.CultureInfo.InvariantCulture)});");
 	async Task WebView2Skip(double seconds) => await drmWebView?.CoreWebView2.ExecuteScriptAsync($"bridgeSkip({seconds.ToString(System.Globalization.CultureInfo.InvariantCulture)});");
 	async Task WebView2SetVolume(double volume) => await drmWebView?.CoreWebView2.ExecuteScriptAsync($"bridgeSetVolume({volume.ToString(System.Globalization.CultureInfo.InvariantCulture)});");
 	async Task WebView2SetMuted(bool muted) => await drmWebView?.CoreWebView2.ExecuteScriptAsync($"bridgeSetMuted({muted.ToString().ToLowerInvariant()});");
 	async Task WebView2SetPlaybackRate(double rate) => await drmWebView?.CoreWebView2.ExecuteScriptAsync($"bridgeSetPlaybackRate({rate.ToString(System.Globalization.CultureInfo.InvariantCulture)});");
-	async Task WebView2ToggleAspect() => await drmWebView?.CoreWebView2.ExecuteScriptAsync("bridgeToggleAspect();");
+	async Task WebView2SetCaptionTrack(int index) => await drmWebView?.CoreWebView2.ExecuteScriptAsync($"bridgeSetCaptionTrack({index});");
+	async Task WebView2SetAudioTrack(int index) => await drmWebView?.CoreWebView2.ExecuteScriptAsync($"bridgeSetAudioTrack({index});");
 
 	void CleanupWebView2Drm()
 	{
@@ -893,14 +899,10 @@ partial class MediaManager : IDisposable
 			MediaElement.ShouldMute = muted;
 		};
 		overlay.FullScreenRequested += (s, e) => mauiMediaElement?.ToggleFullScreen();
-		overlay.StopRequested += async (s, e) =>
-		{
-			await WebView2Stop();
-			MediaElement.CurrentStateChanged(MediaElementState.Stopped);
-		};
-		overlay.ZoomRequested += async (s, e) => await WebView2ToggleAspect();
 		overlay.SkipBackwardRequested += async (s, seconds) => await WebView2Skip(-seconds);
 		overlay.SkipForwardRequested += async (s, seconds) => await WebView2Skip(seconds);
+		overlay.CaptionTrackSelected += async (s, index) => await WebView2SetCaptionTrack(index);
+		overlay.AudioTrackSelected += async (s, index) => await WebView2SetAudioTrack(index);
 	}
 
 	string BuildDrmPlayerHtml(string manifestUrl, DrmConfiguration drmConfig)
@@ -1061,6 +1063,7 @@ partial class MediaManager : IDisposable
 
       player.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, function() {
         postToCSharp({ type: 'ready' });
+        enumerateTracks();
       });
 
       // Signal ready immediately if stream is already initialized
@@ -1139,6 +1142,48 @@ partial class MediaManager : IDisposable
   window.bridgeSetAspect = function(fit) {
     video.style.objectFit = fit;
   };
+
+  window.bridgeSetCaptionTrack = function(index) {
+    if (!player) return;
+    if (index < 0) {
+      player.enableText(false);
+      return;
+    }
+    const tracks = player.getTracksFor('text') || [];
+    const track = tracks[index];
+    if (track) {
+      player.setCurrentTrack(track);
+      player.enableText(true);
+    }
+  };
+
+  window.bridgeSetAudioTrack = function(index) {
+    if (!player) return;
+    const tracks = player.getTracksFor('audio') || [];
+    const track = tracks[index];
+    if (track) {
+      player.setCurrentTrack(track);
+    }
+  };
+
+  // ─── Track enumeration ────────────────────────────────────────────
+  function enumerateTracks() {
+    if (!player) return;
+
+    const mapTracks = (type) => {
+      const tracks = player.getTracksFor(type) || [];
+      return tracks.map((t, i) => ({
+        index: i,
+        label: t.lang || t.label || (type + ' ' + (i + 1))
+      }));
+    };
+
+    postToCSharp({
+      type: 'tracks',
+      captionTracks: mapTracks('text'),
+      audioTracks: mapTracks('audio')
+    });
+  }
 
   window.bridgeDestroy = function() {
     stopTimeUpdates();

@@ -1,7 +1,10 @@
+using System.Text.Json.Nodes;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using WinMenuFlyout = Microsoft.UI.Xaml.Controls.MenuFlyout;
+using WinMenuFlyoutItem = Microsoft.UI.Xaml.Controls.MenuFlyoutItem;
 using WinSlider = Microsoft.UI.Xaml.Controls.Slider;
 using WinVisualStateManager = Microsoft.UI.Xaml.VisualStateManager;
 
@@ -35,12 +38,19 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 	AppBarButton? zoomButton;
 	AppBarButton? skipBackwardButton;
 	AppBarButton? skipForwardButton;
+	AppBarButton? ccSelectionButton;
+	AppBarButton? audioTracksSelectionButton;
 
 	bool isSeeking;
 	bool isPlaying;
 	bool isMuted;
 	double currentVolume = 1.0;
 	TimeSpan duration;
+
+	JsonArray? captionTrackList;
+	JsonArray? audioTrackList;
+	int selectedCaptionIndex = -1;
+	int selectedAudioIndex = -1;
 
 	/// <summary>Raised when the user requests playback to start.</summary>
 	public event EventHandler? PlayRequested;
@@ -72,6 +82,12 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 	/// <summary>Raised when the user requests skipping forward. The value is the number of seconds to skip.</summary>
 	public event EventHandler<double>? SkipForwardRequested;
 
+	/// <summary>Raised when the user selects a closed-caption (text) track. The value is the track index, or -1 to disable captions.</summary>
+	public event EventHandler<int>? CaptionTrackSelected;
+
+	/// <summary>Raised when the user selects an audio track. The value is the track index.</summary>
+	public event EventHandler<int>? AudioTrackSelected;
+
 	/// <summary>
 	/// Initializes a new instance of the <see cref="WebView2TransportOverlay"/> class.
 	/// The <c>customTransportcontrols</c> style is applied externally by
@@ -81,8 +97,9 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 	{
 		IsVolumeButtonVisible = true;
 		IsSeekBarVisible = true;
-		IsZoomButtonVisible = true;
-		IsStopButtonVisible = true;
+		IsZoomButtonVisible = true;	
+		IsStopButtonVisible = false;
+		IsStopEnabled = false;
 		IsSkipBackwardButtonVisible = true;
 		IsSkipForwardButtonVisible = true;
 		IsRepeatButtonVisible = false;
@@ -137,6 +154,8 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		zoomButton = GetTemplateChild("ZoomButton") as AppBarButton;
 		skipBackwardButton = GetTemplateChild("SkipBackwardButton") as AppBarButton;
 		skipForwardButton = GetTemplateChild("SkipForwardButton") as AppBarButton;
+		ccSelectionButton = GetTemplateChild("CCSelectionButton") as AppBarButton;
+		audioTracksSelectionButton = GetTemplateChild("AudioTracksSelectionButton") as AppBarButton;
 
 		playPauseButton?.Click += OnPlayPauseClick;
 
@@ -148,22 +167,25 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		}
 
 		volumeMuteButton?.Click += OnMuteToggleClick;
-
 		audioMuteButton?.Click += OnMuteToggleClick;
-
 		volumeSlider?.ValueChanged += OnVolumeSliderChanged;
-
 		fullWindowButton?.Click += OnFullWindowClick;
-
 		stopButton?.Click += OnStopClick;
-
 		zoomButton?.Click += OnZoomClick;
-
 		skipBackwardButton?.Click += OnSkipBackwardClick;
-
 		skipForwardButton?.Click += OnSkipForwardClick;
+		ccSelectionButton?.Click += OnCcSelectionClick;
+		audioTracksSelectionButton?.Click += OnAudioTracksSelectionClick;
 
-		ForceEnableButtons();
+		stopButton?.IsEnabled = true;
+		zoomButton?.IsEnabled = true;
+		skipBackwardButton?.IsEnabled = true;
+		skipForwardButton?.IsEnabled = true;
+		fullWindowButton?.IsEnabled = true;
+		playPauseButton?.IsEnabled = true;
+		volumeMuteButton?.IsEnabled = true;
+		progressSlider?.IsEnabled = true;
+
 		UpdatePlayPauseVisual();
 		UpdateVolumeVisual();
 	}
@@ -217,6 +239,21 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 	{
 		isMuted = muted;
 		UpdateVolumeVisual();
+	}
+
+	/// <summary>
+	/// Updates the available closed-caption and audio tracks surfaced by the
+	/// WebView2 player. Each track is a JSON object with <c>index</c> and
+	/// <c>label</c> properties. When tracks are present the corresponding
+	/// selection button is shown via the template's availability visual states.
+	/// </summary>
+	public void UpdateTracks(JsonArray? captionTracks, JsonArray? audioTracks)
+	{
+		captionTrackList = captionTracks;
+		audioTrackList = audioTracks;
+
+		WinVisualStateManager.GoToState(this, captionTrackList is { Count: > 0 } ? "CCSelectionAvailable" : "CCSelectionUnavailable", true);
+		WinVisualStateManager.GoToState(this, audioTrackList is { Count: > 0 } ? "AudioSelectionAvailable" : "AudioSelectionUnavailable", true);
 	}
 
 	void OnPlayPauseClick(object sender, RoutedEventArgs e)
@@ -302,6 +339,40 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		ResetAutoHide();
 	}
 
+	void OnCcSelectionClick(object sender, RoutedEventArgs e)
+	{
+		ShowTrackFlyout(ccSelectionButton, captionTrackList, selectedCaptionIndex, OnCaptionTrackMenuItemClick, includeOffOption: true);
+		ResetAutoHide();
+	}
+
+	void OnAudioTracksSelectionClick(object sender, RoutedEventArgs e)
+	{
+		ShowTrackFlyout(audioTracksSelectionButton, audioTrackList, selectedAudioIndex, OnAudioTrackMenuItemClick, includeOffOption: false);
+		ResetAutoHide();
+	}
+
+	void OnCaptionTrackMenuItemClick(object sender, RoutedEventArgs e)
+	{
+		if (sender is WinMenuFlyoutItem { Tag: int index })
+		{
+			selectedCaptionIndex = index;
+			CaptionTrackSelected?.Invoke(this, index);
+		}
+
+		ResetAutoHide();
+	}
+
+	void OnAudioTrackMenuItemClick(object sender, RoutedEventArgs e)
+	{
+		if (sender is WinMenuFlyoutItem { Tag: int index })
+		{
+			selectedAudioIndex = index;
+			AudioTrackSelected?.Invoke(this, index);
+		}
+
+		ResetAutoHide();
+	}
+
 	void UpdatePlayPauseVisual()
 	{
 		playPauseSymbol?.Symbol = isPlaying ? Symbol.Pause : Symbol.Play;
@@ -341,6 +412,10 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		skipBackwardButton?.Click -= OnSkipBackwardClick;
 
 		skipForwardButton?.Click -= OnSkipForwardClick;
+
+		ccSelectionButton?.Click -= OnCcSelectionClick;
+
+		audioTracksSelectionButton?.Click -= OnAudioTracksSelectionClick;
 	}
 
 	void ResetAutoHide()
@@ -352,23 +427,52 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		}
 	}
 
-	void ForceEnableButtons()
+	void ShowTrackFlyout(AppBarButton? button, JsonArray? tracks, int selectedIndex, RoutedEventHandler itemClick, bool includeOffOption)
 	{
-		stopButton?.IsEnabled = true;
+		if (button is null || tracks is null || tracks.Count == 0)
+		{
+			return;
+		}
 
-		zoomButton?.IsEnabled = true;
+		var flyout = new WinMenuFlyout();
 
-		skipBackwardButton?.IsEnabled = true;
+		if (includeOffOption)
+		{
+			var offItem = new WinMenuFlyoutItem
+			{
+				Text = "Off",
+				Tag = -1,
+			};
+			offItem.Click += itemClick;
+			flyout.Items.Add(offItem);
+		}
 
-		skipForwardButton?.IsEnabled = true;
+		foreach (var node in tracks)
+		{
+			if (node is not JsonObject track)
+			{
+				continue;
+			}
 
-		fullWindowButton?.IsEnabled = true;
+			var index = track["index"]?.GetValue<int>() ?? -1;
+			var label = track["label"]?.GetValue<string>() ?? $"Track {index}";
 
-		playPauseButton?.IsEnabled = true;
+			var item = new WinMenuFlyoutItem
+			{
+				Text = label,
+				Tag = index,
+			};
+			item.Click += itemClick;
 
-		volumeMuteButton?.IsEnabled = true;
+			if (index == selectedIndex)
+			{
+				item.Icon = new SymbolIcon(Symbol.Accept);
+			}
 
-		progressSlider?.IsEnabled = true;
+			flyout.Items.Add(item);
+		}
+
+		flyout.ShowAt(button);
 	}
 
 	static string FormatTime(TimeSpan time)

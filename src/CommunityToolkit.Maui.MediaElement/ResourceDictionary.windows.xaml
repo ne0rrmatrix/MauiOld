@@ -629,8 +629,15 @@
                                 <Border x:Name="MediaTransportControls_Command_Border"
 				            Grid.Column="1"
 				            Grid.Row="2">
-                                    <CommandBar x:Name="MediaControlsCommandBar" Margin="0,0" Style="{StaticResource CommandBarStyle}" IsDynamicOverflowEnabled="False">
-                                        <CommandBar.PrimaryCommands>
+                                    <Grid x:Name="MediaControlsCommandBar" Height="{ThemeResource MTCMediaButtonHeight}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Left controls -->
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left">
                                             <AppBarButton x:Name='VolumeMuteButton'
 					                  Style='{StaticResource AppBarButtonStyle}'
 					                  MediaTransportControlsHelper.DropoutOrder='19'>
@@ -709,6 +716,10 @@
 					                            Style='{StaticResource AppBarButtonStyle}'
 					                            MediaTransportControlsHelper.DropoutOrder='7'
 					                            Visibility='Collapsed'/>
+                                        </StackPanel>
+
+                                        <!-- Center controls (play/pause, skip) -->
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
                                             <AppBarButton x:Name='SkipBackwardButton'
 					                            Style='{StaticResource AppBarButtonStyle}'
 					                            MediaTransportControlsHelper.DropoutOrder='5'
@@ -758,12 +769,14 @@
                                                     <FontIcon Glyph="&#xED3D;" />
                                                 </AppBarButton.Icon>
                                             </AppBarButton>
+                                        </StackPanel>
+
+                                        <!-- Right controls (zoom, cast, fullscreen) -->
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
                                             <AppBarSeparator x:Name='RightSeparator'
 					                            Height='0'
 					                            Width ='0'
 					                            Margin='0,0' />
-                                          
-                                           
                                             <AppBarButton x:Name='ZoomButton'
 					                            Style='{StaticResource AppBarButtonStyle}'
 					                            MediaTransportControlsHelper.DropoutOrder='9'>
@@ -785,8 +798,8 @@
                                                     <FontIcon x:Name="FullWindowSymbol" Glyph="&#xE740;" />
                                                 </AppBarButton.Icon>
                                             </AppBarButton>
-                                        </CommandBar.PrimaryCommands>
-                                    </CommandBar>
+                                        </StackPanel>
+                                    </Grid>
                                 </Border>
                             </Grid>
                         </Border>
