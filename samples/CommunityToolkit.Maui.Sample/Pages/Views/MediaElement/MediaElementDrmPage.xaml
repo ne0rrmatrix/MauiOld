@@ -17,7 +17,7 @@
 	<ScrollView>
 		<Grid RowSpacing="8" Padding="12">
 			<Grid.RowDefinitions>
-				<RowDefinition Height="*" />
+				<RowDefinition Height="220" />
 				<RowDefinition Height="Auto" />
 				<RowDefinition Height="Auto" />
 				<RowDefinition Height="Auto" />

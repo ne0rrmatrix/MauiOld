@@ -48,6 +48,26 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	protected PlayerView? PlayerView { get; set; }
 
 	/// <summary>
+	/// Tracks changes in the media being played, such as audio, video, and text tracks.
+	/// </summary>
+	/// <param name="tracks">The tracks that have changed.</param>
+	public void OnTracksChanged(Tracks? tracks)
+	{
+		if (tracks is null || tracks.IsEmpty)
+		{
+			return;
+		}
+		if (tracks.IsTypeSupported(C.TrackTypeText))
+		{
+			PlayerView?.SetShowSubtitleButton(true);
+		}
+		else
+		{
+			PlayerView?.SetShowSubtitleButton(false);
+		}
+	}
+
+	/// <summary>
 	/// Occurs when ExoPlayer changes the playback parameters.
 	/// </summary>
 	/// <paramref name="playbackParameters">Object containing the new playback parameter values.</paramref>
@@ -136,8 +156,33 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	[MemberNotNull(nameof(Player), nameof(PlayerView), nameof(session))]
 	public (PlatformMediaElement platformView, PlayerView PlayerView) CreatePlatformView(AndroidViewType androidViewType, bool isAndroidServiceEnabled)
 	{
-		Player = new ExoPlayerBuilder(MauiContext.Context).Build() ?? throw new InvalidOperationException("Player cannot be null");
+		var audioAttribute = new AndroidX.Media3.Common.AudioAttributes.Builder()?
+			.SetContentType(C.AudioContentTypeMusic)?
+			.SetUsage(C.UsageMedia)?
+			.Build();
+		var context = MauiContext.Context ?? throw new InvalidOperationException("MauiContext.Context cannot be null");
+		var trackSelector = new AndroidX.Media3.ExoPlayer.TrackSelection.DefaultTrackSelector(context);
+		var trackSelectionParameters = trackSelector.BuildUponParameters()?
+			.SetPreferredAudioLanguage(C.LanguageUndetermined)?
+			.SetPreferredTextLanguage(C.LanguageUndetermined)?
+			.SetIgnoredTextSelectionFlags(C.SelectionFlagAutoselect);
+		trackSelector.SetParameters((AndroidX.Media3.ExoPlayer.TrackSelection.DefaultTrackSelector.Parameters.Builder?)trackSelectionParameters);
+
+		var loadControlBuilder = new DefaultLoadControl.Builder();
+		loadControlBuilder.SetBufferDurationsMs(
+			minBufferMs: 15000,
+			maxBufferMs: 50000,
+			bufferForPlaybackMs: 2500,
+			bufferForPlaybackAfterRebufferMs: 5000);
+
+		var builder = new ExoPlayerBuilder(context) ?? throw new InvalidOperationException("ExoPlayerBuilder returned null");
+		builder.SetTrackSelector(trackSelector);
+		builder.SetAudioAttributes(audioAttribute, true);
+		builder.SetHandleAudioBecomingNoisy(true);
+		builder.SetLoadControl(loadControlBuilder.Build());
+		Player = builder.Build() ?? throw new InvalidOperationException("ExoPlayerBuilder.Build() returned null");
 		Player.AddListener(this);
+		
 		this.isAndroidForegroundServiceEnabled = isAndroidServiceEnabled;
 		if (androidViewType is AndroidViewType.SurfaceView)
 		{
@@ -175,10 +220,11 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 			throw new NotSupportedException($"{androidViewType} is not yet supported");
 		}
 
-		var mediaSession = new MediaSession.Builder(Platform.AppContext, Player);
-		mediaSession.SetId(Convert.ToBase64String(Guid.NewGuid().ToByteArray())[..8]);
-
-		session ??= mediaSession.Build() ?? throw new InvalidOperationException("Session cannot be null");
+		var mediaSessionBuilder = new MediaSession.Builder(context, Player);
+		mediaSessionBuilder.SetId(Convert.ToBase64String(Guid.NewGuid().ToByteArray())[..8]);
+		mediaSessionBuilder.SetBitmapLoader(new DataSourceBitmapLoader(context));
+		session = mediaSessionBuilder.Build() ?? throw new InvalidOperationException("MediaSession.Builder.Build() returned null");
+		
 		ArgumentNullException.ThrowIfNull(session.Id);
 
 		return (Player, PlayerView);
@@ -399,10 +445,6 @@ public partial class MediaManager : Java.Lang.Object, IPlayerListener
 	}
 
 	public void OnTrackSelectionParametersChanged(TrackSelectionParameters? trackSelectionParameters)
-	{
-	}
-
-	public void OnTracksChanged(Tracks? tracks)
 	{
 	}
 
