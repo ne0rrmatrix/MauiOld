@@ -10,88 +10,63 @@ namespace CommunityToolkit.Maui.Core;
 /// </summary>
 static class FairPlayHelper
 {
+	static void Log(string message)
+	{
+		System.Diagnostics.Trace.WriteLine(message);
+		Console.WriteLine(message);
+	}
+
 	/// <summary>
 	/// Creates an <see cref="AVContentKeySession"/> configured for FairPlay Streaming
 	/// and sets up the delegate for SPC/CKC exchange.
 	/// </summary>
 	/// <param name="licenseServerUri">The FairPlay license server URL (KSM).</param>
 	/// <param name="licenseRequestHeaders">Custom HTTP headers for license requests.</param>
+	/// <param name="certificateUri">Optional dedicated URL for the FairPlay application certificate. If <see langword="null"/>, the delegate attempts to derive it from the license server URL.</param>
 	/// <param name="delegate">When this method returns, contains the created delegate
 	/// that should be disposed when playback ends.</param>
 	/// <returns>A configured <see cref="AVContentKeySession"/> ready for playback.</returns>
 	/// <remarks>
-	/// The returned session must be associated with the content. This is done by
-	/// passing the session's <c>ContentProtectionSessionIdentifier</c> as an option
-	/// when creating the <see cref="AVUrlAsset"/>. See
-	/// <see cref="ApplyToAsset(AVContentKeySession, AVUrlAsset)"/>.
+	/// The returned session's <see cref="AVContentKeySession.ContentProtectionSessionIdentifier"/>
+	/// must be passed as the <c>AVURLAssetContentProtectionSessionIdentifierKey</c> option
+	/// when creating the <see cref="AVUrlAsset"/>. This tells AVFoundation which key session
+	/// to use for decrypting FairPlay-protected content.
 	/// </remarks>
 	public static AVContentKeySession CreateFairPlayKeySession(
 		Uri licenseServerUri,
 		IDictionary<string, string> licenseRequestHeaders,
+		Uri? certificateUri,
 		out FairPlayContentKeySessionDelegate @delegate)
 	{
+		Log($"MediaElement [Apple DRM] CreateFairPlayKeySession — License URL: {licenseServerUri}, Headers count: {licenseRequestHeaders.Count}");
+
 		// Create a temp directory for FairPlay error reports
 		var storagePath = Path.Combine(Path.GetTempPath(), "CommunityToolkitMaui", "FairPlayReports");
 		Directory.CreateDirectory(storagePath);
 		var storageUrl = NSUrl.FromFilename(storagePath);
+
+		Log($"MediaElement [Apple DRM] FairPlay error report storage path: {storagePath}");
 
 		// Create the content key session for FairPlay Streaming
 		var session = AVContentKeySession.Create(
 			AVContentKeySystem.FairPlayStreaming,
 			storageUrl);
 
+		Log($"MediaElement [Apple DRM] AVContentKeySession created — System: {AVContentKeySystem.FairPlayStreaming}, Identifier: {session.ContentProtectionSessionIdentifier}");
+
 		// Create and set the delegate
 		@delegate = new FairPlayContentKeySessionDelegate(
 			licenseServerUri,
-			licenseRequestHeaders);
+			licenseRequestHeaders,
+			certificateUri);
 
 		var delegateQueue = new DispatchQueue(
 			"CommunityToolkit.Maui.MediaElement.FairPlayKeySession");
 
 		session.SetDelegate(@delegate, delegateQueue);
 
+		Log("MediaElement [Apple DRM] FairPlay delegate set on dedicated dispatch queue");
+
 		return session;
-	}
-
-	/// <summary>
-	/// Associates an <see cref="AVContentKeySession"/> with an <see cref="AVUrlAsset"/>
-	/// by setting the content protection session identifier as an asset option.
-	/// This tells AVFoundation to use the provided key session when the asset's
-	/// content requires decryption keys.
-	/// </summary>
-	public static void ApplyToAsset(AVContentKeySession session, AVUrlAsset asset)
-	{
-		// Set the content protection session identifier on the asset's resource loader.
-		// This associates the key session with the asset so that AVFoundation
-		// knows to request content keys from this session.
-		//
-		// The identifier acts as a bridge between the asset and the key session.
-		// When AVFoundation encounters encrypted content, it looks up the key session
-		// by this identifier and uses its delegate to acquire content keys.
-		asset.ResourceLoader.SetDelegate(
-			new FairPlayResourceLoaderBridge(session),
-			new DispatchQueue("CommunityToolkit.Maui.MediaElement.FairPlayBridge"));
-	}
-
-	/// <summary>
-	/// A minimal <see cref="AVAssetResourceLoaderDelegate"/> that bridges
-	/// FairPlay <c>skd://</c> requests to the <see cref="AVContentKeySession"/>.
-	/// </summary>
-	sealed class FairPlayResourceLoaderBridge(AVContentKeySession keySession) : AVAssetResourceLoaderDelegate
-	{
-		readonly AVContentKeySession keySession = keySession;
-
-		public override bool ShouldWaitForLoadingOfRequestedResource(
-			AVAssetResourceLoader resourceLoader,
-			AVAssetResourceLoadingRequest loadingRequest)
-		{
-			// FairPlay requests use "skd://" scheme.
-			// Simply returning true tells AVFoundation we're handling this,
-			// and the AVContentKeySession delegate will pick up the actual key request.
-			return string.Equals(
-				loadingRequest.Request?.Url?.Scheme,
-				"skd",
-				StringComparison.OrdinalIgnoreCase);
-		}
 	}
 }

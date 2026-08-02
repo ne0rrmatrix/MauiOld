@@ -56,6 +56,16 @@ public sealed class DrmConfiguration
 	public IDictionary<string, string> LicenseRequestHeaders { get; } = new Dictionary<string, string>();
 
 	/// <summary>
+	/// Gets or sets the FairPlay application certificate URL (iOS/macOS only).
+	/// </summary>
+	/// <remarks>
+	/// Required for FairPlay DRM on Apple platforms. The certificate is downloaded
+	/// and used to generate the Server Playback Context (SPC) for license acquisition.
+	/// If not set, the delegate attempts to derive it from the license server URL.
+	/// </remarks>
+	public Uri? FairPlayCertificateUrl { get; set; }
+
+	/// <summary>
 	/// Gets or sets a value indicating whether hardware-based DRM security is required.
 	/// </summary>
 	/// <remarks>

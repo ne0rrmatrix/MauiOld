@@ -7,12 +7,20 @@ using CoreMedia;
 using Foundation;
 using MediaPlayer;
 using Microsoft.Extensions.Logging;
+using System.Runtime.InteropServices;
 using UIKit;
 
 namespace CommunityToolkit.Maui.Core.Views;
 
 public partial class MediaManager : IDisposable
 {
+	// P/Invoke to call native Objective-C methods not bound in .NET
+	[DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+	static extern void objc_msgSend_IntPtr(IntPtr receiver, IntPtr selector, IntPtr arg1);
+
+	[DllImport("/usr/lib/libobjc.dylib", EntryPoint = "sel_registerName")]
+	static extern IntPtr sel_registerName(string name);
+
 	Metadata? metaData;
 	StreamAssetResourceLoader? streamResourceLoader;
 	FairPlayContentKeySessionDelegate? fairPlayKeyDelegate;
@@ -21,6 +29,12 @@ public partial class MediaManager : IDisposable
 	// Media would still start playing when Speed was set although ShouldAutoPlay=False
 	// This field was added to overcome that.
 	bool isInitialSpeedSet;
+
+	static void Log(string message)
+	{
+		System.Diagnostics.Trace.WriteLine(message);
+		Console.WriteLine(message);
+	}
 
 	/// <summary>
 	/// The default <see cref="NSKeyValueObservingOptions"/> flags used in the iOS and macOS observers.
@@ -218,7 +232,6 @@ public partial class MediaManager : IDisposable
 		MediaElement.CurrentStateChanged(MediaElementState.Opening);
 
 		AVAsset? asset = null;
-		DrmConfiguration? pendingDrmConfig = null;
 		if (Player is null)
 		{
 			return;
@@ -242,26 +255,113 @@ public partial class MediaManager : IDisposable
 			{
 				var nsUrl = new NSUrl(uri.AbsoluteUri);
 				var headers = uriMediaSource.HttpHeaders;
+				var hasHeaders = headers.Count > 0;
 
 				// Check for FairPlay DRM configuration.
-				// DRM is set up later (via AVContentKeySession) when the AVPlayerItem is created.
 				if (uriMediaSource.DrmConfiguration is { Scheme: DrmScheme.FairPlay } drmConfig)
 				{
-					pendingDrmConfig = drmConfig;
-				}
+					Log($"MediaElement [Apple DRM] PlatformUpdateSource — FairPlay DRM config: LicenseUrl={drmConfig.LicenseServerUrl}, Headers={drmConfig.LicenseRequestHeaders.Count}");
 
-				if (headers.Count > 0)
+					// Clean up previous session
+					fairPlayKeyDelegate?.Dispose();
+					fairPlayKeyDelegate = null;
+					fairPlayKeySession?.Dispose();
+					fairPlayKeySession = null;
+
+					// Create the AVContentKeySession FIRST so we can pass its
+					// ContentProtectionSessionIdentifier when creating the AVURLAsset.
+					fairPlayKeySession = FairPlayHelper.CreateFairPlayKeySession(
+						drmConfig.LicenseServerUrl!,
+						drmConfig.LicenseRequestHeaders,
+						drmConfig.FairPlayCertificateUrl,
+						out fairPlayKeyDelegate);
+
+					// Build AVURLAsset options: HTTP headers + content protection session identifier
+					var contentProtectionKey = new NSString("AVURLAssetContentProtectionSessionIdentifierKey");
+					var sessionId = fairPlayKeySession.ContentProtectionSessionIdentifier;
+					Log($"MediaElement [Apple DRM] Session ID: {sessionId}");
+
+					if (sessionId is null)
+					{
+						Log($"MediaElement [Apple DRM] WARNING: ContentProtectionSessionIdentifier is null, cannot configure DRM on asset");
+						asset = hasHeaders
+							? new AVUrlAsset(nsUrl, new AVUrlAssetOptions(new NSDictionary(
+								"AVURLAssetHTTPHeaderFieldsKey",
+								NSDictionary.FromObjectsAndKeys(
+									[.. headers.Select(p => (NSObject)new NSString(p.Value))],
+									[.. headers.Select(p => (NSObject)new NSString(p.Key))]))))
+							: new AVUrlAsset(nsUrl);
+					}
+					else if (hasHeaders)
+					{
+						var pairs = headers.ToArray();
+						var nativeHeaders = NSDictionary.FromObjectsAndKeys(
+							[.. pairs.Select(p => p.Value)],
+							[.. pairs.Select(p => p.Key)]);
+						var optionsDict = NSDictionary.FromObjectsAndKeys(
+							[nativeHeaders, sessionId],
+							[new NSString("AVURLAssetHTTPHeaderFieldsKey"), contentProtectionKey]);
+						asset = new AVUrlAsset(nsUrl, new AVUrlAssetOptions(optionsDict));
+					}
+					else
+					{
+						var optionsDict = NSDictionary.FromObjectAndKey(sessionId, contentProtectionKey);
+						asset = new AVUrlAsset(nsUrl, new AVUrlAssetOptions(optionsDict));
+					}
+
+					Log($"MediaElement [Apple DRM] AVUrlAsset created with ContentProtectionSessionIdentifier");
+
+					// Also call addContentKeyRecipient: via P/Invoke to ensure
+					// AVFoundation associates the key session with this asset.
+					if (asset is AVUrlAsset urlAsset && fairPlayKeySession is not null)
+					{
+						try
+						{
+							var selector = sel_registerName("addContentKeyRecipient:");
+							objc_msgSend_IntPtr(fairPlayKeySession.Handle, selector, urlAsset.Handle);
+							Log($"MediaElement [Apple DRM] addContentKeyRecipient: called successfully via P/Invoke");
+						}
+						catch (Exception ex)
+						{
+							Log($"MediaElement [Apple DRM] addContentKeyRecipient: P/Invoke failed: {ex.Message}");
+						}
+					}
+				}
+				else if (uriMediaSource.DrmConfiguration is not null)
 				{
-					var pairs = headers.ToArray();
-					var nativeHeaders = NSDictionary.FromObjectsAndKeys(
-						[.. pairs.Select(p => p.Value)],
-						[.. pairs.Select(p => p.Key)]);
-					var options = new NSDictionary("AVURLAssetHTTPHeaderFieldsKey", nativeHeaders);
-					asset = new AVUrlAsset(nsUrl, new AVUrlAssetOptions(options));
+					Log($"MediaElement [Apple DRM] PlatformUpdateSource — DRM config present but scheme is {uriMediaSource.DrmConfiguration.Scheme} (not FairPlay). Only FairPlay is supported on Apple platforms.");
+
+					if (hasHeaders)
+					{
+						var pairs = headers.ToArray();
+						var nativeHeaders = NSDictionary.FromObjectsAndKeys(
+							[.. pairs.Select(p => p.Value)],
+							[.. pairs.Select(p => p.Key)]);
+						var options = new NSDictionary("AVURLAssetHTTPHeaderFieldsKey", nativeHeaders);
+						asset = new AVUrlAsset(nsUrl, new AVUrlAssetOptions(options));
+					}
+					else
+					{
+						asset = AVAsset.FromUrl(nsUrl);
+					}
 				}
 				else
 				{
-					asset = AVAsset.FromUrl(nsUrl);
+					Log($"MediaElement [Apple DRM] PlatformUpdateSource — No DRM configuration on UriMediaSource for URL: {uri.AbsoluteUri}");
+
+					if (hasHeaders)
+					{
+						var pairs = headers.ToArray();
+						var nativeHeaders = NSDictionary.FromObjectsAndKeys(
+							[.. pairs.Select(p => p.Value)],
+							[.. pairs.Select(p => p.Key)]);
+						var options = new NSDictionary("AVURLAssetHTTPHeaderFieldsKey", nativeHeaders);
+						asset = new AVUrlAsset(nsUrl, new AVUrlAssetOptions(options));
+					}
+					else
+					{
+						asset = AVAsset.FromUrl(nsUrl);
+					}
 				}
 			}
 		}
@@ -316,27 +416,11 @@ public partial class MediaManager : IDisposable
 			}
 		}
 
+		Log($"MediaElement [Apple DRM] PlatformUpdateSource — Creating AVPlayerItem from asset (Duration: {asset?.Duration.Seconds ?? -1}s, Playable: {asset?.Playable})");
+
 		PlayerItem = asset is not null
 			? new AVPlayerItem(asset)
 			: null;
-
-		// Configure FairPlay DRM via AVContentKeySession if needed.
-		// The session is associated with the URL asset via its resource loader,
-		// which bridges skd:// requests to the AVContentKeySession delegate.
-		if (asset is AVUrlAsset fairPlayAsset && pendingDrmConfig is not null)
-		{
-			fairPlayKeyDelegate?.Dispose();
-			fairPlayKeyDelegate = null;
-			fairPlayKeySession?.Dispose();
-			fairPlayKeySession = null;
-
-			fairPlayKeySession = FairPlayHelper.CreateFairPlayKeySession(
-				pendingDrmConfig.LicenseServerUrl!,
-				pendingDrmConfig.LicenseRequestHeaders,
-				out fairPlayKeyDelegate);
-
-			FairPlayHelper.ApplyToAsset(fairPlayKeySession, fairPlayAsset);
-		}
 
 		metaData.SetMetadata(PlayerItem, MediaElement);
 		CurrentItemErrorObserver?.Dispose();
@@ -353,6 +437,8 @@ public partial class MediaManager : IDisposable
 
 				var message = $"{Player.CurrentItem?.Error?.LocalizedDescription} - " +
 							  $"{Player.CurrentItem?.Error?.LocalizedFailureReason}";
+
+				Log($"MediaElement [Apple DRM] AVPlayerItem error observer fired — Code: {Player.CurrentItem?.Error?.Code}, Domain: {Player.CurrentItem?.Error?.Domain}, Description: {Player.CurrentItem?.Error?.LocalizedDescription}, Reason: {Player.CurrentItem?.Error?.LocalizedFailureReason}");
 
 				MediaElement.MediaFailed(
 					new MediaFailedEventArgs(message));
@@ -484,12 +570,19 @@ public partial class MediaManager : IDisposable
 
 	protected virtual async partial void PlatformUpdateDrmConfiguration()
 	{
+		Log("MediaElement [Apple DRM] PlatformUpdateDrmConfiguration CALLED");
+
 		// On Apple platforms, DRM configuration is applied at source creation time.
 		// If DRM config changes dynamically, re-run PlatformUpdateSource to rebuild
 		// the AVAsset with the new FairPlay resource loader delegate.
-		if (Player is not null && MediaElement.Source is UriMediaSource)
+		if (Player is not null && MediaElement.Source is UriMediaSource uriSource)
 		{
+			Log($"MediaElement [Apple DRM] PlatformUpdateDrmConfiguration — Re-running source update with DrmConfiguration: Scheme={uriSource.DrmConfiguration?.Scheme}, LicenseUrl={uriSource.DrmConfiguration?.LicenseServerUrl}");
 			await PlatformUpdateSource();
+		}
+		else
+		{
+			Log($"MediaElement [Apple DRM] PlatformUpdateDrmConfiguration — Skipping (Player is null: {Player is null}, Source type: {MediaElement.Source?.GetType().Name ?? "null"})");
 		}
 	}
 
@@ -754,6 +847,8 @@ public partial class MediaManager : IDisposable
 			return;
 		}
 
+		Log($"MediaElement [Apple DRM] StatusChanged — AVPlayer.Status: {Player.Status}, AVPlayerItem.Status: {Player.CurrentItem?.Status}, Item Error: {Player.CurrentItem?.Error?.LocalizedDescription ?? "none"}");
+
 		var newState = Player.Status switch
 		{
 			AVPlayerStatus.Unknown => MediaElementState.Stopped,
@@ -761,6 +856,11 @@ public partial class MediaManager : IDisposable
 			AVPlayerStatus.Failed => MediaElementState.Failed,
 			_ => MediaElement.CurrentState
 		};
+
+		if (Player.Status == AVPlayerStatus.Failed)
+		{
+			Log($"MediaElement [Apple DRM] AVPlayer.Status FAILED — Player error: {Player.Error?.LocalizedDescription ?? "none"}, Item error: {Player.CurrentItem?.Error?.LocalizedDescription ?? "none"}, Item error code: {Player.CurrentItem?.Error?.Code}, Item error domain: {Player.CurrentItem?.Error?.Domain}");
+		}
 
 		MediaElement.CurrentStateChanged(newState);
 	}
@@ -797,6 +897,8 @@ public partial class MediaManager : IDisposable
 		{
 			message = error.LocalizedDescription;
 
+			Log($"MediaElement [Apple DRM] ErrorOccurred (fatal) — Code: {error.Code}, Domain: {error.Domain}, Description: {error.LocalizedDescription}, Reason: {error.LocalizedFailureReason}, Suggestion: {error.LocalizedRecoverySuggestion}");
+
 			MediaElement.MediaFailed(new MediaFailedEventArgs(message));
 			Logger.LogError("{LogMessage}", message);
 		}
@@ -805,6 +907,8 @@ public partial class MediaManager : IDisposable
 			// Non-fatal error, just log
 			message = args.Notification?.ToString() ??
 					  "Media playback failed for an unknown reason.";
+
+			Log($"MediaElement [Apple DRM] ErrorOccurred (non-fatal) — Notification: {message}");
 
 			Logger?.LogWarning("{LogMessage}", message);
 		}

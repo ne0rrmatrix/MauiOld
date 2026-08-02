@@ -109,6 +109,13 @@ public partial class MediaElementDrmPage : BasePage<MediaElementDrmViewModel>
 			RequiresHardwareSecurity = false, // Software DRM — works on dev machines without HDCP/TEE
 		};
 
+		// Set the FairPlay certificate URL for Apple platforms
+		if (scheme is DrmScheme.FairPlay)
+		{
+			// Axinom evaluation certificate for public test vectors
+			drmConfig.FairPlayCertificateUrl = new Uri("https://tools.axinom.com/FPScert/fairplay.cer");
+		}
+
 		// Set the license server URL based on the DRM scheme
 		if (scheme is not DrmScheme.Unknown)
 		{
