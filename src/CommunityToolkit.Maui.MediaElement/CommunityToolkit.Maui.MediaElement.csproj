@@ -85,5 +85,83 @@
       <LogicalName>ResourceDictionary.windows.xaml</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
-  
+
+  <!--
+    Native PlayReady backend (Drm/PlayReadyNativePlayer.windows.cs P/Invokes into the DLL this builds). NOT wired
+    as a <ProjectReference>: the .NET SDK's own MSBuild engine (what `dotnet build`/`dotnet pack` uses) cannot
+    resolve $(VCTargetsPath) at all — merely evaluating a vcxproj under it fails with MSB4278, even with
+    ReferenceOutputAssembly="false", before any target of ours runs. Genuine Visual Studio C++ build support only
+    exists in devenv's own MSBuild.exe, so the native build below shells out to that MSBuild.exe as an external
+    process (located via vswhere.exe) for each platform explicitly — a vcxproj's Platform axis (x64/ARM64) doesn't
+    line up with this csproj's AnyCPU managed build in any case. The vcxproj can still be opened/built directly in
+    the Visual Studio IDE; it's simply not part of this csproj's own MSBuild graph.
+  -->
+  <Target Name="LocateVsMSBuildForPlayReadyNative" BeforeTargets="Build" Condition="$(TargetFramework.Contains('-windows')) and $([MSBuild]::IsOSPlatform('windows')) and '$(VsMSBuildExeForPlayReadyNative)' == ''">
+    <Exec Command="&quot;%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe&quot; -latest -prerelease -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find &quot;MSBuild\**\Bin\MSBuild.exe&quot;"
+          ConsoleToMSBuild="true" StandardOutputImportance="low" ContinueOnError="WarnAndContinue" EchoOff="true">
+      <Output TaskParameter="ConsoleOutput" ItemName="_PlayReadyNativeVsMsBuildCandidates" />
+    </Exec>
+    <PropertyGroup>
+      <VsMSBuildExeForPlayReadyNative>%(_PlayReadyNativeVsMsBuildCandidates.Identity)</VsMSBuildExeForPlayReadyNative>
+    </PropertyGroup>
+    <Warning Text="Visual Studio's MSBuild with the C++ workload (Microsoft.VisualStudio.Component.VC.Tools.x86.x64) was not found — FluentGpu.PlayReady.Native.dll will not be built, and native PlayReady playback will report itself unavailable at runtime. Install the &quot;Desktop development with C++&quot; workload to build it."
+             Condition="'$(VsMSBuildExeForPlayReadyNative)' == ''" />
+  </Target>
+
+  <Target Name="BuildPlayReadyNativeDll" BeforeTargets="Build" DependsOnTargets="LocateVsMSBuildForPlayReadyNative"
+          Condition="$(TargetFramework.Contains('-windows')) and $([MSBuild]::IsOSPlatform('windows')) and '$(VsMSBuildExeForPlayReadyNative)' != ''">
+    <Exec Command="&quot;$(VsMSBuildExeForPlayReadyNative)&quot; &quot;Native\PlayReadyNative\PlayReadyNative.vcxproj&quot; /p:Configuration=Release /p:Platform=x64 /v:minimal /nologo" />
+    <Exec Command="&quot;$(VsMSBuildExeForPlayReadyNative)&quot; &quot;Native\PlayReadyNative\PlayReadyNative.vcxproj&quot; /p:Configuration=Release /p:Platform=ARM64 /v:minimal /nologo" />
+  </Target>
+
+  <!--
+    Packaging a multi-targeted project's TFM-specific content cannot be done via a plain top-level/target-scoped
+    <None Pack="true"> item: NuGet's pack orchestration builds each TargetFramework as a separate inner-build
+    invocation and only asks that inner build for items via the well-known TargetsForTfmSpecificContentInPackage
+    hook — a BeforeTargets="_GetPackageFiles" guess (tried first) silently produced a nupkg with no runtimes/
+    folder, because _GetPackageFiles runs in a context where this target never fired. TfmSpecificPackageFile is
+    the SDK-sanctioned item type for exactly this.
+  -->
+  <PropertyGroup Condition="$(TargetFramework.Contains('-windows'))">
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);AddPlayReadyNativeDllToPackage</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
+  <Target Name="AddPlayReadyNativeDllToPackage" DependsOnTargets="BuildPlayReadyNativeDll">
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="Native\PlayReadyNative\bin\x64\Release\FluentGpu.PlayReady.Native.dll"
+                              Condition="Exists('Native\PlayReadyNative\bin\x64\Release\FluentGpu.PlayReady.Native.dll')">
+        <PackagePath>runtimes/win-x64/native/</PackagePath>
+      </TfmSpecificPackageFile>
+      <TfmSpecificPackageFile Include="Native\PlayReadyNative\bin\ARM64\Release\FluentGpu.PlayReady.Native.dll"
+                              Condition="Exists('Native\PlayReadyNative\bin\ARM64\Release\FluentGpu.PlayReady.Native.dll')">
+        <PackagePath>runtimes/win-arm64/native/</PackagePath>
+      </TfmSpecificPackageFile>
+    </ItemGroup>
+  </Target>
+
+  <!--
+    Separately, for F5/local-run (not packed): copy the current machine's architecture of the native DLL next to
+    the build output so a debug session can load it without consuming the nupkg. Adding this inside a target
+    (rather than as a top-level ItemGroup) is required — top-level items are evaluated before
+    BuildPlayReadyNativeDll has produced the DLL, so an Exists() check there would always see a stale/missing file.
+  -->
+  <Target Name="AddPlayReadyNativeDllToOutputDir" DependsOnTargets="BuildPlayReadyNativeDll"
+          BeforeTargets="AssignTargetPaths;GetCopyToOutputDirectoryItems"
+          Condition="$(TargetFramework.Contains('-windows')) and $([MSBuild]::IsOSPlatform('windows'))">
+    <ItemGroup>
+      <None Include="Native\PlayReadyNative\bin\ARM64\Release\FluentGpu.PlayReady.Native.dll"
+            Condition="'$(PROCESSOR_ARCHITECTURE)' == 'ARM64' and Exists('Native\PlayReadyNative\bin\ARM64\Release\FluentGpu.PlayReady.Native.dll')">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <Link>FluentGpu.PlayReady.Native.dll</Link>
+        <Visible>false</Visible>
+      </None>
+      <None Include="Native\PlayReadyNative\bin\x64\Release\FluentGpu.PlayReady.Native.dll"
+            Condition="'$(PROCESSOR_ARCHITECTURE)' != 'ARM64' and Exists('Native\PlayReadyNative\bin\x64\Release\FluentGpu.PlayReady.Native.dll')">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <Link>FluentGpu.PlayReady.Native.dll</Link>
+        <Visible>false</Visible>
+      </None>
+    </ItemGroup>
+  </Target>
+
 </Project>

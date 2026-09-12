@@ -23,8 +23,11 @@
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <ApplicationVersion>1</ApplicationVersion>
 
-    <!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
-    <WindowsPackageType>MSIX</WindowsPackageType>
+    <!-- Unpackaged: running the loose win-x64 exe directly (not deployed as an installed MSIX) crashes at
+         startup with a WindowsAppRuntime "Class not registered" (REGDB_E_CLASSNOTREG) failure, because the
+         self-contained bootstrapper's package-identity lookup has nothing to resolve without an installed
+         package. See: https://aka.ms/MauiTemplateUnpackaged -->
+    <WindowsPackageType>None</WindowsPackageType>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 
     <NoWarn>$(NoWarn);IL2026</NoWarn>

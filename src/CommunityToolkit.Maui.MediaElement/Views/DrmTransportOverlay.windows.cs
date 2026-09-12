@@ -11,15 +11,16 @@ using WinVisualStateManager = Microsoft.UI.Xaml.VisualStateManager;
 namespace CommunityToolkit.Maui.Core.Views;
 
 /// <summary>
-/// Transport controls overlay for WebView2-based DRM playback.
+/// Transport controls overlay for DRM-protected playback rendered outside the
+/// standard <see cref="Windows.Media.Playback.MediaPlayer"/> pipeline (e.g. native PlayReady).
 /// Subclasses <see cref="MediaTransportControls"/> and reuses the
 /// <c>customTransportcontrols</c> style/template from
 /// <c>ResourceDictionary.windows.xaml</c> so the controls look identical
 /// to the standard MediaPlayerElement transport bar.
-/// Button clicks and slider changes are routed to the JS bridge
-/// instead of driving a native <see cref="Windows.Media.Playback.MediaPlayer"/>.
+/// Button clicks and slider changes raise events consumed by the backend
+/// driving DRM playback instead of a native <see cref="Windows.Media.Playback.MediaPlayer"/>.
 /// </summary>
-public sealed partial class WebView2TransportOverlay : MediaTransportControls
+public sealed partial class DrmTransportOverlay : MediaTransportControls
 {
 	readonly DispatcherTimer autoHideTimer;
 
@@ -40,6 +41,7 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 	AppBarButton? skipForwardButton;
 	AppBarButton? ccSelectionButton;
 	AppBarButton? audioTracksSelectionButton;
+	FrameworkElement? controlPanelGrid;
 
 	bool isSeeking;
 	bool isPlaying;
@@ -89,11 +91,21 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 	public event EventHandler<int>? AudioTrackSelected;
 
 	/// <summary>
-	/// Initializes a new instance of the <see cref="WebView2TransportOverlay"/> class.
-	/// The <c>customTransportcontrols</c> style is applied externally by
-	/// <see cref="MauiMediaElement.SwapToWebView2"/> from the merged resource dictionary.
+	/// Raised whenever the button/slider bar fades in or out (the value is the new visibility). A same-process
+	/// native video surface (see <see cref="MauiMediaElement"/>) is a sibling <c>HWND</c>, not a XAML element —
+	/// Win32 gives it no way to render BEHIND specific sibling XAML content, so the only way to make it look like
+	/// the bar sits "on top of" the video (rather than a non-overlapping strip below it) is to cut a Win32 region
+	/// hole in the video surface exactly where the bar's (fixed) rectangle is, toggled in sync with this event —
+	/// the bar's own opacity/animation still handles the actual fade visual.
 	/// </summary>
-	public WebView2TransportOverlay()
+	public event EventHandler<bool>? ControlPanelVisibilityChanged;
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="DrmTransportOverlay"/> class.
+	/// The <c>customTransportcontrols</c> style is applied externally by
+	/// <see cref="MauiMediaElement.SwapToNativePlayReady"/> from the merged resource dictionary.
+	/// </summary>
+	public DrmTransportOverlay()
 	{
 		IsVolumeButtonVisible = true;
 		IsSeekBarVisible = true;
@@ -115,21 +127,29 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		{
 			if (isPlaying && !isSeeking)
 			{
-				WinVisualStateManager.GoToState(this, "ControlPanelFadeOut", true);
+				SetControlPanelVisible(false);
 			}
 		};
 
 		PointerMoved += (s, e) =>
 		{
-			WinVisualStateManager.GoToState(this, "ControlPanelFadeIn", true);
+			SetControlPanelVisible(true);
 			ResetAutoHide();
 		};
 
 		PointerPressed += (s, e) =>
 		{
-			WinVisualStateManager.GoToState(this, "ControlPanelFadeIn", true);
+			SetControlPanelVisible(true);
 			ResetAutoHide();
 		};
+	}
+
+	/// <summary>Transitions the bar's fade visual state and raises <see cref="ControlPanelVisibilityChanged"/> so
+	/// the native video surface's clip region can be kept in sync (see that event's own doc comment for why).</summary>
+	void SetControlPanelVisible(bool visible)
+	{
+		WinVisualStateManager.GoToState(this, visible ? "ControlPanelFadeIn" : "ControlPanelFadeOut", true);
+		ControlPanelVisibilityChanged?.Invoke(this, visible);
 	}
 
 	/// <inheritdoc/>
@@ -156,6 +176,7 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		skipForwardButton = GetTemplateChild("SkipForwardButton") as AppBarButton;
 		ccSelectionButton = GetTemplateChild("CCSelectionButton") as AppBarButton;
 		audioTracksSelectionButton = GetTemplateChild("AudioTracksSelectionButton") as AppBarButton;
+		controlPanelGrid = GetTemplateChild("ControlPanelGrid") as FrameworkElement;
 
 		playPauseButton?.Click += OnPlayPauseClick;
 
@@ -190,6 +211,33 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		UpdateVolumeVisual();
 	}
 
+	/// <summary>
+	/// The rendered height (in DIPs) of the bottom-docked button/slider bar (the template's <c>ControlPanelGrid</c>),
+	/// or 0 before the template has been applied. A same-process native video surface composited as a sibling
+	/// <c>HWND</c> (see <see cref="MauiMediaElement"/>/<see cref="DirectComposition"/>) always paints OVER whatever
+	/// this XAML control draws underneath it — Win32 gives child windows no way to sit behind specific sibling XAML
+	/// content — so the caller uses this to keep the video surface's rectangle from ever overlapping the bar
+	/// instead of letting the bar render invisibly behind the video.
+	/// </summary>
+	public double ControlPanelHeight => controlPanelGrid?.ActualHeight ?? 0;
+
+	/// <summary>Returns the button/slider bar's own on-screen rectangle (in DIPs) relative to
+	/// <paramref name="ancestor"/>, or <see langword="null"/> before the template has been applied. The caller uses
+	/// this to cut a matching hole in the native video surface's Win32 region (see
+	/// <see cref="ControlPanelVisibilityChanged"/>) so the bar visually sits on top of the video instead of the
+	/// video simply avoiding a reserved strip beneath it.</summary>
+	public Windows.Foundation.Rect? GetControlPanelRect(UIElement ancestor)
+	{
+		if (controlPanelGrid is not { ActualWidth: > 0, ActualHeight: > 0 } panel)
+		{
+			return null;
+		}
+
+		var transform = panel.TransformToVisual(ancestor);
+		var origin = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
+		return new Windows.Foundation.Rect(origin.X, origin.Y, panel.ActualWidth, panel.ActualHeight);
+	}
+
 	/// <summary>Updates the current playback position displayed in the overlay.</summary>
 	public void UpdatePosition(TimeSpan pos)
 	{
@@ -220,7 +268,7 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 		}
 		else
 		{
-			WinVisualStateManager.GoToState(this, "ControlPanelFadeIn", true);
+			SetControlPanelVisible(true);
 			autoHideTimer.Stop();
 		}
 	}
@@ -243,7 +291,7 @@ public sealed partial class WebView2TransportOverlay : MediaTransportControls
 
 	/// <summary>
 	/// Updates the available closed-caption and audio tracks surfaced by the
-	/// WebView2 player. Each track is a JSON object with <c>index</c> and
+	/// DRM backend. Each track is a JSON object with <c>index</c> and
 	/// <c>label</c> properties. When tracks are present the corresponding
 	/// selection button is shown via the template's availability visual states.
 	/// </summary>

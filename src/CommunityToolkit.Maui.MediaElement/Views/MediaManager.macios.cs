@@ -258,7 +258,7 @@ public partial class MediaManager : IDisposable
 				var hasHeaders = headers.Count > 0;
 
 				// Check for FairPlay DRM configuration.
-				if (uriMediaSource.DrmConfiguration is { Scheme: DrmScheme.FairPlay } drmConfig)
+				if (uriMediaSource.DrmConfiguration is { Scheme: DrmScheme.FairPlay } drmConfig && drmConfig.LicenseServerUrl is not null)
 				{
 					Log($"MediaElement [Apple DRM] PlatformUpdateSource — FairPlay DRM config: LicenseUrl={drmConfig.LicenseServerUrl}, Headers={drmConfig.LicenseRequestHeaders.Count}");
 
@@ -271,7 +271,7 @@ public partial class MediaManager : IDisposable
 					// Create the AVContentKeySession FIRST so we can pass its
 					// ContentProtectionSessionIdentifier when creating the AVURLAsset.
 					fairPlayKeySession = FairPlayHelper.CreateFairPlayKeySession(
-						drmConfig.LicenseServerUrl!,
+						drmConfig.LicenseServerUrl,
 						drmConfig.LicenseRequestHeaders,
 						drmConfig.FairPlayCertificateUrl,
 						out fairPlayKeyDelegate);

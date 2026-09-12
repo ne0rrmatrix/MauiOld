@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Numerics;
-using System.Text.Json.Nodes;
 using CommunityToolkit.Maui.Core.Extensions;
 using CommunityToolkit.Maui.Core.Primitives;
 using CommunityToolkit.Maui.Extensions;
@@ -8,7 +7,6 @@ using CommunityToolkit.Maui.Views;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
-using Microsoft.Web.WebView2.Core;
 using Windows.Media;
 using Windows.Media.Playback;
 using Windows.Media.Streaming.Adaptive;
@@ -25,12 +23,13 @@ namespace CommunityToolkit.Maui.Core.Views;
 
 partial class MediaManager : IDisposable
 {
-	bool isUsingWebView2Drm;
-	string? manifestUrl;
-	DrmConfiguration? drmConfig;
-	
-	WebView2? drmWebView;
-	WebView2TransportOverlay? drmTransportOverlay;
+	bool isUsingNativePlayReadyDrm;
+	PlayReadyNativePlayer? nativePlayReadyPlayer;
+	DrmTransportOverlay? drmTransportOverlay;
+	Microsoft.UI.Xaml.DispatcherTimer? nativeDrmPumpTimer;
+	PlayReadyNativeState lastNativeDrmState = PlayReadyNativeState.Idle;
+	bool nativeMediaOpenedFired;
+	long lastNativePositionMs;
 
 	// States that allow changing position
 	readonly IReadOnlyList<MediaElementState> allowUpdatePositionStates =
@@ -93,11 +92,11 @@ partial class MediaManager : IDisposable
 		GC.SuppressFinalize(this);
 	}
 
-	protected virtual async partial void PlatformPlay()
+	protected virtual partial void PlatformPlay()
 	{
-		if (isUsingWebView2Drm)
+		if (isUsingNativePlayReadyDrm)
 		{
-			await WebView2Play();
+			nativePlayReadyPlayer?.Play();
 		}
 		else
 		{
@@ -112,11 +111,11 @@ partial class MediaManager : IDisposable
 		}
 	}
 
-	protected virtual async partial void PlatformPause()
+	protected virtual partial void PlatformPause()
 	{
-		if (isUsingWebView2Drm)
+		if (isUsingNativePlayReadyDrm)
 		{
-			await WebView2Pause();
+			nativePlayReadyPlayer?.Pause();
 		}
 		else
 		{
@@ -132,9 +131,9 @@ partial class MediaManager : IDisposable
 
 	protected virtual async partial Task PlatformSeek(TimeSpan position, CancellationToken token)
 	{
-		if (isUsingWebView2Drm)
+		if (isUsingNativePlayReadyDrm)
 		{
-			await WebView2Seek(position.TotalSeconds);
+			nativePlayReadyPlayer?.Seek(position);
 			return;
 		}
 
@@ -154,12 +153,14 @@ partial class MediaManager : IDisposable
 		static void UpdatePosition(in MediaPlayerElement mediaPlayerElement, in TimeSpan position) => mediaPlayerElement.MediaPlayer.Position = position;
 	}
 
-	protected virtual async partial void PlatformStop()
+	protected virtual partial void PlatformStop()
 	{
-		if (isUsingWebView2Drm)
+		if (isUsingNativePlayReadyDrm)
 		{
-			await WebView2Pause();
-			await WebView2Seek(0);
+			// Mirrors the non-DRM branch below: pause + rewind, not a full session teardown (that only happens
+			// when the source changes or the element is disposed — see CleanupNativePlayReadyDrm).
+			nativePlayReadyPlayer?.Pause();
+			nativePlayReadyPlayer?.Seek(TimeSpan.Zero);
 			MediaElement.CurrentStateChanged(MediaElementState.Stopped);
 
 			if (displayActiveRequested)
@@ -188,17 +189,13 @@ partial class MediaManager : IDisposable
 		}
 	}
 
-	protected virtual async partial void PlatformUpdateAspect()
+	protected virtual partial void PlatformUpdateAspect()
 	{
-		if (isUsingWebView2Drm)
+		if (isUsingNativePlayReadyDrm)
 		{
-			var objectFit = MediaElement.Aspect switch
-			{
-				Aspect.Fill => "fill",
-				Aspect.AspectFill => "cover",
-				_ => "contain",
-			};
-			await drmWebView?.CoreWebView2.ExecuteScriptAsync($"bridgeSetAspect('{objectFit}');");
+			// No native aspect/stretch export — the destination rectangle is scaled in managed code instead
+			// (see MauiMediaElement.UpdateNativeAspect / ComputeVideoRect).
+			mauiMediaElement?.UpdateNativeAspect(MediaElement.Aspect);
 			return;
 		}
 
@@ -215,11 +212,18 @@ partial class MediaManager : IDisposable
 		};
 	}
 
-	protected virtual async partial void PlatformUpdateSpeed()
+	protected virtual partial void PlatformUpdateSpeed()
 	{
-		if (isUsingWebView2Drm)
+		if (isUsingNativePlayReadyDrm)
 		{
-			await WebView2SetPlaybackRate(MediaElement.Speed);
+			if (IsZero<double>(MediaElement.Speed))
+			{
+				nativePlayReadyPlayer?.Pause();
+			}
+			else
+			{
+				nativePlayReadyPlayer?.SetRate(MediaElement.Speed);
+			}
 			return;
 		}
 
@@ -256,8 +260,8 @@ partial class MediaManager : IDisposable
 
 	protected virtual partial void PlatformUpdatePosition()
 	{
-		// In WebView2 DRM mode, position updates come from JS via the bridge
-		if (isUsingWebView2Drm)
+		// In native PlayReady DRM mode, position updates come from the snapshot poll loop (NativeDrmPumpTick)
+		if (isUsingNativePlayReadyDrm)
 		{
 			return;
 		}
@@ -280,11 +284,11 @@ partial class MediaManager : IDisposable
 		}
 	}
 
-	protected virtual async partial void PlatformUpdateVolume()
+	protected virtual partial void PlatformUpdateVolume()
 	{
-		if (isUsingWebView2Drm)
+		if (isUsingNativePlayReadyDrm)
 		{
-			await WebView2SetVolume(MediaElement.Volume);
+			nativePlayReadyPlayer?.SetVolume(MediaElement.Volume);
 			return;
 		}
 
@@ -332,11 +336,11 @@ partial class MediaManager : IDisposable
 		}
 	}
 
-	protected virtual async partial void PlatformUpdateShouldMute()
+	protected virtual partial void PlatformUpdateShouldMute()
 	{
-		if (isUsingWebView2Drm)
+		if (isUsingNativePlayReadyDrm)
 		{
-			await WebView2SetMuted(MediaElement.ShouldMute);
+			nativePlayReadyPlayer?.SetVolume(MediaElement.ShouldMute ? 0 : MediaElement.Volume);
 			return;
 		}
 
@@ -354,7 +358,7 @@ partial class MediaManager : IDisposable
 			return;
 		}
 
-		CleanupWebView2Drm();
+		CleanupNativePlayReadyDrm();
 		adaptiveMediaSource?.DownloadRequested -= OnAdaptiveMediaSourceDownloadRequested;
 		adaptiveMediaSource = null;
 
@@ -382,10 +386,20 @@ partial class MediaManager : IDisposable
 				var drm = uriMediaSource.DrmConfiguration;
 				var headers = uriMediaSource.HttpHeaders;
 
-				if (drm is { Scheme: DrmScheme.PlayReady, LicenseServerUrl: not null })
+				if (drm is { Scheme: DrmScheme.PlayReady, LicenseServerUrl: { } licenseServerUrl })
 				{
-					CleanupWebView2Drm();
-					MainThread.BeginInvokeOnMainThread(async () => await SetupWebView2DrmAsync(uri, drm));
+					MainThread.BeginInvokeOnMainThread(async () => await StartNativePlayReadyAsync(uri, licenseServerUrl, drm, headers));
+					return;
+				}
+
+				if (drm is { Scheme: not DrmScheme.Unknown })
+				{
+					// The native Windows backend only implements PlayReady. Widevine has no real CDM outside a
+					// browser engine, and the WebView2/dash.js host that used to cover it has been removed, so
+					// Windows loses Widevine support entirely rather than silently no-op-ing or crashing.
+					var message = $"{drm.Scheme} is not supported on Windows. Only {nameof(DrmScheme.PlayReady)} is supported on this platform.";
+					MediaElement.MediaFailed(new MediaFailedEventArgs(message));
+					Logger?.LogError("{LogMessage}", message);
 					return;
 				}
 
@@ -439,7 +453,7 @@ partial class MediaManager : IDisposable
 		// the AVAsset with the new FairPlay resource loader delegate.
 		if (Player is not null && MediaElement.Source is UriMediaSource)
 		{
-			PlatformUpdateSource();
+			_ = PlatformUpdateSource();
 		}
 	}
 
@@ -463,7 +477,7 @@ partial class MediaManager : IDisposable
 			Trace.WriteLine($"[MediaElement.Windows] Dispose — state={MediaElement.CurrentState}");
 			isDisposed = true;
 
-			CleanupWebView2Drm();
+			CleanupNativePlayReadyDrm();
 			mauiMediaElement = null;
 
 			adaptiveMediaSource?.DownloadRequested -= OnAdaptiveMediaSourceDownloadRequested;
@@ -735,485 +749,201 @@ partial class MediaManager : IDisposable
 		MediaElement?.SeekCompleted();
 	}
 
-	async Task SetupWebView2DrmAsync(string manifestUrl, DrmConfiguration drmConfig)
+	async Task StartNativePlayReadyAsync(string manifestUrl, Uri licenseServerUrl, DrmConfiguration drm, IDictionary<string, string> segmentHeaders)
 	{
-		this.manifestUrl = manifestUrl;
-		this.drmConfig = drmConfig;
-
-		drmWebView = new WebView2
+		if (!PlayReadyNativePlayer.IsAvailable)
 		{
-			HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Stretch,
-			VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Stretch,
-		};
+			var message = "PlayReady is unavailable: the native component (FluentGpu.PlayReady.Native.dll) could not be loaded.";
+			MediaElement.MediaFailed(new MediaFailedEventArgs(message));
+			Logger?.LogError("{LogMessage}", message);
+			return;
+		}
 
-		drmTransportOverlay = new WebView2TransportOverlay();
-		await WireTransportOverlayEvents(drmTransportOverlay);
+		DashManifest manifest;
+		try
+		{
+			// Deliberately NOT ConfigureAwait(false): everything after this line constructs/touches WinUI
+			// XAML objects (DrmTransportOverlay : MediaTransportControls, DispatcherTimer, MauiMediaElement's
+			// DirectComposition/HWND calls), which are UI-thread/STA-affine WinRT COM activations. Resuming on a
+			// thread-pool thread here throws a COMException out of MediaTransportControls' native factory.
+			using var manifestHttpClient = new System.Net.Http.HttpClient();
+			manifest = await DashManifest.LoadAsync(new Uri(manifestUrl), manifestHttpClient);
+		}
+		catch (Exception ex)
+		{
+			var message = $"Failed to parse DASH manifest '{manifestUrl}': {ex.Message}";
+			MediaElement.MediaFailed(new MediaFailedEventArgs(message));
+			Logger?.LogError("{LogMessage}", message);
+			return;
+		}
 
-		mauiMediaElement?.SwapToWebView2(drmWebView, drmTransportOverlay);
-		drmWebView.CoreWebView2Initialized += DrmWebView_CoreWebView2Initialized;
-		await drmWebView.EnsureCoreWebView2Async();
+		isUsingNativePlayReadyDrm = true;
+		nativeMediaOpenedFired = false;
+		lastNativeDrmState = PlayReadyNativeState.Idle;
+		lastNativePositionMs = 0;
+
+		drmTransportOverlay = new DrmTransportOverlay();
+		WireDrmTransportOverlayEvents(drmTransportOverlay);
+		mauiMediaElement?.SwapToNativePlayReady(drmTransportOverlay);
+		mauiMediaElement?.UpdateNativeAspect(MediaElement.Aspect);
+
+		MediaElement.CurrentStateChanged(MediaElementState.Opening);
+
+		nativePlayReadyPlayer = new PlayReadyNativePlayer();
+		nativePlayReadyPlayer.Start(new PlayReadyOpenRequest
+		{
+			InitUrl = manifest.Video.InitUrl.ToString(),
+			SegmentBaseUrl = manifest.Video.SegmentBaseUrl,
+			SegmentPrefix = manifest.Video.SegmentPrefix,
+			SegmentSuffix = manifest.Video.SegmentSuffix,
+			StartNumber = manifest.Video.StartNumber,
+			SegmentCount = manifest.Video.SegmentCount,
+			AudioInitUrl = manifest.Audio.InitUrl.ToString(),
+			AudioSegmentBaseUrl = manifest.Audio.SegmentBaseUrl,
+			AudioSegmentPrefix = manifest.Audio.SegmentPrefix,
+			AudioSegmentSuffix = manifest.Audio.SegmentSuffix,
+			LicenseServerUrl = licenseServerUrl,
+			LicenseRequestHeaders = drm.LicenseRequestHeaders,
+			SegmentRequestHeaders = segmentHeaders,
+		});
+
+		nativeDrmPumpTimer = new Microsoft.UI.Xaml.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+		nativeDrmPumpTimer.Tick += (_, _) => NativeDrmPumpTick();
+		nativeDrmPumpTimer.Start();
 	}
 
-	async void DrmWebView_CoreWebView2Initialized(WebView2 sender, CoreWebView2InitializedEventArgs args)
+	void NativeDrmPumpTick()
 	{
-		ArgumentNullException.ThrowIfNull(drmWebView);
-		ArgumentNullException.ThrowIfNull(manifestUrl);
-		ArgumentNullException.ThrowIfNull(drmConfig);
-
-		drmWebView.CoreWebView2.Settings.IsWebMessageEnabled = true;
-		drmWebView.CoreWebView2.Settings.AreDefaultScriptDialogsEnabled = true;
-		drmWebView.CoreWebView2.WebMessageReceived += OnWebView2WebMessageReceived;
-
-		var html = BuildDrmPlayerHtml(manifestUrl, drmConfig);
-		var tempDir = Path.Combine(Path.GetTempPath(), "maui-drm-player");
-		Directory.CreateDirectory(tempDir);
-		await File.WriteAllTextAsync(Path.Combine(tempDir, "player.html"), html);
-
-		drmWebView.CoreWebView2.SetVirtualHostNameToFolderMapping(
-			"drmplayer.local", tempDir, CoreWebView2HostResourceAccessKind.Allow);
-
-		drmWebView.CoreWebView2.Navigate("https://drmplayer.local/player.html");
-	}
-
-	void OnWebView2WebMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
-	{
-		var json = args.TryGetWebMessageAsString();
-
-		var msg = JsonNode.Parse(json);
-		if (msg is null)
+		if (isDisposed || nativePlayReadyPlayer is null)
 		{
 			return;
 		}
 
-		var type = msg["type"]?.GetValue<string>();
-
-		switch (type)
+		if (!nativePlayReadyPlayer.TryGetSnapshot(out var snapshot))
 		{
-			case "ready":
-				isUsingWebView2Drm = true;
+			return;
+		}
+
+		// Bind content BEFORE reporting the natural size: UpdateNativeVideoNaturalSize triggers a reposition that
+		// sets a scale transform on the DComp visual, and on the very first tick with real data both of these
+		// fire together — try content-then-transform first in case SetTransform is order-sensitive relative to
+		// SetContent on some driver/OS combination (unconfirmed; see the raw HRESULT this now logs either way).
+		if (snapshot.Handle != 0)
+		{
+			mauiMediaElement?.BindNativeSurface(snapshot.Handle);
+		}
+
+		if (snapshot.Width > 0 && snapshot.Height > 0)
+		{
+			mauiMediaElement?.UpdateNativeVideoNaturalSize(snapshot.Width, snapshot.Height);
+		}
+
+		if (!nativeMediaOpenedFired && snapshot.Width > 0 && snapshot.Height > 0)
+		{
+			nativeMediaOpenedFired = true;
+			MediaElement.MediaWidth = snapshot.Width;
+			MediaElement.MediaHeight = snapshot.Height;
+			MediaElement.Duration = TimeSpan.FromMilliseconds(snapshot.DurationMs);
+			MediaElement.MediaOpened();
+		}
+
+		lastNativePositionMs = snapshot.PositionMs;
+		MediaElement.Position = TimeSpan.FromMilliseconds(snapshot.PositionMs);
+		if (snapshot.DurationMs > 0)
+		{
+			MediaElement.Duration = TimeSpan.FromMilliseconds(snapshot.DurationMs);
+		}
+		drmTransportOverlay?.UpdatePosition(TimeSpan.FromMilliseconds(snapshot.PositionMs));
+		drmTransportOverlay?.UpdateDuration(TimeSpan.FromMilliseconds(snapshot.DurationMs));
+
+		var nativeState = (PlayReadyNativeState)snapshot.State;
+		if (nativeState == lastNativeDrmState)
+		{
+			return;
+		}
+		lastNativeDrmState = nativeState;
+
+		switch (nativeState)
+		{
+			case PlayReadyNativeState.Loading:
+				MediaElement.CurrentStateChanged(MediaElementState.Opening);
 				break;
 
-			case "state":
-				var state = msg["state"]?.GetValue<string>();
-				HandleWebView2StateChange(state);
+			case PlayReadyNativeState.Playing:
+				MediaElement.CurrentStateChanged(MediaElementState.Playing);
+				drmTransportOverlay?.UpdateIsPlaying(true);
 				break;
 
-			case "time":
-				var currentTime = msg["currentTime"]?.GetValue<double>() ?? 0;
-				var duration = msg["duration"]?.GetValue<double>() ?? 0;
-				HandleWebView2TimeUpdate(currentTime, duration);
+			case PlayReadyNativeState.Paused:
+				MediaElement.CurrentStateChanged(MediaElementState.Paused);
+				drmTransportOverlay?.UpdateIsPlaying(false);
 				break;
 
-			case "error":
-				var errorMessage = msg["message"]?.GetValue<string>() ?? "Unknown error";
-				Trace.WriteLine($"[MediaElement.Windows.PlayReady.WebView2] Player error: {errorMessage}");
-				break;
-
-			case "ended":
+			case PlayReadyNativeState.Stopped:
 				MediaElement.CurrentStateChanged(MediaElementState.Stopped);
+				drmTransportOverlay?.UpdateIsPlaying(false);
 				break;
 
-			case "loadedmetadata":
-				var metaDuration = msg["duration"]?.GetValue<double>() ?? 0;
-				var width = msg["width"]?.GetValue<int>() ?? 0;
-				var height = msg["height"]?.GetValue<int>() ?? 0;
-				MediaElement.Duration = TimeSpan.FromSeconds(metaDuration);
-				MediaElement.MediaWidth = width;
-				MediaElement.MediaHeight = height;
+			case PlayReadyNativeState.Ended:
+				drmTransportOverlay?.UpdateIsPlaying(false);
+				MediaElement.MediaEnded();
 				break;
 
-			case "tracks":
-				var captionTracks = msg["captionTracks"] as JsonArray;
-				var audioTracks = msg["audioTracks"] as JsonArray;
-				drmTransportOverlay?.UpdateTracks(captionTracks, audioTracks);
+			case PlayReadyNativeState.Error:
+				nativeDrmPumpTimer?.Stop();
+				var errorMessage = nativePlayReadyPlayer.LastLicenseError
+					?? $"Native PlayReady backend failed (0x{unchecked((uint)snapshot.ErrorHr):X8}). " +
+					   "See %LOCALAPPDATA%\\CommunityToolkit.Maui\\PlayReady\\desktop-playready.log.";
+				MediaElement.MediaFailed(new MediaFailedEventArgs(errorMessage));
+				Logger?.LogError("{LogMessage}", errorMessage);
 				break;
 		}
 	}
 
-	void HandleWebView2StateChange(string? state)
+	void WireDrmTransportOverlayEvents(DrmTransportOverlay overlay)
 	{
-		var newState = state switch
+		overlay.PlayRequested += (s, e) => nativePlayReadyPlayer?.Play();
+		overlay.PauseRequested += (s, e) => nativePlayReadyPlayer?.Pause();
+		overlay.SeekRequested += (s, seconds) => nativePlayReadyPlayer?.Seek(TimeSpan.FromSeconds(seconds));
+		overlay.VolumeChanged += (s, volume) =>
 		{
-			"playing" => MediaElementState.Playing,
-			"paused" => MediaElementState.Paused,
-			"buffering" or "waiting" => MediaElementState.Buffering,
-			"ended" => MediaElementState.Stopped,
-			_ => MediaElementState.None,
+			nativePlayReadyPlayer?.SetVolume(volume);
+			MediaElement.Volume = volume;
 		};
-
-		if (newState != MediaElementState.None)
+		overlay.MuteChanged += (s, muted) =>
 		{
-			MediaElement.CurrentStateChanged(newState);
-			drmTransportOverlay?.UpdateIsPlaying(newState == MediaElementState.Playing);
-		}
-	}
-
-	void HandleWebView2TimeUpdate(double currentTime, double duration)
-	{
-		MediaElement.Position = TimeSpan.FromSeconds(currentTime);
-		if (duration > 0)
-		{
-			MediaElement.Duration = TimeSpan.FromSeconds(duration);
-		}
-
-		drmTransportOverlay?.UpdatePosition(TimeSpan.FromSeconds(currentTime));
-		drmTransportOverlay?.UpdateDuration(TimeSpan.FromSeconds(duration));
-	}
-
-	async Task WebView2Play() => await drmWebView?.CoreWebView2.ExecuteScriptAsync("bridgePlay();");
-	async Task WebView2Pause() => await drmWebView?.CoreWebView2.ExecuteScriptAsync("bridgePause();");
-	async Task WebView2Seek(double seconds) => await drmWebView?.CoreWebView2.ExecuteScriptAsync($"bridgeSeek({seconds.ToString(System.Globalization.CultureInfo.InvariantCulture)});");
-	async Task WebView2Skip(double seconds) => await drmWebView?.CoreWebView2.ExecuteScriptAsync($"bridgeSkip({seconds.ToString(System.Globalization.CultureInfo.InvariantCulture)});");
-	async Task WebView2SetVolume(double volume) => await drmWebView?.CoreWebView2.ExecuteScriptAsync($"bridgeSetVolume({volume.ToString(System.Globalization.CultureInfo.InvariantCulture)});");
-	async Task WebView2SetMuted(bool muted) => await drmWebView?.CoreWebView2.ExecuteScriptAsync($"bridgeSetMuted({muted.ToString().ToLowerInvariant()});");
-	async Task WebView2SetPlaybackRate(double rate) => await drmWebView?.CoreWebView2.ExecuteScriptAsync($"bridgeSetPlaybackRate({rate.ToString(System.Globalization.CultureInfo.InvariantCulture)});");
-	async Task WebView2SetCaptionTrack(int index) => await drmWebView?.CoreWebView2.ExecuteScriptAsync($"bridgeSetCaptionTrack({index});");
-	async Task WebView2SetAudioTrack(int index) => await drmWebView?.CoreWebView2.ExecuteScriptAsync($"bridgeSetAudioTrack({index});");
-
-	void CleanupWebView2Drm()
-	{
-		if (drmWebView?.CoreWebView2 is not null)
-		{
-			drmWebView.CoreWebView2.WebMessageReceived -= OnWebView2WebMessageReceived;
-			drmWebView.Close();
-			drmWebView = null;
-		}
-
-		drmTransportOverlay = null;
-		isUsingWebView2Drm = false;
-	}
-
-	async Task WireTransportOverlayEvents(WebView2TransportOverlay overlay)
-	{
-		overlay.PlayRequested += async (s, e) => await WebView2Play();
-		overlay.PauseRequested += async (s, e) => await WebView2Pause();
-		overlay.SeekRequested += async (s, seconds) => await WebView2Seek(seconds);
-		overlay.VolumeChanged += async (s, vol) =>
-		{
-			await WebView2SetVolume(vol);
-			MediaElement.Volume = vol;
-		};
-		overlay.MuteChanged += async (s, muted) =>
-		{
-			await WebView2SetMuted(muted);
+			nativePlayReadyPlayer?.SetVolume(muted ? 0 : MediaElement.Volume);
 			MediaElement.ShouldMute = muted;
 		};
 		overlay.FullScreenRequested += (s, e) => mauiMediaElement?.ToggleFullScreen();
-		overlay.SkipBackwardRequested += async (s, seconds) => await WebView2Skip(-seconds);
-		overlay.SkipForwardRequested += async (s, seconds) => await WebView2Skip(seconds);
-		overlay.CaptionTrackSelected += async (s, index) => await WebView2SetCaptionTrack(index);
-		overlay.AudioTrackSelected += async (s, index) => await WebView2SetAudioTrack(index);
+		overlay.SkipBackwardRequested += (s, seconds) => SeekNativeRelative(-seconds);
+		overlay.SkipForwardRequested += (s, seconds) => SeekNativeRelative(seconds);
 	}
 
-	string BuildDrmPlayerHtml(string manifestUrl, DrmConfiguration drmConfig)
+	void SeekNativeRelative(double seconds)
 	{
-		var licenseUrl = drmConfig.LicenseServerUrl?.AbsoluteUri ?? "";
-		var autoplayStr = MediaElement.ShouldAutoPlay ? "true" : "false";
+		var targetMs = Math.Max(0, lastNativePositionMs + (long)(seconds * 1000));
+		nativePlayReadyPlayer?.Seek(TimeSpan.FromMilliseconds(targetMs));
+	}
 
-		var headersJson = new JsonObject();
-		foreach (var header in drmConfig.LicenseRequestHeaders)
+	void CleanupNativePlayReadyDrm()
+	{
+		if (!isUsingNativePlayReadyDrm && nativePlayReadyPlayer is null && drmTransportOverlay is null)
 		{
-			headersJson[header.Key] = header.Value;
+			return;
 		}
-		var headersStr = headersJson.ToJsonString();
 
-		var manifestUrlJs = EscapeJsString(manifestUrl);
-		var licenseUrlJs = EscapeJsString(licenseUrl);
+		nativeDrmPumpTimer?.Stop();
+		nativeDrmPumpTimer = null;
 
-		return $$"""
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
-  video {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    background: #000;
-  }
-  #error-overlay {
-    display: none;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: #ff4444;
-    font-family: Segoe UI, sans-serif;
-    font-size: 14px;
-    text-align: center;
-    padding: 20px;
-    max-width: 80%;
-  }
-</style>
-</head>
-<body>
-<video id="videoPlayer"></video>
-<div id="error-overlay"></div>
+		nativePlayReadyPlayer?.Dispose();
+		nativePlayReadyPlayer = null;
 
-<script src="https://cdn.dashjs.org/v4.7.4/dash.all.min.js"></script>
-<script>
-(function() {
-  'use strict';
+		mauiMediaElement?.CleanupNativePlayReady();
+		drmTransportOverlay = null;
 
-  const MANIFEST_URL = "{{manifestUrlJs}}";
-  const LICENSE_URL = "{{licenseUrlJs}}";
-  const LICENSE_HEADERS = {{headersStr}};
-  const AUTOPLAY = {{autoplayStr}};
-
-  const video = document.getElementById('videoPlayer');
-  const errorOverlay = document.getElementById('error-overlay');
-  let player = null;
-  let timeUpdateInterval = null;
-
-  // ─── JS → C# bridge ───────────────────────────────────────────────
-  function postToCSharp(obj) {
-    if (window.chrome && window.chrome.webview) {
-      window.chrome.webview.postMessage(JSON.stringify(obj));
-    }
-  }
-
-  function showError(msg) {
-    errorOverlay.textContent = msg;
-    errorOverlay.style.display = 'block';
-    postToCSharp({ type: 'error', message: msg });
-  }
-
-  // ─── Initialize dash.js with PlayReady EME ────────────────────────
-  function initPlayer() {
-    try {
-      player = dashjs.MediaPlayer().create();
-
-      // Protection data for PlayReady — must be set BEFORE initialize
-      // so the license acquisition is configured before autoplay begins
-      const protectionData = {
-        'com.microsoft.playready': {
-          serverURL: LICENSE_URL,
-          httpRequestHeaders: LICENSE_HEADERS,
-          // Use persistent licenses for offline support
-          persistentState: 'required',
-          distinctiveIdentifier: 'required'
-        }
-      };
-
-      player.setProtectionData(protectionData);
-      player.initialize(video, MANIFEST_URL, AUTOPLAY);
-
-      // ─── Video element events → C# ──────────────────────────────
-      video.addEventListener('play', () => {
-        postToCSharp({ type: 'state', state: 'playing' });
-      });
-
-      video.addEventListener('pause', () => {
-        if (!video.ended) {
-          postToCSharp({ type: 'state', state: 'paused' });
-        }
-      });
-
-      video.addEventListener('waiting', () => {
-        postToCSharp({ type: 'state', state: 'buffering' });
-      });
-
-      video.addEventListener('playing', () => {
-        postToCSharp({ type: 'state', state: 'playing' });
-      });
-
-      video.addEventListener('ended', () => {
-        postToCSharp({ type: 'ended' });
-        stopTimeUpdates();
-      });
-
-      video.addEventListener('loadedmetadata', () => {
-        postToCSharp({
-          type: 'loadedmetadata',
-          duration: video.duration || 0,
-          width: video.videoWidth || 0,
-          height: video.videoHeight || 0
-        });
-        startTimeUpdates();
-      });
-
-      video.addEventListener('error', () => {
-        const err = video.error;
-        showError('Video error: ' + (err ? err.message : 'unknown'));
-      });
-
-      // ─── dash.js events ─────────────────────────────────────────
-      player.on(dashjs.MediaPlayer.events.ERROR, function(e) {
-        let msg = 'dash.js error';
-        if (e.error) {
-          msg += ': ' + (e.error.message || e.error.code || JSON.stringify(e.error));
-        }
-        if (e.event && e.event.error) {
-          msg += ' | ' + JSON.stringify(e.event.error);
-        }
-        showError(msg);
-      });
-
-      player.on(dashjs.MediaPlayer.events.PLAYBACK_STARTED, function() {
-        postToCSharp({ type: 'state', state: 'playing' });
-      });
-
-      player.on(dashjs.MediaPlayer.events.PLAYBACK_PAUSED, function() {
-        postToCSharp({ type: 'state', state: 'paused' });
-      });
-
-      player.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, function() {
-        postToCSharp({ type: 'ready' });
-        enumerateTracks();
-      });
-
-      // Signal ready immediately if stream is already initialized
-      setTimeout(() => {
-        postToCSharp({ type: 'ready' });
-      }, 2000);
-
-    } catch (ex) {
-      showError('Init failed: ' + ex.message);
-    }
-  }
-
-  // ─── Time updates (throttled to ~4Hz) ─────────────────────────────
-  function startTimeUpdates() {
-    stopTimeUpdates();
-    timeUpdateInterval = setInterval(() => {
-      if (video && !video.paused && !video.ended) {
-        postToCSharp({
-          type: 'time',
-          currentTime: video.currentTime || 0,
-          duration: video.duration || 0
-        });
-      }
-    }, 250);
-  }
-
-  function stopTimeUpdates() {
-    if (timeUpdateInterval) {
-      clearInterval(timeUpdateInterval);
-      timeUpdateInterval = null;
-    }
-  }
-
-  // ─── C# → JS bridge functions ─────────────────────────────────────
-  window.bridgePlay = function() {
-    video.play();
-  };
-
-  window.bridgePause = function() {
-    video.pause();
-  };
-
-  window.bridgeSeek = function(seconds) {
-    video.currentTime = seconds;
-  };
-
-  window.bridgeSetVolume = function(vol) {
-    video.volume = Math.max(0, Math.min(1, vol));
-  };
-
-  window.bridgeSetMuted = function(muted) {
-    video.muted = muted;
-  };
-
-  window.bridgeSetPlaybackRate = function(rate) {
-    video.playbackRate = rate;
-  };
-
-  window.bridgeStop = function() {
-    video.pause();
-    video.currentTime = 0;
-    postToCSharp({ type: 'state', state: 'paused' });
-  };
-
-  window.bridgeSkip = function(seconds) {
-    video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + seconds));
-  };
-
-  window.bridgeToggleAspect = function() {
-    const fits = ['contain', 'cover', 'fill'];
-    const current = video.style.objectFit || 'contain';
-    const idx = fits.indexOf(current);
-    video.style.objectFit = fits[(idx + 1) % fits.length];
-  };
-
-  window.bridgeSetAspect = function(fit) {
-    video.style.objectFit = fit;
-  };
-
-  window.bridgeSetCaptionTrack = function(index) {
-    if (!player) return;
-    if (index < 0) {
-      player.enableText(false);
-      return;
-    }
-    const tracks = player.getTracksFor('text') || [];
-    const track = tracks[index];
-    if (track) {
-      player.setCurrentTrack(track);
-      player.enableText(true);
-    }
-  };
-
-  window.bridgeSetAudioTrack = function(index) {
-    if (!player) return;
-    const tracks = player.getTracksFor('audio') || [];
-    const track = tracks[index];
-    if (track) {
-      player.setCurrentTrack(track);
-    }
-  };
-
-  // ─── Track enumeration ────────────────────────────────────────────
-  function enumerateTracks() {
-    if (!player) return;
-
-    const mapTracks = (type) => {
-      const tracks = player.getTracksFor(type) || [];
-      return tracks.map((t, i) => ({
-        index: i,
-        label: t.lang || t.label || (type + ' ' + (i + 1))
-      }));
-    };
-
-    postToCSharp({
-      type: 'tracks',
-      captionTracks: mapTracks('text'),
-      audioTracks: mapTracks('audio')
-    });
-  }
-
-  window.bridgeDestroy = function() {
-    stopTimeUpdates();
-    if (player) {
-      player.destroy();
-      player = null;
-    }
-  };
-
-  // ─── Boot ─────────────────────────────────────────────────────────
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initPlayer);
-  } else {
-    initPlayer();
-  }
-})();
-</script>
-</body>
-</html>
-""";
-	}
-
-	static string EscapeJsString(string value)
-	{
-		return value
-			.Replace("\\", "\\\\")
-			.Replace("\"", "\\\"")
-			.Replace("'", "\\'")
-			.Replace("\n", "\\n")
-			.Replace("\r", "\\r")
-			.Replace("\t", "\\t");
+		isUsingNativePlayReadyDrm = false;
+		nativeMediaOpenedFired = false;
+		lastNativeDrmState = PlayReadyNativeState.Idle;
 	}
 }
